@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
+
+	"github.com/machinebox/graphql"
 )
 
 type Config struct {
@@ -24,6 +27,45 @@ func main() {
 	cfg.Endpoint = *endpoint
 
 	fmt.Printf("Connecting to %s\n", cfg.Endpoint.String())
+
+	client := graphql.NewClient(cfg.Endpoint.String())
+
+	req := graphql.NewRequest(`
+		query {
+			findGalleries {
+				count
+				galleries {
+					id
+					title
+					files {
+						path
+					}
+				}
+			}
+		}
+	`)
+	ctx := context.Background()
+
+	var resp struct {
+		FindGalleries struct {
+			Count     int
+			Galleries []struct {
+				ID    string
+				Title string
+				Files []struct {
+					Path string
+				}
+			}
+		}
+	}
+	err = client.Run(ctx, req, &resp)
+	if err != nil {
+		fatal(err)
+	}
+
+	for _, g := range resp.FindGalleries.Galleries {
+		fmt.Printf("%s %s %s\n", g.ID, g.Title, g.Files[0].Path)
+	}
 }
 
 func usage() {
