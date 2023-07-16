@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/drakenstar/stash-cli/app"
 	"github.com/drakenstar/stash-cli/stash"
-	"github.com/machinebox/graphql"
 )
 
 type Config struct {
@@ -30,7 +31,7 @@ func main() {
 
 	fmt.Printf("Connecting to %s\n", cfg.Endpoint.String())
 
-	stsh := stash.New(graphql.NewClient(cfg.Endpoint.String()))
+	stsh := stash.New(graphql.NewClient(cfg.Endpoint.String(), http.DefaultClient))
 	app := &app.App{
 		Stash: stsh,
 		In:    os.Stdin,

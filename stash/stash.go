@@ -3,12 +3,8 @@ package stash
 import (
 	"context"
 
-	"github.com/machinebox/graphql"
+	"github.com/Khan/genqlient/graphql"
 )
-
-type GraphQLClient interface {
-	Run(ctx context.Context, req *graphql.Request, resp interface{}) error
-}
 
 type Stash interface {
 	Stats(context.Context) (Stats, error)
@@ -16,12 +12,12 @@ type Stash interface {
 	Galleries(context.Context) ([]Gallery, error)
 }
 
-func New(client GraphQLClient) Stash {
+func New(client graphql.Client) Stash {
 	return &stash{client}
 }
 
 type stash struct {
-	GraphQLClient
+	client graphql.Client
 }
 
 type Stats struct {
@@ -31,25 +27,13 @@ type Stats struct {
 }
 
 func (s *stash) Stats(ctx context.Context) (Stats, error) {
-	req := graphql.NewRequest(`
-		query {
-			stats {
-				scene_count
-				scenes_size
-				gallery_count
-				performer_count
-			}
-		}
-	`)
-
-	var resp struct {
-		Stats Stats
-	}
-
-	err := s.Run(ctx, req, &resp)
+	resp, err := GetStats(ctx, s.client)
 	if err != nil {
 		return Stats{}, err
 	}
-
-	return resp.Stats, nil
+	return Stats{
+		SceneCount:     resp.Stats.Scene_count,
+		GalleryCount:   resp.Stats.Gallery_count,
+		PerformerCount: resp.Stats.Performer_count,
+	}, nil
 }

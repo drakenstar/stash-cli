@@ -38,7 +38,7 @@ func (a *App) Repl(ctx context.Context) error {
 				return fmt.Errorf("scenes: %w", err)
 			}
 			for _, s := range scenes {
-				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.Files[0].Path)
+				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
 			}
 		case "galleries":
 			galleries, err := a.Galleries(ctx)
@@ -46,7 +46,7 @@ func (a *App) Repl(ctx context.Context) error {
 				return fmt.Errorf("scenes: %w", err)
 			}
 			for _, g := range galleries {
-				fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.Files[0].Path)
+				fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
 			}
 		}
 	}

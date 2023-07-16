@@ -1,0 +1,34 @@
+query GetStats {
+    stats {
+        scene_count
+        scenes_size
+        gallery_count
+        performer_count
+    }
+}
+
+query FindGalleries {
+    findGalleries {
+        count
+        galleries {
+            id
+            title
+            files {
+                path
+            }
+        }
+    }
+}
+
+query FindScenes {
+    findScenes {
+        count
+        scenes {
+            id
+            title
+            files {
+                path
+            }
+        }
+    }
+}

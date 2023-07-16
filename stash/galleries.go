@@ -2,44 +2,27 @@ package stash
 
 import (
 	"context"
-
-	"github.com/machinebox/graphql"
 )
 
 type Gallery struct {
 	ID    string
 	Title string
-	Files []struct {
-		Path string
-	}
+	File  string
 }
 
 func (s *stash) Galleries(ctx context.Context) ([]Gallery, error) {
-	req := graphql.NewRequest(`
-		query {
-			findGalleries {
-				count
-				galleries {
-					id
-					title
-					files {
-						path
-					}
-				}
-			}
-		}
-	`)
-
-	var resp struct {
-		FindGalleries struct {
-			Count     int
-			Galleries []Gallery
-		}
-	}
-	err := s.Run(ctx, req, &resp)
+	resp, err := FindGalleries(ctx, s.client)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp.FindGalleries.Galleries, nil
+	galleries := make([]Gallery, len(resp.FindGalleries.Galleries))
+	for i, g := range resp.FindGalleries.Galleries {
+		galleries[i] = Gallery{
+			ID:    g.Id,
+			Title: g.Title,
+			File:  g.Files[0].Path,
+		}
+	}
+	return galleries, nil
 }

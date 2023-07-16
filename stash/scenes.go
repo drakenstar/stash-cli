@@ -2,44 +2,27 @@ package stash
 
 import (
 	"context"
-
-	"github.com/machinebox/graphql"
 )
 
 type Scene struct {
 	ID    string
 	Title string
-	Files []struct {
-		Path string
-	}
+	File  string
 }
 
 func (s *stash) Scenes(ctx context.Context) ([]Scene, error) {
-	req := graphql.NewRequest(`
-		query {
-			findScenes {
-				count
-				scenes {
-					id
-					title
-					files {
-						path
-					}
-				}
-			}
-		}
-	`)
-
-	var resp struct {
-		FindScenes struct {
-			Count  int
-			Scenes []Scene
-		}
-	}
-	err := s.Run(ctx, req, &resp)
+	resp, err := FindScenes(ctx, s.client)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp.FindScenes.Scenes, nil
+	scenes := make([]Scene, len(resp.FindScenes.Scenes))
+	for i, s := range resp.FindScenes.Scenes {
+		scenes[i] = Scene{
+			ID:    s.Id,
+			Title: s.Title,
+			File:  s.Files[0].Path,
+		}
+	}
+	return scenes, nil
 }
