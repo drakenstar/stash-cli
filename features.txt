@@ -1,3 +1,8 @@
 ✅ connect to a running stash instance and list content
 - open a piece of content locally
+    - giving an open command opens the latest piece of content
+        - content is kept in memory as the result of the last search operation
+        - pages of content are kept as state, getting to the end of a page loads the next one until content is exhausted
+    - opening involves running some command with the stash path as input
+        - stash path is mapped to a local path
 - browse content using various sorting and filtering options

@@ -17,47 +17,37 @@ func TestFindGalleries(t *testing.T) {
 					{
 						"id": "1234",
 						"title": "testing",
-						"files": [
-							{
-								"path": "/example/testing.mp4"
-							}
-						]
+						"folder": {
+							"path": "/example/testing.mp4"
+						}
 					},
 					{
 						"id": "5678",
 						"title": "another test",
-						"files": [
-							{
-								"path": "/example/another_test.mp4"
-							}
-						]
+						"folder": {
+							"path": "/example/another_test.mp4"
+						}
 					},
 					{
 						"id": "9012",
 						"title": "third test",
-						"files": [
-							{
-								"path": "/example/third_test.mp4"
-							}
-						]
+						"folder": {
+							"path": "/example/third_test.mp4"
+						}
 					},
 					{
 						"id": "4321",
 						"title": "fourth test",
-						"files": [
-							{
-								"path": "/example/fourth_test.mp4"
-							}
-						]
+						"folder": {
+							"path": "/example/fourth_test.mp4"
+						}
 					},
 					{
 						"id": "7890",
 						"title": "fifth test",
-						"files": [
-							{
-								"path": "/example/fifth_test.mp4"
-							}
-						]
+						"folder": {
+							"path": "/example/fifth_test.mp4"
+						}
 					}
 				]
 			}
@@ -68,7 +58,7 @@ func TestFindGalleries(t *testing.T) {
 	s := stash{client}
 	ctx := context.Background()
 
-	galleries, err := s.Galleries(ctx)
+	galleries, err := s.Galleries(ctx, FindFilter{})
 	require.NoError(t, err)
 	require.Equal(t, []Gallery{
 		{

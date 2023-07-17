@@ -15,6 +15,22 @@ type App struct {
 
 	Out io.Writer
 	In  io.Reader
+
+	appState
+}
+
+func New(s stash.Stash, out io.Writer, in io.Reader) *App {
+	a := &App{
+		Stash: s,
+		Out:   out,
+		In:    in,
+
+		appState: appState{
+			galleryFindFilter: stash.NewFindFilter(),
+			sceneFindFilter:   stash.NewFindFilter(),
+		},
+	}
+	return a
 }
 
 func (a *App) Repl(ctx context.Context) error {
@@ -33,7 +49,7 @@ func (a *App) Repl(ctx context.Context) error {
 
 		switch line {
 		case "scenes":
-			scenes, err := a.Scenes(ctx)
+			scenes, err := a.Scenes(ctx, a.sceneFindFilter)
 			if err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
@@ -41,7 +57,7 @@ func (a *App) Repl(ctx context.Context) error {
 				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
 			}
 		case "galleries":
-			galleries, err := a.Galleries(ctx)
+			galleries, err := a.Galleries(ctx, a.galleryFindFilter)
 			if err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}

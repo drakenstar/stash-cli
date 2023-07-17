@@ -27,9 +27,9 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultType) GetGalleries() []Fin
 //
 // Gallery type
 type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery struct {
-	Id    string                                                                              `json:"id"`
-	Title string                                                                              `json:"title"`
-	Files []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile `json:"files"`
+	Id     string                                                                  `json:"id"`
+	Title  string                                                                  `json:"title"`
+	Folder FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder `json:"folder"`
 }
 
 // GetId returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Id, and is useful for accessing the field via an interface.
@@ -42,18 +42,18 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetT
 	return v.Title
 }
 
-// GetFiles returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Files, and is useful for accessing the field via an interface.
-func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetFiles() []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile {
-	return v.Files
+// GetFolder returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Folder, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetFolder() FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder {
+	return v.Folder
 }
 
-// FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile includes the requested fields of the GraphQL type GalleryFile.
-type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile struct {
+// FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder includes the requested fields of the GraphQL type Folder.
+type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder struct {
 	Path string `json:"path"`
 }
 
-// GetPath returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile.Path, and is useful for accessing the field via an interface.
-func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile) GetPath() string {
+// GetPath returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder.Path, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder) GetPath() string {
 	return v.Path
 }
 
@@ -149,15 +149,31 @@ func (v *GetStatsStatsStatsResultType) GetGallery_count() int { return v.Gallery
 // GetPerformer_count returns GetStatsStatsStatsResultType.Performer_count, and is useful for accessing the field via an interface.
 func (v *GetStatsStatsStatsResultType) GetPerformer_count() int { return v.Performer_count }
 
+// __FindGalleriesInput is used internally by genqlient
+type __FindGalleriesInput struct {
+	Filter FindFilter `json:"filter"`
+}
+
+// GetFilter returns __FindGalleriesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__FindGalleriesInput) GetFilter() FindFilter { return v.Filter }
+
+// __FindScenesInput is used internally by genqlient
+type __FindScenesInput struct {
+	Filter FindFilter `json:"filter"`
+}
+
+// GetFilter returns __FindScenesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__FindScenesInput) GetFilter() FindFilter { return v.Filter }
+
 // The query or mutation executed by FindGalleries.
 const FindGalleries_Operation = `
-query FindGalleries {
-	findGalleries {
+query FindGalleries ($filter: FindFilterType) {
+	findGalleries(filter: $filter) {
 		count
 		galleries {
 			id
 			title
-			files {
+			folder {
 				path
 			}
 		}
@@ -168,10 +184,14 @@ query FindGalleries {
 func FindGalleries(
 	ctx context.Context,
 	client graphql.Client,
+	filter FindFilter,
 ) (*FindGalleriesResponse, error) {
 	req := &graphql.Request{
 		OpName: "FindGalleries",
 		Query:  FindGalleries_Operation,
+		Variables: &__FindGalleriesInput{
+			Filter: filter,
+		},
 	}
 	var err error
 
@@ -189,8 +209,8 @@ func FindGalleries(
 
 // The query or mutation executed by FindScenes.
 const FindScenes_Operation = `
-query FindScenes {
-	findScenes {
+query FindScenes ($filter: FindFilterType) {
+	findScenes(filter: $filter) {
 		count
 		scenes {
 			id
@@ -206,10 +226,14 @@ query FindScenes {
 func FindScenes(
 	ctx context.Context,
 	client graphql.Client,
+	filter FindFilter,
 ) (*FindScenesResponse, error) {
 	req := &graphql.Request{
 		OpName: "FindScenes",
 		Query:  FindScenes_Operation,
+		Variables: &__FindScenesInput{
+			Filter: filter,
+		},
 	}
 	var err error
 

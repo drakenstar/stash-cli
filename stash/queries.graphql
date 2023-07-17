@@ -7,21 +7,21 @@ query GetStats {
     }
 }
 
-query FindGalleries {
-    findGalleries {
+query FindGalleries($filter: FindFilterType) {
+    findGalleries(filter: $filter) {
         count
         galleries {
             id
             title
-            files {
+            folder {
                 path
             }
         }
     }
 }
 
-query FindScenes {
-    findScenes {
+query FindScenes($filter: FindFilterType) {
+    findScenes(filter: $filter) {
         count
         scenes {
             id

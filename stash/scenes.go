@@ -10,8 +10,8 @@ type Scene struct {
 	File  string
 }
 
-func (s *stash) Scenes(ctx context.Context) ([]Scene, error) {
-	resp, err := FindScenes(ctx, s.client)
+func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, error) {
+	resp, err := FindScenes(ctx, s.client, filter)
 	if err != nil {
 		return nil, err
 	}

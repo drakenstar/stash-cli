@@ -15,7 +15,7 @@ func (mockStash) Stats(context.Context) (stash.Stats, error) {
 	return stash.Stats{}, nil
 }
 
-func (mockStash) Scenes(context.Context) ([]stash.Scene, error) {
+func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, error) {
 	return []stash.Scene{
 		{
 			ID:    "1",
@@ -25,7 +25,7 @@ func (mockStash) Scenes(context.Context) ([]stash.Scene, error) {
 	}, nil
 }
 
-func (mockStash) Galleries(context.Context) ([]stash.Gallery, error) {
+func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, error) {
 	return []stash.Gallery{
 		{
 			ID:    "1",

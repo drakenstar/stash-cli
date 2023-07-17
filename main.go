@@ -32,11 +32,7 @@ func main() {
 	fmt.Printf("Connecting to %s\n", cfg.Endpoint.String())
 
 	stsh := stash.New(graphql.NewClient(cfg.Endpoint.String(), http.DefaultClient))
-	app := &app.App{
-		Stash: stsh,
-		In:    os.Stdin,
-		Out:   os.Stdout,
-	}
+	app := app.New(stsh, os.Stdin, os.Stdout)
 	ctx := context.Background()
 
 	stats, err := stsh.Stats(ctx)
