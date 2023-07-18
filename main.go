@@ -73,7 +73,6 @@ func fatalOnErr(err error) {
 
 func makeOpener(c Config) app.Opener {
 	return func(content any) error {
-		fmt.Printf("%#v\n", content)
 		switch cnt := content.(type) {
 		case stash.Scene:
 			fmt.Printf("open -a VLC %s\n", c.MapPath(cnt.File))

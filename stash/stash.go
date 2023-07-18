@@ -1,5 +1,7 @@
 package stash
 
+//go:generate go run github.com/Khan/genqlient
+
 import (
 	"context"
 

@@ -47,13 +47,10 @@ func (a *App) Repl(ctx context.Context) error {
 			return err
 		}
 		line := strings.TrimSpace(text)
-		if line == "" {
-			break
-		}
 
 		switch line {
-		case "open":
-			if err := a.Opener(a.CurrentContent()); err != nil {
+		case "open", "":
+			if err := a.Opener(a.Current()); err != nil {
 				return err
 			}
 			if a.Skip(1) {
@@ -64,7 +61,7 @@ func (a *App) Repl(ctx context.Context) error {
 			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
-			for _, s := range a.scenesState.scenes {
+			for _, s := range a.scenesState.content {
 				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
 			}
 		case "galleries":
@@ -72,21 +69,21 @@ func (a *App) Repl(ctx context.Context) error {
 			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
-			for _, g := range a.galleriesState.galleries {
+			for _, g := range a.galleriesState.content {
 				fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
 			}
+		case "exit":
+			return nil
 		}
 	}
-
-	return nil
 }
 
 func (a *App) query(ctx context.Context) (err error) {
 	switch a.mode {
 	case FilterModeScenes:
-		a.scenesState.scenes, a.scenesState.count, err = a.Scenes(ctx, a.sceneFindFilter)
+		a.scenesState.content, a.scenesState.total, err = a.Scenes(ctx, a.scenesState.filter)
 	case FilterModeGalleries:
-		a.galleriesState.galleries, a.galleriesState.count, err = a.Galleries(ctx, a.sceneFindFilter)
+		a.galleriesState.content, a.galleriesState.total, err = a.Galleries(ctx, a.galleriesState.filter)
 	default:
 		panic("mode not set")
 	}

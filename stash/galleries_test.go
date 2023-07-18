@@ -24,9 +24,11 @@ func TestFindGalleries(t *testing.T) {
 					{
 						"id": "5678",
 						"title": "another test",
-						"folder": {
-							"path": "/example/another_test.mp4"
-						}
+						"files": [
+							{
+								"path": "/example/another_test.mp4"
+							}
+						]
 					},
 					{
 						"id": "9012",
