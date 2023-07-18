@@ -40,7 +40,7 @@ func (a *App) Repl(ctx context.Context) error {
 	}
 	for {
 		stats := a.Stats()
-		fmt.Fprint(a.Out, fmt.Sprintf("📦 %s (%d/%d) ", a.mode, stats.Index+1, stats.Total))
+		fmt.Fprint(a.Out, fmt.Sprintf("%s (%d/%d) ", a.mode.Icon(), stats.Index+1, stats.Total))
 
 		text, err := reader.ReadString('\n')
 		if err != nil {

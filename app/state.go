@@ -144,9 +144,29 @@ func (a *appState) SetMode(mode filterMode) {
 	}
 }
 
-type filterMode string
+type filterMode int
 
 const (
-	FilterModeScenes    = "scenes"
-	FilterModeGalleries = "galleries"
+	FilterModeScenes filterMode = iota
+	FilterModeGalleries
 )
+
+func (f filterMode) String() string {
+	switch f {
+	case FilterModeScenes:
+		return "Scenes"
+	case FilterModeGalleries:
+		return "Galleries"
+	}
+	panic("invalid filter mode")
+}
+
+func (f filterMode) Icon() string {
+	switch f {
+	case FilterModeScenes:
+		return "🎬"
+	case FilterModeGalleries:
+		return "🏙"
+	}
+	panic("invalid filter mode")
+}
