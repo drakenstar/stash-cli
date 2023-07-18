@@ -35,19 +35,33 @@ func (s *contentState[T]) PageAndCount() (int, int) {
 	return s.filter.Page, int(math.Ceil(float64(s.total) / float64(s.filter.PerPage)))
 }
 
+// Skip advances the current index by count places and returns a boolean as to whether the index has gone outside the
+// bounds of our loaded content indicating that the state of s.filter.Page has been updated and s.content needs to be
+// re-queried.
+// If the relative position of index is outside the bounds of our total content, then we just reset to page 1 index 0.
+// Skip can also traverse backwards.
 func (s *contentState[T]) Skip(count int) bool {
 	s.index += count
 
 	totalIndex := (s.filter.Page-1)*s.filter.PerPage + s.index
-	if totalIndex >= s.total {
-		// We're at the end of our content and should loop to start.
+
+	// We're outside the bounds of our total content and will reset to the start.
+	if totalIndex >= s.total || totalIndex < 0 {
 		s.index = 0
 		s.filter.Page = 1
 		return true
-	} else if s.index >= s.filter.PerPage {
-		// We're at the end of the current page, advance 1.
-		s.index -= s.filter.PerPage
-		s.filter.Page += 1
+	}
+
+	// We're outside the bounds of our loaded content and will update page and index values.
+	if s.index >= len(s.content) {
+		pageSkip := s.index / s.filter.PerPage
+		s.index -= s.filter.PerPage * pageSkip
+		s.filter.Page += pageSkip
+		return true
+	} else if s.index < 0 {
+		pageSkip := (int(math.Abs(float64(s.index))) / s.filter.PerPage) + 1
+		s.index += s.filter.PerPage * pageSkip
+		s.filter.Page -= pageSkip
 		return true
 	}
 
@@ -97,17 +111,6 @@ func (a *appState) SetMode(mode filterMode) {
 	case FilterModeGalleries:
 		a.galleriesState.Init()
 		a.ContentStater = &a.galleriesState
-	}
-}
-
-func (a *appState) Current() any {
-	switch a.mode {
-	case FilterModeScenes:
-		return a.scenesState.Current()
-	case FilterModeGalleries:
-		return a.galleriesState.Current()
-	default:
-		panic("no mode set")
 	}
 }
 

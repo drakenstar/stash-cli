@@ -40,7 +40,7 @@ func TestApp(t *testing.T) {
 	a := New(
 		mockStash{},
 		&output,
-		bytes.NewReader([]byte("scenes\ngalleries\n\n")),
+		bytes.NewReader([]byte("scenes\ngalleries\nexit\n")),
 		nil,
 	)
 	ctx := context.Background()
