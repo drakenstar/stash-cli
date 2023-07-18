@@ -13,21 +13,24 @@ import (
 type App struct {
 	stash.Stash
 
-	Out io.Writer
-	In  io.Reader
+	Out    io.Writer
+	In     io.Reader
+	Opener Opener
 
 	*appState
 }
 
-func New(s stash.Stash, out io.Writer, in io.Reader) *App {
-	a := &App{
-		Stash: s,
-		Out:   out,
-		In:    in,
+type Opener func(content any) error
+
+func New(s stash.Stash, out io.Writer, in io.Reader, opener Opener) *App {
+	return &App{
+		Stash:  s,
+		Out:    out,
+		In:     in,
+		Opener: opener,
 
 		appState: newAppState(),
 	}
-	return a
 }
 
 func (a *App) Repl(ctx context.Context) error {
@@ -37,7 +40,7 @@ func (a *App) Repl(ctx context.Context) error {
 	}
 	for {
 		page, count := a.PageAndCount()
-		fmt.Fprint(a.Out, fmt.Sprintf("%s (%d/%d) ", a.mode, page, count))
+		fmt.Fprint(a.Out, fmt.Sprintf("\n%s (%d/%d) ", a.mode, page, count))
 
 		text, err := reader.ReadString('\n')
 		if err != nil {
@@ -49,8 +52,15 @@ func (a *App) Repl(ctx context.Context) error {
 		}
 
 		switch line {
+		case "open":
+			if err := a.Opener(a.CurrentContent()); err != nil {
+				return err
+			}
+			if a.Skip(1) {
+				a.query(ctx)
+			}
 		case "scenes":
-			a.mode = FilterModeScenes
+			a.SetMode(FilterModeScenes)
 			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
@@ -58,7 +68,7 @@ func (a *App) Repl(ctx context.Context) error {
 				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
 			}
 		case "galleries":
-			a.mode = FilterModeGalleries
+			a.SetMode(FilterModeGalleries)
 			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
@@ -72,12 +82,11 @@ func (a *App) Repl(ctx context.Context) error {
 }
 
 func (a *App) query(ctx context.Context) (err error) {
-	fmt.Fprintf(a.Out, "loading %s", a.mode)
 	switch a.mode {
 	case FilterModeScenes:
 		a.scenesState.scenes, a.scenesState.count, err = a.Scenes(ctx, a.sceneFindFilter)
 	case FilterModeGalleries:
-		a.galleriesState.galleries, a.scenesState.count, err = a.Galleries(ctx, a.sceneFindFilter)
+		a.galleriesState.galleries, a.galleriesState.count, err = a.Galleries(ctx, a.sceneFindFilter)
 	default:
 		panic("mode not set")
 	}

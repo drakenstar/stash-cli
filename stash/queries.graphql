@@ -16,6 +16,9 @@ query FindGalleries($filter: FindFilterType) {
             folder {
                 path
             }
+            files {
+                path
+            }
         }
     }
 }

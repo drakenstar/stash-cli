@@ -22,7 +22,7 @@ func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, 
 			Title: "Scene 1",
 			File:  "/example/scene1.mp4",
 		},
-	}, 0, nil
+	}, 100, nil
 }
 
 func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, int, error) {
@@ -32,19 +32,20 @@ func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, 
 			Title: "Gallery 1",
 			File:  "/example/gallery",
 		},
-	}, 0, nil
+	}, 1000, nil
 }
 
 func TestApp(t *testing.T) {
 	var output bytes.Buffer
-	a := App{
-		In:    bytes.NewReader([]byte("scenes\ngalleries\n\n")),
-		Out:   &output,
-		Stash: mockStash{},
-	}
+	a := New(
+		mockStash{},
+		&output,
+		bytes.NewReader([]byte("scenes\ngalleries\n\n")),
+		nil,
+	)
 	ctx := context.Background()
 
 	a.Repl(ctx)
 
-	require.Equal(t, ">>> 1 Scene 1 /example/scene1.mp4\n>>> 1 Gallery 1 /example/gallery\n>>> ", output.String())
+	require.Equal(t, "\nscenes (1/3) 1 Scene 1 /example/scene1.mp4\n\nscenes (1/3) 1 Gallery 1 /example/gallery\n\ngalleries (1/25) ", output.String())
 }

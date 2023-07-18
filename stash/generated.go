@@ -27,9 +27,10 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultType) GetGalleries() []Fin
 //
 // Gallery type
 type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery struct {
-	Id     string                                                                  `json:"id"`
-	Title  string                                                                  `json:"title"`
-	Folder FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder `json:"folder"`
+	Id     string                                                                              `json:"id"`
+	Title  string                                                                              `json:"title"`
+	Folder FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder             `json:"folder"`
+	Files  []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile `json:"files"`
 }
 
 // GetId returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Id, and is useful for accessing the field via an interface.
@@ -45,6 +46,21 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetT
 // GetFolder returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Folder, and is useful for accessing the field via an interface.
 func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetFolder() FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder {
 	return v.Folder
+}
+
+// GetFiles returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Files, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetFiles() []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile {
+	return v.Files
+}
+
+// FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile includes the requested fields of the GraphQL type GalleryFile.
+type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile struct {
+	Path string `json:"path"`
+}
+
+// GetPath returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile.Path, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile) GetPath() string {
+	return v.Path
 }
 
 // FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder includes the requested fields of the GraphQL type Folder.
@@ -174,6 +190,9 @@ query FindGalleries ($filter: FindFilterType) {
 			id
 			title
 			folder {
+				path
+			}
+			files {
 				path
 			}
 		}

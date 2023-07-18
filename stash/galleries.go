@@ -18,10 +18,14 @@ func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, in
 
 	galleries := make([]Gallery, len(resp.FindGalleries.Galleries))
 	for i, g := range resp.FindGalleries.Galleries {
+		file := g.Folder.Path
+		if file == "" && len(g.Files) > 0 {
+			file = g.Files[0].Path
+		}
 		galleries[i] = Gallery{
 			ID:    g.Id,
 			Title: g.Title,
-			File:  g.Folder.Path,
+			File:  file,
 		}
 	}
 	return galleries, resp.FindGalleries.Count, nil
