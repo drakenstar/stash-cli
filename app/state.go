@@ -10,6 +10,7 @@ type ContentStater interface {
 	PageAndCount() (int, int)
 	Current() any
 	Skip(int) bool
+	SetQuery(string)
 }
 
 type contentState[T stash.Gallery | stash.Scene] struct {
@@ -33,6 +34,10 @@ func (s *contentState[T]) Current() any {
 
 func (s *contentState[T]) PageAndCount() (int, int) {
 	return s.filter.Page, int(math.Ceil(float64(s.total) / float64(s.filter.PerPage)))
+}
+
+func (s *contentState[T]) SetQuery(query string) {
+	s.filter.Query = query
 }
 
 // Skip advances the current index by count places and returns a boolean as to whether the index has gone outside the

@@ -47,8 +47,13 @@ func (a *App) Repl(ctx context.Context) error {
 			return err
 		}
 		line := strings.TrimSpace(text)
+		var command string
+		tokens := strings.Split(line, " ")
+		if len(tokens) > 0 {
+			command = tokens[0]
+		}
 
-		switch line {
+		switch command {
 		case "open", "":
 			if err := a.Opener(a.Current()); err != nil {
 				return err
@@ -71,6 +76,18 @@ func (a *App) Repl(ctx context.Context) error {
 			}
 			for _, g := range a.galleriesState.content {
 				fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
+			}
+		case "filter":
+			a.SetQuery(strings.Join(tokens[1:], " "))
+			a.query(ctx)
+			if a.mode == FilterModeScenes {
+				for _, s := range a.scenesState.content {
+					fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
+				}
+			} else {
+				for _, g := range a.galleriesState.content {
+					fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
+				}
 			}
 		case "exit":
 			return nil
