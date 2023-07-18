@@ -12,7 +12,7 @@ func TestFindScenes(t *testing.T) {
 	doer := mockEndpoint(`{
 		"data": {
 			"findScenes": {
-				"count": 5,
+				"count": 10,
 				"scenes": [
 					{
 						"id": "1234",
@@ -68,7 +68,7 @@ func TestFindScenes(t *testing.T) {
 	s := stash{client}
 	ctx := context.Background()
 
-	scenes, err := s.Scenes(ctx, FindFilter{})
+	scenes, count, err := s.Scenes(ctx, FindFilter{})
 	require.NoError(t, err)
 	require.Equal(t, []Scene{
 		{
@@ -97,4 +97,5 @@ func TestFindScenes(t *testing.T) {
 			File:  "/example/fifth_test.mp4",
 		},
 	}, scenes)
+	require.Equal(t, 10, count)
 }

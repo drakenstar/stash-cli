@@ -10,10 +10,10 @@ type Scene struct {
 	File  string
 }
 
-func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, error) {
+func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, int, error) {
 	resp, err := FindScenes(ctx, s.client, filter)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	scenes := make([]Scene, len(resp.FindScenes.Scenes))
@@ -24,5 +24,5 @@ func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, error) 
 			File:  s.Files[0].Path,
 		}
 	}
-	return scenes, nil
+	return scenes, resp.FindScenes.Count, nil
 }

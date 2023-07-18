@@ -15,24 +15,24 @@ func (mockStash) Stats(context.Context) (stash.Stats, error) {
 	return stash.Stats{}, nil
 }
 
-func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, error) {
+func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, error) {
 	return []stash.Scene{
 		{
 			ID:    "1",
 			Title: "Scene 1",
 			File:  "/example/scene1.mp4",
 		},
-	}, nil
+	}, 0, nil
 }
 
-func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, error) {
+func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, int, error) {
 	return []stash.Gallery{
 		{
 			ID:    "1",
 			Title: "Gallery 1",
 			File:  "/example/gallery",
 		},
-	}, nil
+	}, 0, nil
 }
 
 func TestApp(t *testing.T) {

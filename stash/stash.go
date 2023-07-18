@@ -8,8 +8,8 @@ import (
 
 type Stash interface {
 	Stats(context.Context) (Stats, error)
-	Scenes(context.Context, FindFilter) ([]Scene, error)
-	Galleries(context.Context, FindFilter) ([]Gallery, error)
+	Scenes(context.Context, FindFilter) ([]Scene, int, error)
+	Galleries(context.Context, FindFilter) ([]Gallery, int, error)
 }
 
 func New(client graphql.Client) Stash {
@@ -46,11 +46,13 @@ type FindFilter struct {
 	Direction string `json:"direction,omitempty"`
 }
 
-const SortUpdatedAt = "updated_at"
+const (
+	SortDate         = "date"
+	SortUpdatedAt    = "updated_at"
+	SortCreatedAt    = "created_at"
+	SortPath         = "path"
+	SortRandomPrefix = "random_"
 
-const SortAsc = "ASC"
-const SortDesc = "DESC"
-
-func NewFindFilter() FindFilter {
-	return FindFilter{}
-}
+	SortDirectionAsc  = "ASC"
+	SortDirectionDesc = "DESC"
+)

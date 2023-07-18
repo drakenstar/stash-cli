@@ -12,7 +12,7 @@ func TestFindGalleries(t *testing.T) {
 	doer := mockEndpoint(`{
 		"data": {
 			"findGalleries": {
-				"count": 5,
+				"count": 10,
 				"galleries": [
 					{
 						"id": "1234",
@@ -58,7 +58,7 @@ func TestFindGalleries(t *testing.T) {
 	s := stash{client}
 	ctx := context.Background()
 
-	galleries, err := s.Galleries(ctx, FindFilter{})
+	galleries, count, err := s.Galleries(ctx, FindFilter{})
 	require.NoError(t, err)
 	require.Equal(t, []Gallery{
 		{
@@ -87,4 +87,5 @@ func TestFindGalleries(t *testing.T) {
 			File:  "/example/fifth_test.mp4",
 		},
 	}, galleries)
+	require.Equal(t, 10, count)
 }

@@ -16,7 +16,7 @@ type App struct {
 	Out io.Writer
 	In  io.Reader
 
-	appState
+	*appState
 }
 
 func New(s stash.Stash, out io.Writer, in io.Reader) *App {
@@ -25,19 +25,20 @@ func New(s stash.Stash, out io.Writer, in io.Reader) *App {
 		Out:   out,
 		In:    in,
 
-		appState: appState{
-			galleryFindFilter: stash.NewFindFilter(),
-			sceneFindFilter:   stash.NewFindFilter(),
-		},
+		appState: newAppState(),
 	}
 	return a
 }
 
 func (a *App) Repl(ctx context.Context) error {
-	const prompt = ">>> "
 	reader := bufio.NewReader(a.In)
+	if err := a.query(ctx); err != nil {
+		return err
+	}
 	for {
-		fmt.Fprint(a.Out, prompt)
+		page, count := a.PageAndCount()
+		fmt.Fprint(a.Out, fmt.Sprintf("%s (%d/%d) ", a.mode, page, count))
+
 		text, err := reader.ReadString('\n')
 		if err != nil {
 			return err
@@ -49,23 +50,36 @@ func (a *App) Repl(ctx context.Context) error {
 
 		switch line {
 		case "scenes":
-			scenes, err := a.Scenes(ctx, a.sceneFindFilter)
-			if err != nil {
+			a.mode = FilterModeScenes
+			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
-			for _, s := range scenes {
+			for _, s := range a.scenesState.scenes {
 				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
 			}
 		case "galleries":
-			galleries, err := a.Galleries(ctx, a.galleryFindFilter)
-			if err != nil {
+			a.mode = FilterModeGalleries
+			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
-			for _, g := range galleries {
+			for _, g := range a.galleriesState.galleries {
 				fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
 			}
 		}
 	}
 
 	return nil
+}
+
+func (a *App) query(ctx context.Context) (err error) {
+	fmt.Fprintf(a.Out, "loading %s", a.mode)
+	switch a.mode {
+	case FilterModeScenes:
+		a.scenesState.scenes, a.scenesState.count, err = a.Scenes(ctx, a.sceneFindFilter)
+	case FilterModeGalleries:
+		a.galleriesState.galleries, a.scenesState.count, err = a.Galleries(ctx, a.sceneFindFilter)
+	default:
+		panic("mode not set")
+	}
+	return err
 }

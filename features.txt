@@ -6,3 +6,4 @@
     - opening involves running some command with the stash path as input
         - stash path is mapped to a local path
 - browse content using various sorting and filtering options
+- the default filtering should respect the configured default filters for that type

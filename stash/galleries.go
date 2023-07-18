@@ -10,10 +10,10 @@ type Gallery struct {
 	File  string
 }
 
-func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, error) {
+func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, int, error) {
 	resp, err := FindGalleries(ctx, s.client, filter)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	galleries := make([]Gallery, len(resp.FindGalleries.Galleries))
@@ -24,5 +24,5 @@ func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, er
 			File:  g.Folder.Path,
 		}
 	}
-	return galleries, nil
+	return galleries, resp.FindGalleries.Count, nil
 }
