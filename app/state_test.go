@@ -64,7 +64,7 @@ func TestContentState(t *testing.T) {
 
 func requirePageAndCount(t *testing.T, c ContentStater, a, b int) {
 	t.Helper()
-	page, count := c.PageAndCount()
-	require.Equal(t, a, page)
-	require.Equal(t, b, count)
+	stats := c.Stats()
+	require.Equal(t, a, stats.Page)
+	require.Equal(t, b, stats.PageCount)
 }

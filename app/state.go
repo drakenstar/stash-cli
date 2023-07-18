@@ -6,11 +6,19 @@ import (
 	"github.com/drakenstar/stash-cli/stash"
 )
 
+type stats struct {
+	Page      int
+	PageCount int
+	Index     int
+	Total     int
+}
+
 type ContentStater interface {
-	PageAndCount() (int, int)
+	Stats() stats
 	Current() any
 	Skip(int) bool
 	SetQuery(string)
+	SetSort(string)
 }
 
 type contentState[T stash.Gallery | stash.Scene] struct {
@@ -32,12 +40,29 @@ func (s *contentState[T]) Current() any {
 	return s.content[s.index]
 }
 
-func (s *contentState[T]) PageAndCount() (int, int) {
-	return s.filter.Page, int(math.Ceil(float64(s.total) / float64(s.filter.PerPage)))
+func (s *contentState[T]) Stats() stats {
+	return stats{
+		Page:      s.filter.Page,
+		PageCount: int(math.Ceil(float64(s.total) / float64(s.filter.PerPage))),
+		Index:     s.index,
+		Total:     s.total,
+	}
 }
 
 func (s *contentState[T]) SetQuery(query string) {
+	s.index = 0
+	s.total = 0
+	s.content = make([]T, 0)
+	s.filter.Page = 1
 	s.filter.Query = query
+}
+
+func (s *contentState[T]) SetSort(sort string) {
+	s.index = 0
+	s.total = 0
+	s.content = make([]T, 0)
+	s.filter.Page = 1
+	s.filter.Sort = sort
 }
 
 // Skip advances the current index by count places and returns a boolean as to whether the index has gone outside the

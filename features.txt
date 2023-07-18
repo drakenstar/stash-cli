@@ -8,7 +8,7 @@
 - browse content using various sorting and filtering options
     - random sorting
     - filters
-        - text
+        ✅ text
         - organised
 - the default filtering should respect the configured default filters for that type
 - file path mappings are configurable

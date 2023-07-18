@@ -39,8 +39,8 @@ func (a *App) Repl(ctx context.Context) error {
 		return err
 	}
 	for {
-		page, count := a.PageAndCount()
-		fmt.Fprint(a.Out, fmt.Sprintf("\n%s (%d/%d) ", a.mode, page, count))
+		stats := a.Stats()
+		fmt.Fprint(a.Out, fmt.Sprintf("📦 %s (%d/%d) ", a.mode, stats.Index+1, stats.Total))
 
 		text, err := reader.ReadString('\n')
 		if err != nil {
@@ -61,34 +61,34 @@ func (a *App) Repl(ctx context.Context) error {
 			if a.Skip(1) {
 				a.query(ctx)
 			}
-		case "scenes":
+		case "scenes", "s":
 			a.SetMode(FilterModeScenes)
 			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
-			for _, s := range a.scenesState.content {
-				fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
-			}
-		case "galleries":
+			a.printPage()
+		case "galleries", "g":
 			a.SetMode(FilterModeGalleries)
+			if err := a.query(ctx); err != nil {
+				return fmt.Errorf("galleries: %w", err)
+			}
+			a.printPage()
+		case "filter", "f":
+			a.SetQuery(strings.Join(tokens[1:], " "))
+			a.query(ctx)
+			a.printPage()
+		case "random", "r":
+			a.SetSort(stash.RandomSort())
+			a.query(ctx)
+			a.printPage()
+		case "list":
+			a.printPage()
+		case "reset":
+			a.SetMode(a.mode)
 			if err := a.query(ctx); err != nil {
 				return fmt.Errorf("scenes: %w", err)
 			}
-			for _, g := range a.galleriesState.content {
-				fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
-			}
-		case "filter":
-			a.SetQuery(strings.Join(tokens[1:], " "))
-			a.query(ctx)
-			if a.mode == FilterModeScenes {
-				for _, s := range a.scenesState.content {
-					fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
-				}
-			} else {
-				for _, g := range a.galleriesState.content {
-					fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
-				}
-			}
+			a.printPage()
 		case "exit":
 			return nil
 		}
@@ -105,4 +105,16 @@ func (a *App) query(ctx context.Context) (err error) {
 		panic("mode not set")
 	}
 	return err
+}
+
+func (a *App) printPage() {
+	if a.mode == FilterModeScenes {
+		for _, s := range a.scenesState.content {
+			fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
+		}
+	} else {
+		for _, g := range a.galleriesState.content {
+			fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
+		}
+	}
 }

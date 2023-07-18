@@ -4,12 +4,13 @@ package stash
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 
 	"github.com/Khan/genqlient/graphql"
 )
 
 type Stash interface {
-	Stats(context.Context) (Stats, error)
 	Scenes(context.Context, FindFilter) ([]Scene, int, error)
 	Galleries(context.Context, FindFilter) ([]Gallery, int, error)
 }
@@ -58,3 +59,7 @@ const (
 	SortDirectionAsc  = "ASC"
 	SortDirectionDesc = "DESC"
 )
+
+func RandomSort() string {
+	return fmt.Sprintf("%s%08d", SortRandomPrefix, rand.Intn(100000000))
+}
