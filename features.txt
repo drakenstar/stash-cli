@@ -5,11 +5,24 @@
         ✅ pages of content are kept as state, getting to the end of a page loads the next one until content is exhausted
     ✅ opening involves running some command with the stash path as input
         ✅ stash path is mapped to a local path
-- browse content using various sorting and filtering options
-    - random sorting
-    - filters
-        ✅ text
-        - organised
+- basic browse content
+    ✅ random sorting
+    ✅ text filtering
+- view more formatted content data
+    - size
+    - date
+    - description
+    - tags
+    - performers
+- view current filter options
+- view list of loaded content
+- advanced browsing
+    - content specific filters
+    - other supported filtering fields
 - the default filtering should respect the configured default filters for that type
 - file path mappings are configurable
 - opening commands are configurable
+- delete content
+- browse performers
+- filter history
+- configuration loading

@@ -2,12 +2,23 @@ package stash
 
 import (
 	"context"
+	"time"
 )
 
 type Gallery struct {
-	ID    string
-	Title string
-	File  string
+	ID         string
+	Title      string
+	Date       string
+	Details    string
+	Rating     int
+	Organized  bool
+	File       string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	ImageCount int
+	Studio     Studio
+	Tags       []Tag
+	Performers []Performer
 }
 
 func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, int, error) {
@@ -23,10 +34,41 @@ func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, in
 			file = g.Files[0].Path
 		}
 		galleries[i] = Gallery{
-			ID:    g.Id,
-			Title: g.Title,
-			File:  file,
+			ID:         g.Id,
+			Title:      g.Title,
+			Date:       g.Date,
+			Details:    g.Details,
+			Rating:     g.Rating100,
+			Organized:  g.Organized,
+			File:       file,
+			CreatedAt:  g.Created_at,
+			UpdatedAt:  g.Updated_at,
+			ImageCount: g.Image_count,
+			Studio: Studio{
+				ID:   g.Studio.Id,
+				Name: g.Studio.Name,
+			},
 		}
+
+		tags := make([]Tag, len(g.Tags))
+		for i, t := range g.Tags {
+			tags[i] = Tag{
+				ID:   t.Id,
+				Name: t.Name,
+			}
+		}
+		galleries[i].Tags = tags
+
+		performers := make([]Performer, len(g.Performers))
+		for i, p := range g.Performers {
+			performers[i] = Performer{
+				ID:        p.Id,
+				Name:      p.Name,
+				Birthdate: p.Birthdate,
+				Gender:    p.Gender,
+			}
+		}
+		galleries[i].Performers = performers
 	}
 	return galleries, resp.FindGalleries.Count, nil
 }

@@ -7,3 +7,5 @@ generated: stash/generated.go
 bindings:
   FindFilterType:
     type: github.com/drakenstar/stash-cli/stash.FindFilter
+  Time:
+    type: time.Time

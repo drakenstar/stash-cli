@@ -4,6 +4,7 @@ package stash
 
 import (
 	"context"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 )
@@ -27,10 +28,20 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultType) GetGalleries() []Fin
 //
 // Gallery type
 type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery struct {
-	Id     string                                                                              `json:"id"`
-	Title  string                                                                              `json:"title"`
-	Folder FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder             `json:"folder"`
-	Files  []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile `json:"files"`
+	Id          string                                                                                 `json:"id"`
+	Title       string                                                                                 `json:"title"`
+	Date        string                                                                                 `json:"date"`
+	Details     string                                                                                 `json:"details"`
+	Rating100   int                                                                                    `json:"rating100"`
+	Organized   bool                                                                                   `json:"organized"`
+	Created_at  time.Time                                                                              `json:"created_at"`
+	Updated_at  time.Time                                                                              `json:"updated_at"`
+	Image_count int                                                                                    `json:"image_count"`
+	Folder      FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder                `json:"folder"`
+	Files       []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile    `json:"files"`
+	Studio      FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio                `json:"studio"`
+	Tags        []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag             `json:"tags"`
+	Performers  []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer `json:"performers"`
 }
 
 // GetId returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Id, and is useful for accessing the field via an interface.
@@ -43,6 +54,41 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetT
 	return v.Title
 }
 
+// GetDate returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Date, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetDate() string {
+	return v.Date
+}
+
+// GetDetails returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Details, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetDetails() string {
+	return v.Details
+}
+
+// GetRating100 returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Rating100, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetRating100() int {
+	return v.Rating100
+}
+
+// GetOrganized returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Organized, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetOrganized() bool {
+	return v.Organized
+}
+
+// GetCreated_at returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Created_at, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetCreated_at() time.Time {
+	return v.Created_at
+}
+
+// GetUpdated_at returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Updated_at, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetUpdated_at() time.Time {
+	return v.Updated_at
+}
+
+// GetImage_count returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Image_count, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetImage_count() int {
+	return v.Image_count
+}
+
 // GetFolder returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Folder, and is useful for accessing the field via an interface.
 func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetFolder() FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder {
 	return v.Folder
@@ -51,6 +97,21 @@ func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetF
 // GetFiles returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Files, and is useful for accessing the field via an interface.
 func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetFiles() []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile {
 	return v.Files
+}
+
+// GetStudio returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Studio, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetStudio() FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio {
+	return v.Studio
+}
+
+// GetTags returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Tags, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetTags() []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag {
+	return v.Tags
+}
+
+// GetPerformers returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery.Performers, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGallery) GetPerformers() []FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer {
+	return v.Performers
 }
 
 // FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFilesGalleryFile includes the requested fields of the GraphQL type GalleryFile.
@@ -71,6 +132,66 @@ type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder str
 // GetPath returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder.Path, and is useful for accessing the field via an interface.
 func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryFolder) GetPath() string {
 	return v.Path
+}
+
+// FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer includes the requested fields of the GraphQL type Performer.
+type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer struct {
+	Id        string     `json:"id"`
+	Name      string     `json:"name"`
+	Birthdate string     `json:"birthdate"`
+	Gender    GenderEnum `json:"gender"`
+}
+
+// GetId returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer.Id, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer) GetId() string {
+	return v.Id
+}
+
+// GetName returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer.Name, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer) GetName() string {
+	return v.Name
+}
+
+// GetBirthdate returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer.Birthdate, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer) GetBirthdate() string {
+	return v.Birthdate
+}
+
+// GetGender returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer.Gender, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryPerformersPerformer) GetGender() GenderEnum {
+	return v.Gender
+}
+
+// FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio includes the requested fields of the GraphQL type Studio.
+type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio.Id, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio) GetId() string {
+	return v.Id
+}
+
+// GetName returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio.Name, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryStudio) GetName() string {
+	return v.Name
+}
+
+// FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag includes the requested fields of the GraphQL type Tag.
+type FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag.Id, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag) GetId() string {
+	return v.Id
+}
+
+// GetName returns FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag.Name, and is useful for accessing the field via an interface.
+func (v *FindGalleriesFindGalleriesFindGalleriesResultTypeGalleriesGalleryTagsTag) GetName() string {
+	return v.Name
 }
 
 // FindGalleriesResponse is returned by FindGalleries on success.
@@ -99,9 +220,18 @@ func (v *FindScenesFindScenesFindScenesResultType) GetScenes() []FindScenesFindS
 
 // FindScenesFindScenesFindScenesResultTypeScenesScene includes the requested fields of the GraphQL type Scene.
 type FindScenesFindScenesFindScenesResultTypeScenesScene struct {
-	Id    string                                                              `json:"id"`
-	Title string                                                              `json:"title"`
-	Files []FindScenesFindScenesFindScenesResultTypeScenesSceneFilesVideoFile `json:"files"`
+	Id         string                                                                   `json:"id"`
+	Title      string                                                                   `json:"title"`
+	Date       string                                                                   `json:"date"`
+	Details    string                                                                   `json:"details"`
+	Rating100  int                                                                      `json:"rating100"`
+	Organized  bool                                                                     `json:"organized"`
+	Created_at time.Time                                                                `json:"created_at"`
+	Updated_at time.Time                                                                `json:"updated_at"`
+	Files      []FindScenesFindScenesFindScenesResultTypeScenesSceneFilesVideoFile      `json:"files"`
+	Studio     FindScenesFindScenesFindScenesResultTypeScenesSceneStudio                `json:"studio"`
+	Tags       []FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag             `json:"tags"`
+	Performers []FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer `json:"performers"`
 }
 
 // GetId returns FindScenesFindScenesFindScenesResultTypeScenesScene.Id, and is useful for accessing the field via an interface.
@@ -110,9 +240,46 @@ func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetId() string { r
 // GetTitle returns FindScenesFindScenesFindScenesResultTypeScenesScene.Title, and is useful for accessing the field via an interface.
 func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetTitle() string { return v.Title }
 
+// GetDate returns FindScenesFindScenesFindScenesResultTypeScenesScene.Date, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetDate() string { return v.Date }
+
+// GetDetails returns FindScenesFindScenesFindScenesResultTypeScenesScene.Details, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetDetails() string { return v.Details }
+
+// GetRating100 returns FindScenesFindScenesFindScenesResultTypeScenesScene.Rating100, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetRating100() int { return v.Rating100 }
+
+// GetOrganized returns FindScenesFindScenesFindScenesResultTypeScenesScene.Organized, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetOrganized() bool { return v.Organized }
+
+// GetCreated_at returns FindScenesFindScenesFindScenesResultTypeScenesScene.Created_at, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetCreated_at() time.Time {
+	return v.Created_at
+}
+
+// GetUpdated_at returns FindScenesFindScenesFindScenesResultTypeScenesScene.Updated_at, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetUpdated_at() time.Time {
+	return v.Updated_at
+}
+
 // GetFiles returns FindScenesFindScenesFindScenesResultTypeScenesScene.Files, and is useful for accessing the field via an interface.
 func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetFiles() []FindScenesFindScenesFindScenesResultTypeScenesSceneFilesVideoFile {
 	return v.Files
+}
+
+// GetStudio returns FindScenesFindScenesFindScenesResultTypeScenesScene.Studio, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetStudio() FindScenesFindScenesFindScenesResultTypeScenesSceneStudio {
+	return v.Studio
+}
+
+// GetTags returns FindScenesFindScenesFindScenesResultTypeScenesScene.Tags, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetTags() []FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag {
+	return v.Tags
+}
+
+// GetPerformers returns FindScenesFindScenesFindScenesResultTypeScenesScene.Performers, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScene) GetPerformers() []FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer {
+	return v.Performers
 }
 
 // FindScenesFindScenesFindScenesResultTypeScenesSceneFilesVideoFile includes the requested fields of the GraphQL type VideoFile.
@@ -125,6 +292,58 @@ func (v *FindScenesFindScenesFindScenesResultTypeScenesSceneFilesVideoFile) GetP
 	return v.Path
 }
 
+// FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer includes the requested fields of the GraphQL type Performer.
+type FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer struct {
+	Id        string     `json:"id"`
+	Name      string     `json:"name"`
+	Birthdate string     `json:"birthdate"`
+	Gender    GenderEnum `json:"gender"`
+}
+
+// GetId returns FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer.Id, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer) GetId() string {
+	return v.Id
+}
+
+// GetName returns FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer.Name, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer) GetName() string {
+	return v.Name
+}
+
+// GetBirthdate returns FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer.Birthdate, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer) GetBirthdate() string {
+	return v.Birthdate
+}
+
+// GetGender returns FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer.Gender, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesScenePerformersPerformer) GetGender() GenderEnum {
+	return v.Gender
+}
+
+// FindScenesFindScenesFindScenesResultTypeScenesSceneStudio includes the requested fields of the GraphQL type Studio.
+type FindScenesFindScenesFindScenesResultTypeScenesSceneStudio struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns FindScenesFindScenesFindScenesResultTypeScenesSceneStudio.Id, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesSceneStudio) GetId() string { return v.Id }
+
+// GetName returns FindScenesFindScenesFindScenesResultTypeScenesSceneStudio.Name, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesSceneStudio) GetName() string { return v.Name }
+
+// FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag includes the requested fields of the GraphQL type Tag.
+type FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag.Id, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag) GetId() string { return v.Id }
+
+// GetName returns FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag.Name, and is useful for accessing the field via an interface.
+func (v *FindScenesFindScenesFindScenesResultTypeScenesSceneTagsTag) GetName() string { return v.Name }
+
 // FindScenesResponse is returned by FindScenes on success.
 type FindScenesResponse struct {
 	// A function which queries Scene objects
@@ -136,34 +355,16 @@ func (v *FindScenesResponse) GetFindScenes() FindScenesFindScenesFindScenesResul
 	return v.FindScenes
 }
 
-// GetStatsResponse is returned by GetStats on success.
-type GetStatsResponse struct {
-	// Get stats
-	Stats GetStatsStatsStatsResultType `json:"stats"`
-}
+type GenderEnum string
 
-// GetStats returns GetStatsResponse.Stats, and is useful for accessing the field via an interface.
-func (v *GetStatsResponse) GetStats() GetStatsStatsStatsResultType { return v.Stats }
-
-// GetStatsStatsStatsResultType includes the requested fields of the GraphQL type StatsResultType.
-type GetStatsStatsStatsResultType struct {
-	Scene_count     int     `json:"scene_count"`
-	Scenes_size     float64 `json:"scenes_size"`
-	Gallery_count   int     `json:"gallery_count"`
-	Performer_count int     `json:"performer_count"`
-}
-
-// GetScene_count returns GetStatsStatsStatsResultType.Scene_count, and is useful for accessing the field via an interface.
-func (v *GetStatsStatsStatsResultType) GetScene_count() int { return v.Scene_count }
-
-// GetScenes_size returns GetStatsStatsStatsResultType.Scenes_size, and is useful for accessing the field via an interface.
-func (v *GetStatsStatsStatsResultType) GetScenes_size() float64 { return v.Scenes_size }
-
-// GetGallery_count returns GetStatsStatsStatsResultType.Gallery_count, and is useful for accessing the field via an interface.
-func (v *GetStatsStatsStatsResultType) GetGallery_count() int { return v.Gallery_count }
-
-// GetPerformer_count returns GetStatsStatsStatsResultType.Performer_count, and is useful for accessing the field via an interface.
-func (v *GetStatsStatsStatsResultType) GetPerformer_count() int { return v.Performer_count }
+const (
+	GenderEnumMale              GenderEnum = "MALE"
+	GenderEnumFemale            GenderEnum = "FEMALE"
+	GenderEnumTransgenderMale   GenderEnum = "TRANSGENDER_MALE"
+	GenderEnumTransgenderFemale GenderEnum = "TRANSGENDER_FEMALE"
+	GenderEnumIntersex          GenderEnum = "INTERSEX"
+	GenderEnumNonBinary         GenderEnum = "NON_BINARY"
+)
 
 // __FindGalleriesInput is used internally by genqlient
 type __FindGalleriesInput struct {
@@ -189,11 +390,32 @@ query FindGalleries ($filter: FindFilterType) {
 		galleries {
 			id
 			title
+			date
+			details
+			rating100
+			organized
+			created_at
+			updated_at
+			image_count
 			folder {
 				path
 			}
 			files {
 				path
+			}
+			studio {
+				id
+				name
+			}
+			tags {
+				id
+				name
+			}
+			performers {
+				id
+				name
+				birthdate
+				gender
 			}
 		}
 	}
@@ -234,8 +456,28 @@ query FindScenes ($filter: FindFilterType) {
 		scenes {
 			id
 			title
+			date
+			details
+			rating100
+			organized
+			created_at
+			updated_at
 			files {
 				path
+			}
+			studio {
+				id
+				name
+			}
+			tags {
+				id
+				name
+			}
+			performers {
+				id
+				name
+				birthdate
+				gender
 			}
 		}
 	}
@@ -257,40 +499,6 @@ func FindScenes(
 	var err error
 
 	var data FindScenesResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-// The query or mutation executed by GetStats.
-const GetStats_Operation = `
-query GetStats {
-	stats {
-		scene_count
-		scenes_size
-		gallery_count
-		performer_count
-	}
-}
-`
-
-func GetStats(
-	ctx context.Context,
-	client graphql.Client,
-) (*GetStatsResponse, error) {
-	req := &graphql.Request{
-		OpName: "GetStats",
-		Query:  GetStats_Operation,
-	}
-	var err error
-
-	var data GetStatsResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

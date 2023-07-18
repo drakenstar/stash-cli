@@ -1,23 +1,35 @@
-query GetStats {
-    stats {
-        scene_count
-        scenes_size
-        gallery_count
-        performer_count
-    }
-}
-
 query FindGalleries($filter: FindFilterType) {
     findGalleries(filter: $filter) {
         count
         galleries {
             id
             title
+            date
+            details
+            rating100
+            organized
+            created_at
+            updated_at
+            image_count
             folder {
                 path
             }
             files {
                 path
+            }
+            studio {
+                id
+                name
+            }
+            tags {
+                id
+                name
+            }
+            performers {
+                id
+                name
+                birthdate
+                gender
             }
         }
     }
@@ -29,8 +41,28 @@ query FindScenes($filter: FindFilterType) {
         scenes {
             id
             title
+            date
+            details
+            rating100
+            organized
+            created_at
+            updated_at
             files {
                 path
+            }
+            studio {
+                id
+                name
+            }
+            tags {
+                id
+                name
+            }
+            performers {
+                id
+                name
+                birthdate
+                gender
             }
         }
     }

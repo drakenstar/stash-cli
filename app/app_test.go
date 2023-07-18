@@ -11,10 +11,6 @@ import (
 
 type mockStash struct{}
 
-func (mockStash) Stats(context.Context) (stash.Stats, error) {
-	return stash.Stats{}, nil
-}
-
 func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, error) {
 	return []stash.Scene{
 		{
@@ -47,5 +43,5 @@ func TestApp(t *testing.T) {
 
 	a.Repl(ctx)
 
-	require.Equal(t, "\nscenes (1/3) 1 Scene 1 /example/scene1.mp4\n\nscenes (1/3) 1 Gallery 1 /example/gallery\n\ngalleries (1/25) ", output.String())
+	require.Equal(t, "🎬 (1/100) 1 Scene 1 /example/scene1.mp4\n🎬 (1/100) 1 Gallery 1 /example/gallery\n🏙 (1/1000) ", output.String())
 }

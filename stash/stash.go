@@ -23,24 +23,6 @@ type stash struct {
 	client graphql.Client
 }
 
-type Stats struct {
-	SceneCount     int `json:"scene_count"`
-	GalleryCount   int `json:"gallery_count"`
-	PerformerCount int `json:"performer_count"`
-}
-
-func (s *stash) Stats(ctx context.Context) (Stats, error) {
-	resp, err := GetStats(ctx, s.client)
-	if err != nil {
-		return Stats{}, err
-	}
-	return Stats{
-		SceneCount:     resp.Stats.Scene_count,
-		GalleryCount:   resp.Stats.Gallery_count,
-		PerformerCount: resp.Stats.Performer_count,
-	}, nil
-}
-
 type FindFilter struct {
 	Query     string `json:"q,omitempty"`
 	Page      int    `json:"page,omitempty"`
@@ -62,4 +44,21 @@ const (
 
 func RandomSort() string {
 	return fmt.Sprintf("%s%08d", SortRandomPrefix, rand.Intn(100000000))
+}
+
+type Studio struct {
+	ID   string
+	Name string
+}
+
+type Tag struct {
+	ID   string
+	Name string
+}
+
+type Performer struct {
+	ID        string
+	Name      string
+	Birthdate string
+	Gender    GenderEnum
 }
