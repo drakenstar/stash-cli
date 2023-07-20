@@ -5,7 +5,7 @@
         ✅ pages of content are kept as state, getting to the end of a page loads the next one until content is exhausted
     ✅ opening involves running some command with the stash path as input
         ✅ stash path is mapped to a local path
-- basic browse content
+✅ basic browse content
     ✅ random sorting
     ✅ text filtering
 - view more formatted content data

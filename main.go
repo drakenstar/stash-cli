@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 )
 
 type Config struct {
+	Debug        bool
 	Endpoint     url.URL
 	PathMappings map[string]string
 }
@@ -29,17 +31,21 @@ func (c Config) MapPath(path string) string {
 }
 
 func main() {
-	if len(os.Args) != 2 {
+	var cfg Config
+
+	flag.BoolVar(&cfg.Debug, "debug", false, "enable HTTP debugging output")
+	flag.Parse()
+
+	endpoint := flag.Arg(0)
+	if endpoint == "" {
 		usage()
 	}
 
-	var cfg Config
-
-	endpoint, err := url.Parse(os.Args[1])
+	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		fatal(err)
 	}
-	cfg.Endpoint = *endpoint
+	cfg.Endpoint = *endpointUrl
 
 	cfg.PathMappings = map[string]string{
 		"/library": "/Volumes/Media/Library",
@@ -47,7 +53,12 @@ func main() {
 
 	fmt.Printf("Connecting to %s\n", cfg.Endpoint.String())
 
-	client := graphql.NewClient(cfg.Endpoint.String(), http.DefaultClient)
+	var httpClient graphql.Doer = http.DefaultClient
+	if cfg.Debug {
+		httpClient = &loggingTransport{}
+	}
+
+	client := graphql.NewClient(cfg.Endpoint.String(), httpClient)
 	stsh := stash.New(client)
 	app := app.New(stsh, os.Stdin, os.Stdout, makeOpener(cfg))
 	ctx := context.Background()
@@ -56,7 +67,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "stash-cli ENDPOINT")
+	fmt.Fprintln(os.Stderr, "usage: stash-cli ENDPOINT")
 	os.Exit(1)
 }
 
