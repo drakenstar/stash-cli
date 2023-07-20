@@ -110,11 +110,11 @@ func (a *App) query(ctx context.Context) (err error) {
 func (a *App) printPage() {
 	if a.mode == FilterModeScenes {
 		for _, s := range a.scenesState.content {
-			fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.File)
+			fmt.Fprintf(a.Out, "%s %s %s\n", s.ID, s.Title, s.FilePath())
 		}
 	} else {
 		for _, g := range a.galleriesState.content {
-			fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.File)
+			fmt.Fprintf(a.Out, "%s %s %s\n", g.ID, g.Title, g.FilePath())
 		}
 	}
 }

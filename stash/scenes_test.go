@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Khan/genqlient/graphql"
+	"github.com/hasura/go-graphql-client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,7 +84,10 @@ func TestFindScenes(t *testing.T) {
 			Organized: true,
 			CreatedAt: time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC),
 			UpdatedAt: time.Date(2023, 7, 18, 0, 0, 0, 0, time.UTC),
-			File:      "/path/to/file1",
+			Files: []File{
+				{Path: "/path/to/file1"},
+				{Path: "/path/to/file2"},
+			},
 			Studio: Studio{
 				ID:   "studio1",
 				Name: "Studio 1",
@@ -104,13 +107,13 @@ func TestFindScenes(t *testing.T) {
 					ID:        "performer1",
 					Name:      "Performer 1",
 					Birthdate: "1990-01-01",
-					Gender:    GenderEnumMale,
+					Gender:    GenderMale,
 				},
 				{
 					ID:        "performer2",
 					Name:      "Performer 2",
 					Birthdate: "1992-01-01",
-					Gender:    GenderEnumFemale,
+					Gender:    GenderFemale,
 				},
 			},
 		},

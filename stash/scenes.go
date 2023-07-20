@@ -6,63 +6,40 @@ import (
 )
 
 type Scene struct {
-	ID         string
-	Title      string
-	Date       string
-	Details    string
-	Rating     int
-	Organized  bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	File       string
-	Studio     Studio
-	Tags       []Tag
-	Performers []Performer
+	ID         string      `graphql:"id"`
+	Title      string      `graphql:"title"`
+	Date       string      `graphql:"date"`
+	Details    string      `graphql:"details"`
+	Rating     int         `graphql:"rating100"`
+	Organized  bool        `graphql:"organized"`
+	CreatedAt  time.Time   `graphql:"created_at"`
+	UpdatedAt  time.Time   `graphql:"updated_at"`
+	Files      []File      `graphql:"files"`
+	Studio     Studio      `graphql:"studio"`
+	Tags       []Tag       `graphql:"tags"`
+	Performers []Performer `graphql:"performers"`
+}
+
+func (s Scene) FilePath() string {
+	if len(s.Files) > 0 {
+		return s.Files[0].Path
+	}
+	panic("no file path")
 }
 
 func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, int, error) {
-	resp, err := FindScenes(ctx, s.client, filter)
+	var resp struct {
+		FindScenes struct {
+			Count  int `graphql:"count"`
+			Scenes []Scene
+		} `graphql:"findScenes(filter: $filter)"`
+	}
+	err := s.client.Query(ctx, &resp, map[string]any{
+		"filter": filter,
+	})
 	if err != nil {
 		return nil, 0, err
 	}
 
-	scenes := make([]Scene, len(resp.FindScenes.Scenes))
-	for i, s := range resp.FindScenes.Scenes {
-		scenes[i] = Scene{
-			ID:        s.Id,
-			Title:     s.Title,
-			Date:      s.Date,
-			Details:   s.Details,
-			Rating:    s.Rating100,
-			Organized: s.Organized,
-			CreatedAt: s.Created_at,
-			UpdatedAt: s.Updated_at,
-			File:      s.Files[0].Path, // TODO better file handling
-			Studio: Studio{
-				ID:   s.Studio.Id,
-				Name: s.Studio.Name,
-			},
-		}
-
-		tags := make([]Tag, len(s.Tags))
-		for i, t := range s.Tags {
-			tags[i] = Tag{
-				ID:   t.Id,
-				Name: t.Name,
-			}
-		}
-		scenes[i].Tags = tags
-
-		performers := make([]Performer, len(s.Performers))
-		for i, p := range s.Performers {
-			performers[i] = Performer{
-				ID:        p.Id,
-				Name:      p.Name,
-				Birthdate: p.Birthdate,
-				Gender:    p.Gender,
-			}
-		}
-		scenes[i].Performers = performers
-	}
-	return scenes, resp.FindScenes.Count, nil
+	return resp.FindScenes.Scenes, resp.FindScenes.Count, nil
 }

@@ -9,9 +9,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/drakenstar/stash-cli/app"
 	"github.com/drakenstar/stash-cli/stash"
+	"github.com/hasura/go-graphql-client"
 )
 
 type Config struct {
@@ -47,7 +47,8 @@ func main() {
 
 	fmt.Printf("Connecting to %s\n", cfg.Endpoint.String())
 
-	stsh := stash.New(graphql.NewClient(cfg.Endpoint.String(), http.DefaultClient))
+	client := graphql.NewClient(cfg.Endpoint.String(), http.DefaultClient)
+	stsh := stash.New(client)
 	app := app.New(stsh, os.Stdin, os.Stdout, makeOpener(cfg))
 	ctx := context.Background()
 
@@ -75,11 +76,11 @@ func makeOpener(c Config) app.Opener {
 	return func(content any) error {
 		switch cnt := content.(type) {
 		case stash.Scene:
-			fmt.Printf("open -a VLC %s\n", c.MapPath(cnt.File))
-			return exec.Command("open", "-a", "VLC", c.MapPath(cnt.File)).Run()
+			fmt.Printf("open -a VLC %s\n", c.MapPath(cnt.FilePath()))
+			return exec.Command("open", "-a", "VLC", c.MapPath(cnt.FilePath())).Run()
 		case stash.Gallery:
-			fmt.Printf("open -a Xee³ %s\n", c.MapPath(cnt.File))
-			return exec.Command("open", "-a", "Xee³", c.MapPath(cnt.File)).Run()
+			fmt.Printf("open -a Xee³ %s\n", c.MapPath(cnt.FilePath()))
+			return exec.Command("open", "-a", "Xee³", c.MapPath(cnt.FilePath())).Run()
 		}
 		return fmt.Errorf("unsupported content type (%T)", content)
 	}

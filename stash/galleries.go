@@ -6,69 +6,46 @@ import (
 )
 
 type Gallery struct {
-	ID         string
-	Title      string
-	Date       string
-	Details    string
-	Rating     int
-	Organized  bool
-	File       string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	ImageCount int
-	Studio     Studio
-	Tags       []Tag
-	Performers []Performer
+	ID         string      `graphql:"id"`
+	Title      string      `graphql:"title"`
+	Date       string      `graphql:"date"`
+	Details    string      `graphql:"details"`
+	Rating     int         `graphql:"rating100"`
+	Organized  bool        `graphql:"organized"`
+	Folder     File        `graphql:"folder"`
+	Files      []File      `graphql:"files"`
+	CreatedAt  time.Time   `graphql:"created_at"`
+	UpdatedAt  time.Time   `graphql:"updated_at"`
+	ImageCount int         `graphql:"image_count"`
+	Studio     Studio      `graphql:"studio"`
+	Tags       []Tag       `graphql:"tags"`
+	Performers []Performer `graphql:"performers"`
+}
+
+func (g Gallery) FilePath() string {
+	if g.Folder.Path != "" {
+		return g.Folder.Path
+	}
+	if len(g.Files) > 0 {
+		return g.Files[0].Path
+	}
+	panic("no file found for gallery")
+}
+
+type galleriesQuery struct {
+	FindGalleries struct {
+		Count     int
+		Galleries []Gallery
+	} `graphql:"findGalleries(filter: $filter)"`
 }
 
 func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, int, error) {
-	resp, err := FindGalleries(ctx, s.client, filter)
+	resp := galleriesQuery{}
+	err := s.client.Query(ctx, &resp, map[string]any{
+		"filter": filter,
+	})
 	if err != nil {
 		return nil, 0, err
 	}
-
-	galleries := make([]Gallery, len(resp.FindGalleries.Galleries))
-	for i, g := range resp.FindGalleries.Galleries {
-		file := g.Folder.Path
-		if file == "" && len(g.Files) > 0 {
-			file = g.Files[0].Path
-		}
-		galleries[i] = Gallery{
-			ID:         g.Id,
-			Title:      g.Title,
-			Date:       g.Date,
-			Details:    g.Details,
-			Rating:     g.Rating100,
-			Organized:  g.Organized,
-			File:       file,
-			CreatedAt:  g.Created_at,
-			UpdatedAt:  g.Updated_at,
-			ImageCount: g.Image_count,
-			Studio: Studio{
-				ID:   g.Studio.Id,
-				Name: g.Studio.Name,
-			},
-		}
-
-		tags := make([]Tag, len(g.Tags))
-		for i, t := range g.Tags {
-			tags[i] = Tag{
-				ID:   t.Id,
-				Name: t.Name,
-			}
-		}
-		galleries[i].Tags = tags
-
-		performers := make([]Performer, len(g.Performers))
-		for i, p := range g.Performers {
-			performers[i] = Performer{
-				ID:        p.Id,
-				Name:      p.Name,
-				Birthdate: p.Birthdate,
-				Gender:    p.Gender,
-			}
-		}
-		galleries[i].Performers = performers
-	}
-	return galleries, resp.FindGalleries.Count, nil
+	return resp.FindGalleries.Galleries, resp.FindGalleries.Count, nil
 }

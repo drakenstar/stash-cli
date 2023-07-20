@@ -1,13 +1,11 @@
 package stash
 
-//go:generate go run github.com/Khan/genqlient
-
 import (
 	"context"
 	"fmt"
 	"math/rand"
 
-	"github.com/Khan/genqlient/graphql"
+	"github.com/hasura/go-graphql-client"
 )
 
 type Stash interface {
@@ -15,20 +13,24 @@ type Stash interface {
 	Galleries(context.Context, FindFilter) ([]Gallery, int, error)
 }
 
-func New(client graphql.Client) Stash {
+func New(client *graphql.Client) Stash {
 	return &stash{client}
 }
 
 type stash struct {
-	client graphql.Client
+	client *graphql.Client
 }
 
 type FindFilter struct {
-	Query     string `json:"q,omitempty"`
-	Page      int    `json:"page,omitempty"`
-	PerPage   int    `json:"per_page,omitempty"`
-	Sort      string `json:"sort,omitempty"`
-	Direction string `json:"direction,omitempty"`
+	Query     string `json:"q"`
+	Page      int    `json:"page"`
+	PerPage   int    `json:"per_page"`
+	Sort      string `json:"sort"`
+	Direction string `json:"direction"`
+}
+
+func (FindFilter) GetGraphQLType() string {
+	return "FindFilterType"
 }
 
 const (
@@ -47,18 +49,15 @@ func RandomSort() string {
 }
 
 type Studio struct {
-	ID   string
-	Name string
+	ID   string `graphql:"id"`
+	Name string `graphql:"name"`
 }
 
 type Tag struct {
-	ID   string
-	Name string
+	ID   string `graphql:"id"`
+	Name string `graphql:"name"`
 }
 
-type Performer struct {
-	ID        string
-	Name      string
-	Birthdate string
-	Gender    GenderEnum
+type File struct {
+	Path string `graphql:"path"`
 }

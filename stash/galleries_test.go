@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Khan/genqlient/graphql"
+	"github.com/hasura/go-graphql-client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,7 +82,8 @@ func TestFindGalleries(t *testing.T) {
 			CreatedAt:  time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC),
 			UpdatedAt:  time.Date(2023, 7, 18, 0, 0, 0, 0, time.UTC),
 			ImageCount: 5,
-			File:       "/path/to/gallery1",
+			Folder:     File{Path: "/path/to/gallery1"},
+			Files:      []File{},
 			Studio: Studio{
 				ID:   "studio1",
 				Name: "Studio 1",
@@ -102,13 +103,13 @@ func TestFindGalleries(t *testing.T) {
 					ID:        "performer1",
 					Name:      "Performer 1",
 					Birthdate: "1990-01-01",
-					Gender:    GenderEnumMale,
+					Gender:    GenderMale,
 				},
 				{
 					ID:        "performer2",
 					Name:      "Performer 2",
 					Birthdate: "1992-01-01",
-					Gender:    GenderEnumFemale,
+					Gender:    GenderFemale,
 				},
 			},
 		},
