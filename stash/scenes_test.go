@@ -84,7 +84,7 @@ func TestFindScenes(t *testing.T) {
 			Organized: true,
 			CreatedAt: time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC),
 			UpdatedAt: time.Date(2023, 7, 18, 0, 0, 0, 0, time.UTC),
-			Files: []File{
+			Files: []VideoFile{
 				{Path: "/path/to/file1"},
 				{Path: "/path/to/file2"},
 			},

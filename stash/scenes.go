@@ -14,7 +14,7 @@ type Scene struct {
 	Organized  bool        `graphql:"organized"`
 	CreatedAt  time.Time   `graphql:"created_at"`
 	UpdatedAt  time.Time   `graphql:"updated_at"`
-	Files      []File      `graphql:"files"`
+	Files      []VideoFile `graphql:"files"`
 	Studio     Studio      `graphql:"studio"`
 	Tags       []Tag       `graphql:"tags"`
 	Performers []Performer `graphql:"performers"`

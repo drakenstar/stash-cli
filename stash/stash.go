@@ -61,3 +61,9 @@ type Tag struct {
 type File struct {
 	Path string `graphql:"path"`
 }
+
+type VideoFile struct {
+	Path     string  `graphql:"path"`
+	Duration float64 `graphql:"duration"`
+	Size     int64   `graphql:"size"`
+}

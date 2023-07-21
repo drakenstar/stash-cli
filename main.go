@@ -59,8 +59,7 @@ func main() {
 	}
 
 	client := graphql.NewClient(cfg.Endpoint.String(), httpClient)
-	stsh := stash.New(client)
-	app := app.New(stsh, os.Stdin, os.Stdout, makeOpener(cfg))
+	app := app.New(stash.New(client), app.Renderer{Out: os.Stdin}, os.Stdout, makeOpener(cfg))
 	ctx := context.Background()
 
 	fatalOnErr(app.Repl(ctx))
@@ -87,10 +86,14 @@ func makeOpener(c Config) app.Opener {
 	return func(content any) error {
 		switch cnt := content.(type) {
 		case stash.Scene:
-			fmt.Printf("open -a VLC %s\n", c.MapPath(cnt.FilePath()))
+			if c.Debug {
+				fmt.Printf("open -a VLC %s\n", c.MapPath(cnt.FilePath()))
+			}
 			return exec.Command("open", "-a", "VLC", c.MapPath(cnt.FilePath())).Run()
 		case stash.Gallery:
-			fmt.Printf("open -a Xee³ %s\n", c.MapPath(cnt.FilePath()))
+			if c.Debug {
+				fmt.Printf("open -a Xee³ %s\n", c.MapPath(cnt.FilePath()))
+			}
 			return exec.Command("open", "-a", "Xee³", c.MapPath(cnt.FilePath())).Run()
 		}
 		return fmt.Errorf("unsupported content type (%T)", content)

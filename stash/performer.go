@@ -3,13 +3,15 @@ package stash
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 type Performer struct {
-	ID        string `graphql:"id"`
-	Name      string `graphql:"name"`
-	Birthdate string `graphql:"birthdate"`
-	Gender    Gender `graphql:"gender"`
+	ID        string  `graphql:"id"`
+	Name      string  `graphql:"name"`
+	Birthdate string  `graphql:"birthdate"`
+	Gender    Gender  `graphql:"gender"`
+	Country   Country `graphql:"country"`
 }
 
 type Gender int
@@ -71,4 +73,35 @@ func (g *Gender) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func (g Gender) String() string {
+	switch g {
+	case GenderNotSpecified:
+		return ""
+	case GenderMale:
+		return "♂️"
+	case GenderFemale:
+		return "♂️"
+	case GenderTransMale:
+		return "⚧️"
+	case GenderTransFemale:
+		return "⚧️"
+	case GenderIntersex:
+		return "⚧️"
+	case GenderNonBinary:
+		return "⚧️"
+	default:
+		panic("invalid Gender value")
+	}
+}
+
+type Country string
+
+func (c Country) String() string {
+	if c == "" {
+		return ""
+	}
+	code := strings.ToUpper(string(c))
+	return string(0x1F1E6+rune(code[0])-'A') + string(0x1F1E6+rune(code[1])-'A')
 }

@@ -16,7 +16,7 @@ func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, 
 		{
 			ID:    "1",
 			Title: "Scene 1",
-			Files: []stash.File{{Path: "/example/scene1.mp4"}},
+			Files: []stash.VideoFile{{Path: "/example/scene1.mp4"}},
 		},
 	}, 100, nil
 }
