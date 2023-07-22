@@ -8,6 +8,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/stash"
+	"github.com/drakenstar/stash-cli/ui"
+	"golang.org/x/term"
 )
 
 type Filer interface {
@@ -25,66 +27,76 @@ func (r Renderer) Prompt(a *App) {
 }
 
 var (
-	ColorGreen    = lipgloss.Color("#8FCB9B")
-	ColorYellow   = lipgloss.Color("#FAD689")
-	ColorPurple   = lipgloss.Color("#B39DDC")
-	ColorGrey     = lipgloss.Color("#D3D3D3")
-	ColorOffWhite = lipgloss.Color("#FAF0E6")
-	ColorMidGrey  = lipgloss.Color("#808080")
-	ColorSalmon   = lipgloss.Color("#FF9C8A")
+	ColorGreenCheck = lipgloss.Color("#32CD32")
+	ColorGreen      = lipgloss.Color("#8FCB9B")
+	ColorYellow     = lipgloss.Color("#FAD689")
+	ColorPurple     = lipgloss.Color("#B39DDC")
+	ColorGrey       = lipgloss.Color("#D3D3D3")
+	ColorOffWhite   = lipgloss.Color("#FAF0E6")
+	ColorMidGrey    = lipgloss.Color("#808080")
+	ColorSalmon     = lipgloss.Color("#FF9C8A")
+
+	check = lipgloss.NewStyle().
+		Foreground(ColorGreenCheck).
+		SetString("✓").
+		String()
+	circle = lipgloss.NewStyle().
+		Foreground(ColorGrey).
+		SetString("○").
+		Render()
 )
-
-var (
-	titleStyle = lipgloss.NewStyle().
-			Foreground(ColorOffWhite).
-			Bold(true).
-			PaddingRight(1)
-
-	performerStyle = lipgloss.NewStyle().
-			Foreground(ColorYellow).
-			PaddingRight(2)
-
-	tagStyle = lipgloss.NewStyle().
-			Foreground(ColorPurple).
-			PaddingRight(1)
-
-	emptyStyle = lipgloss.NewStyle().
-			Foreground(ColorMidGrey).
-			PaddingRight(1)
-
-	studioStyle = lipgloss.NewStyle().
-			Foreground(ColorSalmon).
-			PaddingRight(1)
-
-	organized = lipgloss.NewStyle().
-			SetString("✓").
-			Foreground(lipgloss.Color("#32CD32")).
-			PaddingRight(1).
-			String()
-	notOrganized = emptyStyle.Copy().
-			SetString("○").
-			String()
-)
-
-func printLine(w io.Writer, s ...string) {
-	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, s...), "\n")
-}
 
 func (r Renderer) ContentList(a *App) {
-	// width, _, _ := term.GetSize(int(r.Out.Fd()))
+	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
 	if a.mode == FilterModeScenes {
-		rw := sceneColWidths{}
-		for _, scene := range a.scenesState.content {
-			s := scenePresenter{scene}
-			rw.title = max(rw.title, lipgloss.Width(s.Title))
-			rw.studio = max(rw.studio, lipgloss.Width(s.Studio.Name))
-			rw.performers = max(rw.performers, lipgloss.Width(s.performerList()))
-			rw.tags = max(rw.tags, lipgloss.Width(s.tagList()))
+		var rows []ui.Row
+		for _, s := range a.scenesState.content {
+			scene := scenePresenter{s}
+			rows = append(rows, []string{
+				scene.organised(),
+				scene.Date,
+				scene.Title,
+				scene.Studio.Name,
+				scene.performerList(),
+				scene.tagList(),
+				scene.Details,
+			})
 		}
-		for _, scene := range a.scenesState.content {
-			s := scenePresenter{scene}
-			printLine(r.Out, sceneRow(s, &rw)...)
-		}
+		fmt.Fprint(r.Out, ui.RenderTable(screenWidth, []ui.Column{
+			{
+				Name: "Organised",
+			},
+			{
+				Name:       "Date",
+				Foreground: &ColorGrey,
+			},
+			{
+				Name:       "Title",
+				Foreground: &ColorOffWhite,
+				Bold:       true,
+				Weight:     1,
+			},
+			{
+				Name:       "Studio",
+				Foreground: &ColorSalmon,
+				Weight:     1,
+			},
+			{
+				Name:       "Perfomers",
+				Foreground: &ColorYellow,
+				Weight:     1,
+			},
+			{
+				Name:       "Tags",
+				Foreground: &ColorPurple,
+				Weight:     1,
+			},
+			{
+				Name:       "Description",
+				Foreground: &ColorGrey,
+				Flex:       true,
+			},
+		}, rows)+"\n")
 	} else {
 		for _, g := range a.galleriesState.content {
 			fmt.Fprintf(r.Out, "%s %s %s\n", g.ID, g.Title, g.FilePath())
@@ -93,106 +105,60 @@ func (r Renderer) ContentList(a *App) {
 }
 
 func (r Renderer) ContentRow(a *App) {
+	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
 	if a.mode == FilterModeScenes {
-		printLine(r.Out, sceneRow(scenePresenter{a.Current().(stash.Scene)}, nil)...)
+		scene := scenePresenter{a.Current().(stash.Scene)}
+		fmt.Fprint(r.Out, ui.RenderTable(screenWidth, []ui.Column{
+			{
+				Name: "Organised",
+			},
+			{
+				Name:       "Date",
+				Foreground: &ColorGrey,
+			},
+			{
+				Name:       "Title",
+				Foreground: &ColorOffWhite,
+				Bold:       true,
+				Weight:     0,
+			},
+			{
+				Name:       "Studio",
+				Foreground: &ColorSalmon,
+				Weight:     1,
+			},
+			{
+				Name:       "Perfomers",
+				Foreground: &ColorYellow,
+				Weight:     1,
+			},
+			{
+				Name:       "Tags",
+				Foreground: &ColorPurple,
+				Weight:     1,
+			},
+		}, []ui.Row{
+			{
+				scene.organised(),
+				scene.Date,
+				scene.Title,
+				scene.Studio.Name,
+				scene.performerList(),
+				scene.tagList(),
+			},
+		})+"\n")
 	}
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-type sceneColWidths struct {
-	title      int
-	performers int
-	studio     int
-	tags       int
-}
-
-func sceneRow(s scenePresenter, colWidths *sceneColWidths) []string {
-	row := []string{}
-
-	if colWidths == nil {
-		colWidths = &sceneColWidths{
-			title:      lipgloss.Width(s.Title),
-			studio:     lipgloss.Width(s.Studio.Name),
-			performers: lipgloss.Width(s.performerList()),
-			tags:       lipgloss.Width(s.tagList()),
-		}
-	}
-
-	// Organized
-	{
-		if s.Organized {
-			row = append(row, organized)
-		} else {
-			row = append(row, notOrganized)
-		}
-	}
-
-	// Date
-	{
-		row = append(row, renderDate(s.Date))
-	}
-
-	// Title
-	{
-		if s.Title != "" {
-			style := titleStyle.Copy()
-			row = append(row, style.
-				Width(colWidths.title+1).
-				Render(s.Title))
-		} else {
-			style := emptyStyle.Copy()
-			row = append(row, style.
-				Width(colWidths.title+1).
-				Render(truncate(colWidths.title, filepath.Base(s.FilePath()), "…")))
-		}
-	}
-
-	// Studio
-	{
-		style := studioStyle.Copy()
-		row = append(row, style.
-			Width(colWidths.studio+1).
-			Render(s.Studio.Name))
-	}
-
-	// Performers
-	{
-		style := performerStyle.Copy()
-		row = append(row, style.
-			Width(colWidths.performers+2).
-			Render(s.performerList()))
-	}
-
-	// Tags
-	{
-		style := tagStyle.Copy()
-		row = append(row, style.
-			Width(colWidths.tags+1).
-			Render(s.tagList()))
-	}
-
-	return row
-}
-
-const dateColWidth = 11
-
-var dateStyle = lipgloss.NewStyle().
-	Foreground(ColorGrey).
-	Width(dateColWidth).
-	PaddingRight(1)
-
-func renderDate(d string) string {
-	return dateStyle.Render(d)
 }
 
 type scenePresenter struct {
 	stash.Scene
+}
+
+func (s scenePresenter) title() string {
+	if s.Title != "" {
+		return s.Title
+	}
+	return filepath.Base(s.FilePath())
 }
 
 func (s scenePresenter) performerList() string {
@@ -202,7 +168,7 @@ func (s scenePresenter) performerList() string {
 		if p.Gender != stash.GenderFemale {
 			name += p.Gender.String() + "  "
 		}
-		name += p.Country.String()
+		name += p.Country.String() + " "
 		names = append(names, name)
 	}
 	return strings.Join(names, "\n")
@@ -216,11 +182,9 @@ func (s scenePresenter) tagList() string {
 	return strings.Join(tags, ", ")
 }
 
-func truncate(length int, s, suffix string) string {
-	if lipgloss.Width(s) < length {
-		return s
+func (s scenePresenter) organised() string {
+	if s.Scene.Organized {
+		return check
 	}
-	sw := lipgloss.Width(suffix)
-	r := []rune(s)
-	return string(r[:length-sw]) + suffix
+	return circle
 }
