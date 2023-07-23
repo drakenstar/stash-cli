@@ -44,25 +44,9 @@ var (
 		Foreground(ColorGrey).
 		SetString("○").
 		Render()
-)
 
-func (r Renderer) ContentList(a *App) {
-	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
-	if a.mode == FilterModeScenes {
-		var rows []ui.Row
-		for _, s := range a.scenesState.content {
-			scene := scenePresenter{s}
-			rows = append(rows, []string{
-				scene.organised(),
-				scene.Date,
-				scene.title(),
-				scene.Studio.Name,
-				scene.performerList(),
-				scene.tagList(),
-				scene.details(),
-			})
-		}
-		fmt.Fprint(r.Out, ui.RenderTable(screenWidth, []ui.Column{
+	sceneTable = &ui.Table{
+		Cols: []ui.Column{
 			{
 				Name: "Organised",
 			},
@@ -96,19 +80,10 @@ func (r Renderer) ContentList(a *App) {
 				Foreground: &ColorGrey,
 				Flex:       true,
 			},
-		}, rows)+"\n")
-	} else {
-		for _, g := range a.galleriesState.content {
-			fmt.Fprintf(r.Out, "%s %s %s\n", g.ID, g.Title, g.FilePath())
-		}
+		},
 	}
-}
-
-func (r Renderer) ContentRow(a *App) {
-	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
-	if a.mode == FilterModeScenes {
-		scene := scenePresenter{a.Current().(stash.Scene)}
-		fmt.Fprint(r.Out, ui.RenderTable(screenWidth, []ui.Column{
+	sceneRow = &ui.Table{
+		Cols: []ui.Column{
 			{
 				Name: "Organised",
 			},
@@ -137,7 +112,39 @@ func (r Renderer) ContentRow(a *App) {
 				Foreground: &ColorPurple,
 				Weight:     1,
 			},
-		}, []ui.Row{
+		},
+	}
+)
+
+func (r Renderer) ContentList(a *App) {
+	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
+	if a.mode == FilterModeScenes {
+		var rows []ui.Row
+		for _, s := range a.scenesState.content {
+			scene := scenePresenter{s}
+			rows = append(rows, []string{
+				scene.organised(),
+				scene.Date,
+				scene.title(),
+				scene.Studio.Name,
+				scene.performerList(),
+				scene.tagList(),
+				scene.details(),
+			})
+		}
+		fmt.Fprint(r.Out, sceneTable.Render(screenWidth, rows)+"\n")
+	} else {
+		for _, g := range a.galleriesState.content {
+			fmt.Fprintf(r.Out, "%s %s %s\n", g.ID, g.Title, g.FilePath())
+		}
+	}
+}
+
+func (r Renderer) ContentRow(a *App) {
+	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
+	if a.mode == FilterModeScenes {
+		scene := scenePresenter{a.Current().(stash.Scene)}
+		fmt.Fprint(r.Out, sceneRow.Render(screenWidth, []ui.Row{
 			{
 				scene.organised(),
 				scene.Date,

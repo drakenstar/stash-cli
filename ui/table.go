@@ -20,27 +20,31 @@ type Column struct {
 
 type Row []string
 
-func RenderTable(maxWidth int, cols []Column, rows []Row) string {
-	widths := calculateColumnWidths(maxWidth, 1, cols, rows)
+type Table struct {
+	Cols []Column
+}
+
+func (t *Table) Render(maxWidth int, rows []Row) string {
+	widths := calculateColumnWidths(maxWidth, 1, t.Cols, rows)
 	rowStrings := make([]string, len(rows))
 
 	for x, row := range rows {
-		cellStrings := make([]string, len(cols))
+		cellStrings := make([]string, len(t.Cols))
 		rowStyle := lipgloss.NewStyle()
 		if x%2 == 1 {
 			rowStyle = rowStyle.Background(lipgloss.Color("#000000"))
 		}
 
-		for i, col := range cols {
+		for i, col := range t.Cols {
 			style := rowStyle.Copy().
 				Width(widths[i] + 1)
 
-			if i < len(cols)-1 {
+			if i < len(t.Cols)-1 {
 				style = style.PaddingRight(1)
 			}
 
 			if col.Foreground != nil {
-				style = style.Foreground(cols[i].Foreground)
+				style = style.Foreground(t.Cols[i].Foreground)
 			}
 
 			if col.Bold {
