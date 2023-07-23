@@ -16,6 +16,7 @@ func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, 
 		{
 			ID:    "1",
 			Title: "Scene 1",
+			Date:  "2000-01-01",
 			Files: []stash.VideoFile{{Path: "/example/scene1.mp4"}},
 		},
 	}, 100, nil
@@ -31,11 +32,21 @@ func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, 
 	}, 1000, nil
 }
 
+type mockOutput struct {
+	*bytes.Buffer
+}
+
+func (mockOutput) ScreenWidth() int {
+	return 100
+}
+
 func TestApp(t *testing.T) {
-	var output bytes.Buffer
+	var buf bytes.Buffer
+	output := &mockOutput{&buf}
+
 	a := New(
 		mockStash{},
-		&output,
+		Renderer{Out: output},
 		bytes.NewReader([]byte("scenes\ngalleries\nexit\n")),
 		nil,
 	)
@@ -43,5 +54,5 @@ func TestApp(t *testing.T) {
 
 	a.Repl(ctx)
 
-	require.Equal(t, "🎬 (1/100) 1 Scene 1 /example/scene1.mp4\n🎬 (1/100) 1 Gallery 1 /example/gallery\n🏙 (1/1000) ", output.String())
+	require.Equal(t, "                                                                                                    \n○ 2000-01-01 Scene 1                                                                                \n🎬 (1/100) >>                                                                                                     \n○ 2000-01-01 Scene 1                                                                                \n🎬 (1/100) >> 1 Gallery 1 /example/gallery\n🏙 (1/1000) >> ", output.String())
 }

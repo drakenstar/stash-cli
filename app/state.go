@@ -22,6 +22,7 @@ type ContentStater interface {
 }
 
 type contentState[T stash.Gallery | stash.Scene] struct {
+	opened        bool
 	index         int
 	total         int
 	filter        stash.FindFilter

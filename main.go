@@ -13,6 +13,7 @@ import (
 	"github.com/drakenstar/stash-cli/app"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/hasura/go-graphql-client"
+	"golang.org/x/term"
 )
 
 type Config struct {
@@ -59,7 +60,7 @@ func main() {
 	}
 
 	client := graphql.NewClient(cfg.Endpoint.String(), httpClient)
-	app := app.New(stash.New(client), app.Renderer{Out: os.Stdin}, os.Stdout, makeOpener(cfg))
+	app := app.New(stash.New(client), app.Renderer{Out: output{os.Stdin}}, os.Stdout, makeOpener(cfg))
 	ctx := context.Background()
 
 	fatalOnErr(app.Repl(ctx))
@@ -98,4 +99,13 @@ func makeOpener(c Config) app.Opener {
 		}
 		return fmt.Errorf("unsupported content type (%T)", content)
 	}
+}
+
+type output struct {
+	*os.File
+}
+
+func (o output) ScreenWidth() int {
+	screenWidth, _, _ := term.GetSize(int(o.Fd()))
+	return screenWidth
 }

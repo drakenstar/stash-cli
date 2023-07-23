@@ -9,16 +9,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
-	"golang.org/x/term"
 )
 
-type Filer interface {
+type Output interface {
 	io.Writer
-	Fd() uintptr
+	ScreenWidth() int
 }
 
 type Renderer struct {
-	Out Filer
+	Out Output
 }
 
 func (r Renderer) Prompt(a *App) {
@@ -115,7 +114,7 @@ var (
 )
 
 func (r Renderer) ContentList(a *App) {
-	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
+	screenWidth := r.Out.ScreenWidth()
 	if a.mode == FilterModeScenes {
 		var rows []ui.Row
 		for _, s := range a.scenesState.content {
@@ -139,7 +138,7 @@ func (r Renderer) ContentList(a *App) {
 }
 
 func (r Renderer) ContentRow(a *App) {
-	screenWidth, _, _ := term.GetSize(int(r.Out.Fd()))
+	screenWidth := r.Out.ScreenWidth()
 	if a.mode == FilterModeScenes {
 		scene := scenePresenter{a.Current().(stash.Scene)}
 		fmt.Fprint(r.Out, sceneRow.Render(screenWidth, []ui.Row{
