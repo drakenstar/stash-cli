@@ -26,15 +26,16 @@ func (r Renderer) Prompt(a *App) {
 }
 
 var (
-	ColorGreenCheck = lipgloss.Color("#32CD32")
-	ColorYellow     = lipgloss.Color("#FAD689")
-	ColorPurple     = lipgloss.Color("#B39DDC")
-	ColorGrey       = lipgloss.Color("#D3D3D3")
-	ColorOffWhite   = lipgloss.Color("#FAF0E6")
-	ColorSalmon     = lipgloss.Color("#FF9C8A")
+	ColorGreen    = lipgloss.Color("#32CD32")
+	ColorYellow   = lipgloss.Color("#FAD689")
+	ColorPurple   = lipgloss.Color("#B39DDC")
+	ColorGrey     = lipgloss.Color("#D3D3D3")
+	ColorOffWhite = lipgloss.Color("#FAF0E6")
+	ColorSalmon   = lipgloss.Color("#FF9C8A")
+	ColorBlue     = lipgloss.Color("#A2D2FF")
 
 	check = lipgloss.NewStyle().
-		Foreground(ColorGreenCheck).
+		Foreground(ColorGreen).
 		SetString("✓").
 		String()
 	circle = lipgloss.NewStyle().
@@ -56,6 +57,11 @@ var (
 				Foreground: &ColorOffWhite,
 				Bold:       true,
 				Weight:     1,
+			},
+			{
+				Name:       "Size",
+				Foreground: &ColorBlue,
+				Align:      lipgloss.Right,
 			},
 			{
 				Name:       "Studio",
@@ -95,6 +101,11 @@ var (
 				Weight:     0,
 			},
 			{
+				Name:       "Size",
+				Foreground: &ColorBlue,
+				Align:      lipgloss.Right,
+			},
+			{
 				Name:       "Studio",
 				Foreground: &ColorSalmon,
 				Weight:     1,
@@ -123,6 +134,7 @@ func (r Renderer) ContentList(a *App) {
 				scene.organised(),
 				scene.Date,
 				scene.title(),
+				scene.size(),
 				scene.Studio.Name,
 				scene.performerList(),
 				scene.tagList(),
@@ -146,6 +158,7 @@ func (r Renderer) ContentRow(a *App) {
 				scene.organised(),
 				scene.Date,
 				scene.title(),
+				scene.size(),
 				scene.Studio.Name,
 				scene.performerList(),
 				scene.tagList(),
@@ -198,4 +211,29 @@ func (s scenePresenter) organised() string {
 
 func (s scenePresenter) details() string {
 	return strings.ReplaceAll(s.Details, "\n", " ")
+}
+
+func (s scenePresenter) size() string {
+	if len(s.Files) > 0 {
+		return humanBytes(s.Files[0].Size)
+	}
+	return ""
+}
+
+func humanBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	value := float64(bytes) / float64(div)
+	if exp < 2 {
+		return fmt.Sprintf("%.0f%c", value, "KMGTPE"[exp])
+	} else {
+		return fmt.Sprintf("%.1f%c", value, "KMGTPE"[exp])
+	}
 }

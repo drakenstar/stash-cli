@@ -12,6 +12,7 @@ type Column struct {
 	// Style
 	Foreground *lipgloss.Color
 	Bold       bool
+	Align      lipgloss.Position
 
 	// Layout
 	Weight int
@@ -37,7 +38,8 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 
 		for i, col := range t.Cols {
 			style := rowStyle.Copy().
-				Width(widths[i] + 1)
+				Width(widths[i] + 1).
+				Align(col.Align)
 
 			if i < len(t.Cols)-1 {
 				style = style.PaddingRight(1)
@@ -46,7 +48,6 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 			if col.Foreground != nil {
 				style = style.Foreground(t.Cols[i].Foreground)
 			}
-
 			if col.Bold {
 				style = style.Bold(col.Bold)
 			}

@@ -8,14 +8,15 @@
 ✅ basic browse content
     ✅ random sorting
     ✅ text filtering
-- view more formatted content data
-    - size
-    - date
-    - description
-    - tags
-    - performers
+✅ view more formatted content data
+    ✅ size
+    ✅ date
+    ✅ description
+    ✅ tags
+    ✅ performers
+- current file shouldn't advance on open, it should advance if already opened
 - view current filter options
-- view list of loaded content
+✅ view list of loaded content
 - advanced browsing
     - content specific filters
     - other supported filtering fields
@@ -26,3 +27,4 @@
 - browse performers
 - filter history
 - configuration loading
+- display loading indicator when querying
