@@ -55,11 +55,11 @@ func (r Renderer) ContentList(a *App) {
 			rows = append(rows, []string{
 				scene.organised(),
 				scene.Date,
-				scene.Title,
+				scene.title(),
 				scene.Studio.Name,
 				scene.performerList(),
 				scene.tagList(),
-				scene.Details,
+				scene.details(),
 			})
 		}
 		fmt.Fprint(r.Out, ui.RenderTable(screenWidth, []ui.Column{
@@ -141,7 +141,7 @@ func (r Renderer) ContentRow(a *App) {
 			{
 				scene.organised(),
 				scene.Date,
-				scene.Title,
+				scene.title(),
 				scene.Studio.Name,
 				scene.performerList(),
 				scene.tagList(),
@@ -187,4 +187,8 @@ func (s scenePresenter) organised() string {
 		return check
 	}
 	return circle
+}
+
+func (s scenePresenter) details() string {
+	return strings.ReplaceAll(s.Details, "\n", " ")
 }

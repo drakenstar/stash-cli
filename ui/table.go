@@ -24,13 +24,11 @@ func RenderTable(maxWidth int, cols []Column, rows []Row) string {
 	widths := calculateColumnWidths(maxWidth, 1, cols, rows)
 	rowStrings := make([]string, len(rows))
 
-	// Render rows
 	for x, row := range rows {
 		cellStrings := make([]string, len(cols))
-		rowStyle := lipgloss.NewStyle().
-			Width(maxWidth)
+		rowStyle := lipgloss.NewStyle()
 		if x%2 == 1 {
-			rowStyle.Background(lipgloss.Color("#000000"))
+			rowStyle = rowStyle.Background(lipgloss.Color("#000000"))
 		}
 
 		for i, col := range cols {
@@ -52,7 +50,7 @@ func RenderTable(maxWidth int, cols []Column, rows []Row) string {
 			cellStrings = append(cellStrings, style.Render(truncate(row[i], widths[i], "…")))
 		}
 
-		rowStrings = append(rowStrings, rowStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, cellStrings...)))
+		rowStrings = append(rowStrings, rowStyle.MaxWidth(maxWidth).Render(lipgloss.JoinHorizontal(lipgloss.Top, cellStrings...)))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rowStrings...)
