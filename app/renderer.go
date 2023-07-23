@@ -28,12 +28,10 @@ func (r Renderer) Prompt(a *App) {
 
 var (
 	ColorGreenCheck = lipgloss.Color("#32CD32")
-	ColorGreen      = lipgloss.Color("#8FCB9B")
 	ColorYellow     = lipgloss.Color("#FAD689")
 	ColorPurple     = lipgloss.Color("#B39DDC")
 	ColorGrey       = lipgloss.Color("#D3D3D3")
 	ColorOffWhite   = lipgloss.Color("#FAF0E6")
-	ColorMidGrey    = lipgloss.Color("#808080")
 	ColorSalmon     = lipgloss.Color("#FF9C8A")
 
 	check = lipgloss.NewStyle().
@@ -176,6 +174,9 @@ func (s scenePresenter) performerList() string {
 			name += p.Gender.String() + "  "
 		}
 		name += p.Country.String() + " "
+		if p.Favorite {
+			name += " ❤️"
+		}
 		names = append(names, name)
 	}
 	return strings.Join(names, "\n")

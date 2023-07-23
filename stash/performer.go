@@ -12,6 +12,7 @@ type Performer struct {
 	Birthdate string  `graphql:"birthdate"`
 	Gender    Gender  `graphql:"gender"`
 	Country   Country `graphql:"country"`
+	Favorite  bool    `graphql:"favorite"`
 }
 
 type Gender int
