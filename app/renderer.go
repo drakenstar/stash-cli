@@ -143,9 +143,21 @@ func (r Renderer) ContentList(a *App) {
 		}
 		fmt.Fprint(r.Out, sceneTable.Render(screenWidth, rows)+"\n")
 	} else {
+		var rows []ui.Row
 		for _, g := range a.galleriesState.content {
-			fmt.Fprintf(r.Out, "%s %s %s\n", g.ID, g.Title, g.FilePath())
+			gallery := galleryPresenter{g}
+			rows = append(rows, []string{
+				gallery.organised(),
+				gallery.Date,
+				gallery.title(),
+				gallery.size(),
+				gallery.Studio.Name,
+				gallery.performerList(),
+				gallery.tagList(),
+				gallery.details(),
+			})
 		}
+		fmt.Fprint(r.Out, sceneTable.Render(screenWidth, rows)+"\n")
 	}
 }
 
@@ -164,6 +176,19 @@ func (r Renderer) ContentRow(a *App) {
 				scene.tagList(),
 			},
 		})+"\n")
+	} else {
+		gallery := galleryPresenter{a.Current().(stash.Gallery)}
+		fmt.Fprint(r.Out, sceneRow.Render(screenWidth, []ui.Row{
+			{
+				gallery.organised(),
+				gallery.Date,
+				gallery.title(),
+				gallery.size(),
+				gallery.Studio.Name,
+				gallery.performerList(),
+				gallery.tagList(),
+			},
+		})+"\n")
 	}
 }
 
@@ -175,12 +200,18 @@ func (s scenePresenter) title() string {
 	if s.Title != "" {
 		return s.Title
 	}
-	return filepath.Base(s.FilePath())
+	fileName := filepath.Base(s.FilePath())
+	parentDir := filepath.Base(filepath.Dir(s.FilePath()))
+	return filepath.Join(parentDir, fileName)
 }
 
 func (s scenePresenter) performerList() string {
+	return performerList(s.Performers)
+}
+
+func performerList(performers []stash.Performer) string {
 	var names []string
-	for _, p := range s.Performers {
+	for _, p := range performers {
 		name := p.Name + " "
 		if p.Gender != stash.GenderFemale {
 			name += p.Gender.String() + "  "
@@ -195,15 +226,23 @@ func (s scenePresenter) performerList() string {
 }
 
 func (s scenePresenter) tagList() string {
-	var tags []string
-	for _, t := range s.Tags {
-		tags = append(tags, t.Name)
+	return tagList(s.Tags)
+}
+
+func tagList(tags []stash.Tag) string {
+	var tagStrings []string
+	for _, t := range tags {
+		tagStrings = append(tagStrings, t.Name)
 	}
-	return strings.Join(tags, ", ")
+	return strings.Join(tagStrings, ", ")
 }
 
 func (s scenePresenter) organised() string {
-	if s.Scene.Organized {
+	return organised(s.Organized)
+}
+
+func organised(o bool) string {
+	if o {
 		return check
 	}
 	return circle
@@ -223,7 +262,7 @@ func (s scenePresenter) size() string {
 func humanBytes(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
+		return fmt.Sprintf("%dB", bytes)
 	}
 	div, exp := int64(unit), 0
 	for n := bytes / unit; n >= unit; n /= unit {
@@ -236,4 +275,39 @@ func humanBytes(bytes int64) string {
 	} else {
 		return fmt.Sprintf("%.1f%c", value, "KMGTPE"[exp])
 	}
+}
+
+type galleryPresenter struct {
+	stash.Gallery
+}
+
+func (g galleryPresenter) organised() string {
+	return organised(g.Organized)
+}
+
+func (g galleryPresenter) title() string {
+	if g.Title != "" {
+		return g.Title
+	}
+	return filepath.Base(g.FilePath())
+}
+
+func (g galleryPresenter) size() string {
+	var size int64
+	for _, f := range g.Files {
+		size += f.Size
+	}
+	return humanBytes(size)
+}
+
+func (g galleryPresenter) performerList() string {
+	return performerList(g.Performers)
+}
+
+func (g galleryPresenter) tagList() string {
+	return tagList(g.Tags)
+}
+
+func (g galleryPresenter) details() string {
+	return strings.ReplaceAll(g.Details, "\n", " ")
 }

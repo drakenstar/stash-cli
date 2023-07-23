@@ -82,7 +82,7 @@ func TestFindGalleries(t *testing.T) {
 			CreatedAt:  time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC),
 			UpdatedAt:  time.Date(2023, 7, 18, 0, 0, 0, 0, time.UTC),
 			ImageCount: 5,
-			Folder:     File{Path: "/path/to/gallery1"},
+			Folder:     Folder{Path: "/path/to/gallery1"},
 			Files:      []File{},
 			Studio: Studio{
 				ID:   "studio1",

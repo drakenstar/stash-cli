@@ -58,8 +58,13 @@ type Tag struct {
 	Name string `graphql:"name"`
 }
 
+type Folder struct {
+	Path string `graphql:"path"`
+}
+
 type File struct {
 	Path string `graphql:"path"`
+	Size int64  `graphql:"size"`
 }
 
 type VideoFile struct {

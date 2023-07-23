@@ -27,7 +27,7 @@ func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, 
 		{
 			ID:     "1",
 			Title:  "Gallery 1",
-			Folder: stash.File{Path: "/example/gallery"},
+			Folder: stash.Folder{Path: "/example/gallery"},
 		},
 	}, 1000, nil
 }

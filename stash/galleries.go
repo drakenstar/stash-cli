@@ -12,7 +12,7 @@ type Gallery struct {
 	Details    string      `graphql:"details"`
 	Rating     int         `graphql:"rating100"`
 	Organized  bool        `graphql:"organized"`
-	Folder     File        `graphql:"folder"`
+	Folder     Folder      `graphql:"folder"`
 	Files      []File      `graphql:"files"`
 	CreatedAt  time.Time   `graphql:"created_at"`
 	UpdatedAt  time.Time   `graphql:"updated_at"`
