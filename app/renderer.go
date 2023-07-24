@@ -120,6 +120,11 @@ var (
 				Foreground: &ColorPurple,
 				Weight:     1,
 			},
+			{
+				Name:       "Description",
+				Foreground: &ColorGrey,
+				Flex:       true,
+			},
 		},
 	}
 )
@@ -174,6 +179,7 @@ func (r Renderer) ContentRow(a *App) {
 				scene.Studio.Name,
 				scene.performerList(),
 				scene.tagList(),
+				scene.details(),
 			},
 		})+"\n")
 	} else {
@@ -187,6 +193,7 @@ func (r Renderer) ContentRow(a *App) {
 				gallery.Studio.Name,
 				gallery.performerList(),
 				gallery.tagList(),
+				gallery.details(),
 			},
 		})+"\n")
 	}

@@ -1,3 +1,4 @@
+# Features
 ✅ connect to a running stash instance and list content
 ✅ open a piece of content locally
     ✅ giving an open command opens the latest piece of content
@@ -14,7 +15,8 @@
     ✅ description
     ✅ tags
     ✅ performers
-- current file shouldn't advance on open, it should advance if already opened
+✅ current file shouldn't advance on open, it should advance if already opened
+- record scene playing
 - view current filter options
 ✅ view list of loaded content
 - advanced browsing
@@ -28,3 +30,6 @@
 - filter history
 - configuration loading
 - display loading indicator when querying
+
+# Bugs & Refactors
+- Refactor resetting of content state
