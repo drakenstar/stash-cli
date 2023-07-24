@@ -28,7 +28,7 @@
 - delete content
 - browse performers
 - filter history
-- display loading indicator when querying
+✅ display loading indicator when querying
 - file path mappings are configurable
 - opening commands are configurable
 - configuration loading from file

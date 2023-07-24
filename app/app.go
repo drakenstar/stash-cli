@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/stash"
+	"github.com/drakenstar/stash-cli/ui"
 )
 
 type App struct {
@@ -146,6 +147,9 @@ func (a *App) Repl(ctx context.Context) error {
 }
 
 func (a *App) query(ctx context.Context) (err error) {
+	close := ui.Spinner(a.Renderer.Out)
+	defer close()
+
 	switch a.mode {
 	case FilterModeScenes:
 		a.scenesState.content, a.scenesState.total, err = a.Scenes(ctx, a.scenesState.filter, a.scenesState.contentFilter)
