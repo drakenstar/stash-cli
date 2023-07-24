@@ -16,20 +16,24 @@
     ✅ tags
     ✅ performers
 ✅ current file shouldn't advance on open, it should advance if already opened
-- record scene playing
-- view current filter options
 ✅ view list of loaded content
 - advanced browsing
-    - content specific filters
+    ✅ organised
+    ✅ more from this performer
+    ✅ content specific filters
     - other supported filtering fields
-- the default filtering should respect the configured default filters for that type
-- file path mappings are configurable
-- opening commands are configurable
+- view current filter options
+- record scene playing count
+- open stash URL
 - delete content
 - browse performers
 - filter history
-- configuration loading
 - display loading indicator when querying
+- file path mappings are configurable
+- opening commands are configurable
+- configuration loading from file
+- the default filtering should respect the configured default filters for that type
 
 # Bugs & Refactors
 - Refactor resetting of content state
+- Table lines with emoji have incorrect width (generally -1 per emoji)

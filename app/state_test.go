@@ -8,7 +8,7 @@ import (
 )
 
 func TestContentState(t *testing.T) {
-	s := contentState[stash.Gallery]{
+	s := contentState[stash.Gallery, stash.GalleryFilter]{
 		total: 5,
 		filter: stash.FindFilter{
 			Page:    1,

@@ -22,16 +22,17 @@ type ContentStater interface {
 	SetSort(string)
 }
 
-type contentState[T stash.Gallery | stash.Scene] struct {
+type contentState[T stash.Gallery | stash.Scene, F stash.GalleryFilter | stash.SceneFilter] struct {
 	opened        bool
 	index         int
 	total         int
 	filter        stash.FindFilter
 	defaultFilter stash.FindFilter
 	content       []T
+	contentFilter F
 }
 
-func (s *contentState[T]) Init() {
+func (s *contentState[T, U]) Init() {
 	s.filter = s.defaultFilter
 	s.index = 0
 	s.total = 0
@@ -39,11 +40,11 @@ func (s *contentState[T]) Init() {
 	s.content = make([]T, 0)
 }
 
-func (s *contentState[T]) Current() any {
+func (s *contentState[T, U]) Current() any {
 	return s.content[s.index]
 }
 
-func (s *contentState[T]) Stats() stats {
+func (s *contentState[T, U]) Stats() stats {
 	return stats{
 		Page:      s.filter.Page,
 		PageCount: int(math.Ceil(float64(s.total) / float64(s.filter.PerPage))),
@@ -52,7 +53,7 @@ func (s *contentState[T]) Stats() stats {
 	}
 }
 
-func (s *contentState[T]) SetQuery(query string) {
+func (s *contentState[T, U]) SetQuery(query string) {
 	s.index = 0
 	s.total = 0
 	s.content = make([]T, 0)
@@ -61,7 +62,7 @@ func (s *contentState[T]) SetQuery(query string) {
 	s.filter.Query = query
 }
 
-func (s *contentState[T]) SetSort(sort string) {
+func (s *contentState[T, U]) SetSort(sort string) {
 	s.index = 0
 	s.total = 0
 	s.content = make([]T, 0)
@@ -75,7 +76,7 @@ func (s *contentState[T]) SetSort(sort string) {
 // re-queried.
 // If the relative position of index is outside the bounds of our total content, then we just reset to page 1 index 0.
 // Skip can also traverse backwards.
-func (s *contentState[T]) Skip(count int) bool {
+func (s *contentState[T, U]) Skip(count int) bool {
 	s.index += count
 
 	totalIndex := (s.filter.Page-1)*s.filter.PerPage + s.index
@@ -105,7 +106,7 @@ func (s *contentState[T]) Skip(count int) bool {
 
 // Opened returns the state of the opened flag.  If the flag is off, we flip it. Otherwise just return the value.  The
 // intention of this flag is to record if an item has been viewed or not for the purpose of auto-advancing.
-func (s *contentState[T]) Opened() bool {
+func (s *contentState[T, U]) Opened() bool {
 	if !s.opened {
 		s.opened = true
 		return false
@@ -118,13 +119,13 @@ type appState struct {
 
 	// Embedded interface acts as a proxy for either state type as contentState supports the ContentStater interface.
 	ContentStater
-	scenesState    contentState[stash.Scene]
-	galleriesState contentState[stash.Gallery]
+	scenesState    contentState[stash.Scene, stash.SceneFilter]
+	galleriesState contentState[stash.Gallery, stash.GalleryFilter]
 }
 
 func newAppState() *appState {
 	a := &appState{
-		scenesState: contentState[stash.Scene]{
+		scenesState: contentState[stash.Scene, stash.SceneFilter]{
 			defaultFilter: stash.FindFilter{
 				Sort:      stash.SortDate,
 				Direction: stash.SortDirectionDesc,
@@ -133,7 +134,7 @@ func newAppState() *appState {
 			},
 		},
 
-		galleriesState: contentState[stash.Gallery]{
+		galleriesState: contentState[stash.Gallery, stash.GalleryFilter]{
 			defaultFilter: stash.FindFilter{
 				Sort:      stash.SortPath,
 				Direction: stash.SortDirectionAsc,

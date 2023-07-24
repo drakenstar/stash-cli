@@ -75,7 +75,7 @@ func TestFindScenes(t *testing.T) {
 	s := stash{client}
 	ctx := context.Background()
 
-	scenes, count, err := s.Scenes(ctx, FindFilter{})
+	scenes, count, err := s.Scenes(ctx, FindFilter{}, SceneFilter{})
 	require.NoError(t, err)
 	require.Equal(t, []Scene{
 		{

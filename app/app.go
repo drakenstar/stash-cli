@@ -70,7 +70,7 @@ func (a *App) Repl(ctx context.Context) error {
 			if err := a.Opener(a.Current()); err != nil {
 				return err
 			}
-		case "open":
+		case "open", "o":
 			a.Renderer.ContentRow(a)
 			if err := a.Opener(a.Current()); err != nil {
 				return err
@@ -108,6 +108,37 @@ func (a *App) Repl(ctx context.Context) error {
 				return err
 			}
 			a.Renderer.ContentList(a)
+		case "organised", "organized":
+			organised := true
+			if a.mode == FilterModeScenes {
+				a.scenesState.contentFilter.Organized = &organised
+			} else {
+				a.galleriesState.contentFilter.Organized = &organised
+			}
+			a.query(ctx)
+			a.Renderer.ContentList(a)
+		case "more":
+			if a.mode == FilterModeScenes {
+				var ids []string
+				for _, p := range a.scenesState.Current().(stash.Scene).Performers {
+					ids = append(ids, p.ID)
+				}
+				a.scenesState.contentFilter.Performers = &stash.MultiCriterion{
+					Value:    ids,
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			} else {
+				var ids []string
+				for _, g := range a.galleriesState.Current().(stash.Gallery).Performers {
+					ids = append(ids, g.ID)
+				}
+				a.galleriesState.contentFilter.Performers = &stash.MultiCriterion{
+					Value:    ids,
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			a.query(ctx)
+			a.Renderer.ContentList(a)
 		case "exit":
 			return nil
 		}
@@ -117,9 +148,9 @@ func (a *App) Repl(ctx context.Context) error {
 func (a *App) query(ctx context.Context) (err error) {
 	switch a.mode {
 	case FilterModeScenes:
-		a.scenesState.content, a.scenesState.total, err = a.Scenes(ctx, a.scenesState.filter)
+		a.scenesState.content, a.scenesState.total, err = a.Scenes(ctx, a.scenesState.filter, a.scenesState.contentFilter)
 	case FilterModeGalleries:
-		a.galleriesState.content, a.galleriesState.total, err = a.Galleries(ctx, a.galleriesState.filter)
+		a.galleriesState.content, a.galleriesState.total, err = a.Galleries(ctx, a.galleriesState.filter, a.galleriesState.contentFilter)
 	default:
 		panic("mode not set")
 	}

@@ -11,7 +11,7 @@ import (
 
 type mockStash struct{}
 
-func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, error) {
+func (mockStash) Scenes(context.Context, stash.FindFilter, stash.SceneFilter) ([]stash.Scene, int, error) {
 	return []stash.Scene{
 		{
 			ID:    "1",
@@ -22,7 +22,7 @@ func (mockStash) Scenes(context.Context, stash.FindFilter) ([]stash.Scene, int, 
 	}, 100, nil
 }
 
-func (mockStash) Galleries(context.Context, stash.FindFilter) ([]stash.Gallery, int, error) {
+func (mockStash) Galleries(context.Context, stash.FindFilter, stash.GalleryFilter) ([]stash.Gallery, int, error) {
 	return []stash.Gallery{
 		{
 			ID:     "1",

@@ -36,13 +36,14 @@ type galleriesQuery struct {
 	FindGalleries struct {
 		Count     int
 		Galleries []Gallery
-	} `graphql:"findGalleries(filter: $filter)"`
+	} `graphql:"findGalleries(filter: $filter, gallery_filter: $gallery_filter)"`
 }
 
-func (s *stash) Galleries(ctx context.Context, filter FindFilter) ([]Gallery, int, error) {
+func (s *stash) Galleries(ctx context.Context, filter FindFilter, galleryFilter GalleryFilter) ([]Gallery, int, error) {
 	resp := galleriesQuery{}
 	err := s.client.Query(ctx, &resp, map[string]any{
-		"filter": filter,
+		"filter":         filter,
+		"gallery_filter": galleryFilter,
 	})
 	if err != nil {
 		return nil, 0, err

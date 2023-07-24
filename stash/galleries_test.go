@@ -71,7 +71,7 @@ func TestFindGalleries(t *testing.T) {
 	s := stash{client}
 	ctx := context.Background()
 
-	galleries, count, err := s.Galleries(ctx, FindFilter{})
+	galleries, count, err := s.Galleries(ctx, FindFilter{}, GalleryFilter{})
 	require.NoError(t, err)
 	require.Equal(t, []Gallery{
 		{

@@ -27,15 +27,16 @@ func (s Scene) FilePath() string {
 	panic("no file path")
 }
 
-func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, int, error) {
+func (s *stash) Scenes(ctx context.Context, filter FindFilter, sceneFilter SceneFilter) ([]Scene, int, error) {
 	var resp struct {
 		FindScenes struct {
 			Count  int `graphql:"count"`
 			Scenes []Scene
-		} `graphql:"findScenes(filter: $filter)"`
+		} `graphql:"findScenes(filter: $filter, scene_filter: $scene_filter)"`
 	}
 	err := s.client.Query(ctx, &resp, map[string]any{
-		"filter": filter,
+		"filter":       filter,
+		"scene_filter": sceneFilter,
 	})
 	if err != nil {
 		return nil, 0, err
