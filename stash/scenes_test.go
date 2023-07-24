@@ -2,6 +2,7 @@ package stash
 
 import (
 	"context"
+	_ "embed"
 	"testing"
 	"time"
 
@@ -10,7 +11,9 @@ import (
 )
 
 func TestFindScenes(t *testing.T) {
-	doer := mockEndpoint(`
+	doer := &mockEndpoint{
+		t: t,
+		response: `
 	{
 		"data": {
 			"findScenes": {
@@ -66,7 +69,7 @@ func TestFindScenes(t *testing.T) {
 			}
 		}
 	}
-	`)
+	`}
 
 	client := graphql.NewClient("https://example.com/graph", doer)
 	s := stash{client}
@@ -119,4 +122,22 @@ func TestFindScenes(t *testing.T) {
 		},
 	}, scenes)
 	require.Equal(t, 10, count)
+	require.True(t, doer.called)
+}
+
+//go:embed schema.graphql
+var schemaStr string
+
+func TestRecordPlay(t *testing.T) {
+	doer := &mockEndpoint{
+		t:        t,
+		response: `{}`,
+	}
+
+	client := graphql.NewClient("https://example.com/graph", doer)
+	s := stash{client}
+	ctx := context.Background()
+
+	s.RecordPlay(ctx, "1234")
+	require.True(t, doer.called)
 }

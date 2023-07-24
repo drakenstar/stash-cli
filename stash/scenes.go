@@ -43,3 +43,13 @@ func (s *stash) Scenes(ctx context.Context, filter FindFilter) ([]Scene, int, er
 
 	return resp.FindScenes.Scenes, resp.FindScenes.Count, nil
 }
+
+func (s *stash) RecordPlay(ctx context.Context, sceneID string) error {
+	var m struct {
+		SceneIncrementPlayCount int `graphql:"sceneIncrementPlayCount(id: $id)"`
+	}
+	variables := map[string]any{
+		"id": sceneID,
+	}
+	return s.client.Mutate(ctx, &m, variables)
+}

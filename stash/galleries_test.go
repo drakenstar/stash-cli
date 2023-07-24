@@ -10,7 +10,9 @@ import (
 )
 
 func TestFindGalleries(t *testing.T) {
-	doer := mockEndpoint(`
+	doer := &mockEndpoint{
+		t: t,
+		response: `
 	{
 		"data": {
 			"findGalleries": {
@@ -63,7 +65,7 @@ func TestFindGalleries(t *testing.T) {
 			}
 		}
 	}
-	`)
+	`}
 
 	client := graphql.NewClient("https://example.com/graph", doer)
 	s := stash{client}
