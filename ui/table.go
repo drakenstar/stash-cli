@@ -32,7 +32,7 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 	for x, row := range rows {
 		cellStrings := make([]string, len(t.Cols))
 		rowStyle := lipgloss.NewStyle()
-		if x%2 == 1 {
+		if x%2 == 0 {
 			rowStyle = rowStyle.Background(lipgloss.Color("#000000"))
 		}
 

@@ -60,13 +60,20 @@ func (a *App) Repl(ctx context.Context) error {
 		}
 
 		switch command {
-		case "open", "":
+		case "":
+			if a.Opened() {
+				if a.Skip(1) {
+					a.query(ctx)
+				}
+			}
+			a.Renderer.ContentRow(a)
 			if err := a.Opener(a.Current()); err != nil {
 				return err
 			}
+		case "open":
 			a.Renderer.ContentRow(a)
-			if a.Skip(1) {
-				a.query(ctx)
+			if err := a.Opener(a.Current()); err != nil {
+				return err
 			}
 		case "scenes", "s":
 			a.SetMode(FilterModeScenes)

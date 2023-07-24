@@ -16,6 +16,7 @@ type stats struct {
 type ContentStater interface {
 	Stats() stats
 	Current() any
+	Opened() bool
 	Skip(int) bool
 	SetQuery(string)
 	SetSort(string)
@@ -34,6 +35,7 @@ func (s *contentState[T]) Init() {
 	s.filter = s.defaultFilter
 	s.index = 0
 	s.total = 0
+	s.opened = false
 	s.content = make([]T, 0)
 }
 
@@ -55,6 +57,7 @@ func (s *contentState[T]) SetQuery(query string) {
 	s.total = 0
 	s.content = make([]T, 0)
 	s.filter.Page = 1
+	s.opened = false
 	s.filter.Query = query
 }
 
@@ -63,6 +66,7 @@ func (s *contentState[T]) SetSort(sort string) {
 	s.total = 0
 	s.content = make([]T, 0)
 	s.filter.Page = 1
+	s.opened = false
 	s.filter.Sort = sort
 }
 
@@ -99,11 +103,20 @@ func (s *contentState[T]) Skip(count int) bool {
 	return false
 }
 
+// Opened returns the state of the opened flag.  If the flag is off, we flip it. Otherwise just return the value.  The
+// intention of this flag is to record if an item has been viewed or not for the purpose of auto-advancing.
+func (s *contentState[T]) Opened() bool {
+	if !s.opened {
+		s.opened = true
+		return false
+	}
+	return true
+}
+
 type appState struct {
 	mode filterMode
 
-	// Embedded interface acts as a proxy for either state type as contentState
-	// supports the ContentStater interface.
+	// Embedded interface acts as a proxy for either state type as contentState supports the ContentStater interface.
 	ContentStater
 	scenesState    contentState[stash.Scene]
 	galleriesState contentState[stash.Gallery]
