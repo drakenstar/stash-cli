@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -140,6 +141,15 @@ func (a *App) Repl(ctx context.Context) error {
 			}
 			a.query(ctx)
 			a.Renderer.ContentList(a)
+		case "stash":
+			var p string
+			switch a.mode {
+			case FilterModeScenes:
+				p = path.Join("scenes", a.scenesState.Current().(stash.Scene).ID)
+			case FilterModeGalleries:
+				p = path.Join("galleries", a.galleriesState.Current().(stash.Gallery).ID)
+			}
+			a.Opener(p)
 		case "exit":
 			return nil
 		}

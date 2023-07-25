@@ -24,7 +24,7 @@
     - other supported filtering fields
 - view current filter options
 - record scene playing count
-- open stash URL
+✅ open stash URL
 - delete content
 - browse performers
 - filter history
@@ -36,4 +36,5 @@
 
 # Bugs & Refactors
 - Refactor resetting of content state
+- Refactor app command setup
 - Table lines with emoji have incorrect width (generally -1 per emoji)

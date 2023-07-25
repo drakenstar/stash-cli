@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/drakenstar/stash-cli/app"
@@ -17,9 +18,9 @@ import (
 )
 
 type Config struct {
-	Debug        bool
-	Endpoint     url.URL
-	PathMappings map[string]string
+	Debug         bool
+	StashInstance url.URL
+	PathMappings  map[string]string
 }
 
 func (c Config) MapPath(path string) string {
@@ -31,35 +32,45 @@ func (c Config) MapPath(path string) string {
 	return path
 }
 
+func (c Config) URL(p string) *url.URL {
+	u := c.StashInstance
+	u.Path = path.Join(u.Path, p)
+	return &u
+}
+
+func (c Config) GraphURL() *url.URL {
+	return c.URL("graphql")
+}
+
 func main() {
 	var cfg Config
 
 	flag.BoolVar(&cfg.Debug, "debug", false, "enable HTTP debugging output")
 	flag.Parse()
 
-	endpoint := flag.Arg(0)
-	if endpoint == "" {
+	stashInstance := flag.Arg(0)
+	if stashInstance == "" {
 		usage()
 	}
 
-	endpointUrl, err := url.Parse(endpoint)
+	stashInstanceURL, err := url.Parse(stashInstance)
 	if err != nil {
 		fatal(err)
 	}
-	cfg.Endpoint = *endpointUrl
+	cfg.StashInstance = *stashInstanceURL
 
 	cfg.PathMappings = map[string]string{
 		"/library": "/Volumes/Media/Library",
 	}
 
-	fmt.Printf("Connecting to %s\n", cfg.Endpoint.String())
+	fmt.Printf("Connecting to stash instance %s\n", cfg.GraphURL())
 
 	var httpClient graphql.Doer = http.DefaultClient
 	if cfg.Debug {
 		httpClient = &loggingTransport{}
 	}
 
-	client := graphql.NewClient(cfg.Endpoint.String(), httpClient)
+	client := graphql.NewClient(cfg.GraphURL().String(), httpClient)
 	app := app.New(stash.New(client), app.Renderer{Out: output{os.Stdin}}, os.Stdout, makeOpener(cfg))
 	ctx := context.Background()
 
@@ -67,7 +78,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: stash-cli ENDPOINT")
+	fmt.Fprintln(os.Stderr, "usage: stash-cli [STASH INSTANCE]")
 	os.Exit(1)
 }
 
@@ -86,6 +97,12 @@ func fatalOnErr(err error) {
 func makeOpener(c Config) app.Opener {
 	return func(content any) error {
 		switch cnt := content.(type) {
+		case string:
+			u := c.URL(cnt)
+			if c.Debug {
+				fmt.Printf("open %s\n", u.String())
+			}
+			return exec.Command("open", u.String()).Run()
 		case stash.Scene:
 			if c.Debug {
 				fmt.Printf("open -a VLC %s\n", c.MapPath(cnt.FilePath()))
