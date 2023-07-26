@@ -220,11 +220,13 @@ func (s scenePresenter) performerList() string {
 func performerList(performers []stash.Performer) string {
 	var names []string
 	for _, p := range performers {
-		name := p.Name + " "
+		name := p.Name
 		if p.Gender != stash.GenderFemale {
-			name += p.Gender.String() + "  "
+			name += " " + p.Gender.String()
 		}
-		name += p.Country.String() + " "
+		if p.Country != "" {
+			name += " " + p.Country.String()
+		}
 		if p.Favorite {
 			name += " ❤️"
 		}

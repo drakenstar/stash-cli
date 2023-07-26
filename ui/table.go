@@ -40,11 +40,12 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 
 		for i, col := range t.Cols {
 			style := rowStyle.Copy().
-				Width(widths[i] + 1).
 				Align(col.Align)
 
 			if i < len(t.Cols)-1 {
-				style = style.PaddingRight(1)
+				style = style.Width(widths[i] + 1).PaddingRight(1)
+			} else {
+				style = style.Width(widths[i])
 			}
 
 			if col.Foreground != nil {
@@ -180,7 +181,7 @@ func min(a, b int) int {
 func truncate(s string, l int, suffix string) string {
 	if lipgloss.Width(s) > l {
 		r := []rune(s)
-		return string(r[:l-len(suffix)]) + suffix
+		return string(r[:l-lipgloss.Width(suffix)]) + suffix
 	}
 	return s
 }
