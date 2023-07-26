@@ -38,6 +38,7 @@ func (s *contentState[T, U]) Init() {
 	s.total = 0
 	s.opened = false
 	s.content = make([]T, 0)
+	s.contentFilter = *new(U)
 }
 
 func (s *contentState[T, U]) Current() any {

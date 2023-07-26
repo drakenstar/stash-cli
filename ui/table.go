@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -27,10 +29,10 @@ type Table struct {
 
 func (t *Table) Render(maxWidth int, rows []Row) string {
 	widths := calculateColumnWidths(maxWidth, 1, t.Cols, rows)
-	rowStrings := make([]string, len(rows))
+	var rowStrings []string
 
 	for x, row := range rows {
-		cellStrings := make([]string, len(t.Cols))
+		var cellStrings []string
 		rowStyle := lipgloss.NewStyle()
 		if x%2 == 0 {
 			rowStyle = rowStyle.Background(lipgloss.Color("#000000"))
@@ -55,10 +57,44 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 			cellStrings = append(cellStrings, style.Render(truncate(row[i], widths[i], "…")))
 		}
 
-		rowStrings = append(rowStrings, rowStyle.MaxWidth(maxWidth).Render(lipgloss.JoinHorizontal(lipgloss.Top, cellStrings...)))
+		rowStrings = append(rowStrings, rowStyle.MaxWidth(maxWidth).Render(wordwrapFix(lipgloss.JoinHorizontal(lipgloss.Top, cellStrings...))))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rowStrings...)
+}
+
+// wordwrapFix exists as a workaround for an issue with lipgloss/wordwrap where strings that end with reset spaces do
+// not recieve their background color correctly.
+// See: https://github.com/charmbracelet/lipgloss/issues/209
+func wordwrapFix(in string) string {
+	var b bytes.Buffer
+	parts := strings.Split(in, "\n")
+	for i, s := range parts {
+		b.WriteString(wordwrapFixLine(s))
+		if i < len(parts)-1 {
+			b.WriteRune('\n')
+		}
+	}
+	return b.String()
+}
+
+const resetSequence = "\x1b[0m"
+
+// wordwrapFixLine will trim all spaces from the end of a string if they are preceded immediately by a reset command
+// sequence. This is indicative that the remainder of the string can be styled.  This is probably not the permanent
+// fix here as is wont handle internal cases where there is content without a background style.
+func wordwrapFixLine(in string) string {
+	for i := len(in) - 1; i >= 0; i-- {
+		if in[i] != ' ' {
+			// Check if this non-space character is part of a trailing reset sequence
+			if strings.HasSuffix(in[:i+1], resetSequence) {
+				return in[:i+1]
+			} else {
+				return in
+			}
+		}
+	}
+	return in
 }
 
 // calculateColumnWidths takes a total target width, a padding value, column configurations, and a set of row data.

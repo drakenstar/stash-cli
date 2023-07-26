@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -300,11 +301,7 @@ func (g galleryPresenter) title() string {
 }
 
 func (g galleryPresenter) size() string {
-	var size int64
-	for _, f := range g.Files {
-		size += f.Size
-	}
-	return humanBytes(size)
+	return strconv.Itoa(g.ImageCount)
 }
 
 func (g galleryPresenter) performerList() string {

@@ -38,3 +38,4 @@
 - Refactor resetting of content state
 - Refactor app command setup
 - Table lines with emoji have incorrect width (generally -1 per emoji)
+- Should not exit on open error
