@@ -22,20 +22,22 @@
     ✅ more from this performer
     ✅ content specific filters
     - other supported filtering fields
-- view current filter options
-- record scene playing count
+✅ view current filter options
 ✅ open stash URL
 - delete content
 - browse performers
+- saved filters
 - filter history
+- interactive ui that does not block while loading
 ✅ display loading indicator when querying
 - file path mappings are configurable
 - opening commands are configurable
 - configuration loading from file
 - the default filtering should respect the configured default filters for that type
+- record scene playing count
 
 # Bugs & Refactors
-- Refactor resetting of content state
-- Refactor app command setup
+✅ Refactor resetting of content state
+✅ Refactor app command setup
 ✅ Table lines with emoji have incorrect width (generally -1 per emoji)
 - Should not exit on open error

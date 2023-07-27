@@ -9,8 +9,9 @@ import (
 	"github.com/drakenstar/stash-cli/ui"
 )
 
-type scenesState struct {
-	*App
+type ScenesState struct {
+	Stash  stash.Stash
+	Opener Opener
 
 	*paginator[stash.Scene]
 
@@ -20,7 +21,7 @@ type scenesState struct {
 	sceneFilter   stash.SceneFilter
 }
 
-func (s *scenesState) Init(ctx context.Context) error {
+func (s *ScenesState) Init(ctx context.Context) error {
 	s.paginator = NewPaginator[stash.Scene](40)
 
 	s.query = ""
@@ -32,7 +33,7 @@ func (s *scenesState) Init(ctx context.Context) error {
 	return s.update(ctx)
 }
 
-func (s *scenesState) Update(ctx context.Context, in Input) error {
+func (s *ScenesState) Update(ctx context.Context, in Input) error {
 	switch in.Command() {
 	case "":
 		if s.Next() {
@@ -89,6 +90,7 @@ func (s *scenesState) Update(ctx context.Context, in Input) error {
 			Value:    ids,
 			Modifier: stash.CriterionModifierIncludes,
 		}
+		s.Reset()
 		if err := s.update(ctx); err != nil {
 			return err
 		}
@@ -99,7 +101,7 @@ func (s *scenesState) Update(ctx context.Context, in Input) error {
 	return nil
 }
 
-func (s *scenesState) View() string {
+func (s *ScenesState) View(width int) string {
 	var rows []ui.Row
 	for i, scene := range s.items {
 		rows = append(rows, ui.Row{
@@ -120,7 +122,7 @@ func (s *scenesState) View() string {
 	}
 
 	leftStatus := []string{
-		"scenes",
+		"🎬",
 		s.paginator.String(),
 		sort(s.sort, s.sortDirection),
 	}
@@ -135,15 +137,17 @@ func (s *scenesState) View() string {
 			rightStatus = append(rightStatus, "not organized")
 		}
 	}
+	if s.sceneFilter.Performers != nil {
+		rightStatus = append(rightStatus, "performers") // TODO actually output performer names
+	}
 
-	screenWidth := s.Out.ScreenWidth()
 	return lipgloss.JoinVertical(0,
-		sceneTable.Render(screenWidth, rows),
-		statusBar.Render(screenWidth, leftStatus, rightStatus),
+		sceneTable.Render(width, rows),
+		statusBar.Render(width, leftStatus, rightStatus),
 	)
 }
 
-func (s *scenesState) update(ctx context.Context) (err error) {
+func (s *ScenesState) update(ctx context.Context) (err error) {
 	f := stash.FindFilter{
 		Query:     s.query,
 		Page:      s.page,
@@ -151,7 +155,7 @@ func (s *scenesState) update(ctx context.Context) (err error) {
 		Sort:      s.sort,
 		Direction: s.sortDirection,
 	}
-	s.items, s.total, err = s.Scenes(ctx, f, s.sceneFilter)
+	s.items, s.total, err = s.Stash.Scenes(ctx, f, s.sceneFilter)
 	return err
 }
 

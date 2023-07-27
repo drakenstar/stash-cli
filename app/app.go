@@ -7,16 +7,13 @@ import (
 	"io"
 	"strings"
 
-	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
 
 type App struct {
-	stash.Stash
-
 	In     io.Reader
 	Out    Output
-	Opener Opener
+	States map[string]AppState
 }
 
 type Opener func(content any) error
@@ -55,22 +52,20 @@ func (i Input) ArgString() string {
 type AppState interface {
 	Init(context.Context) error
 	Update(context.Context, Input) error
-	View() string
+	View(int) string
 }
 
-func (a *App) Repl(ctx context.Context) error {
+func (a *App) Run(ctx context.Context, initial AppState) error {
 	reader := bufio.NewReader(a.In)
 
-	galleries := &galleriesState{App: a}
-	scenes := &scenesState{App: a}
-	var current AppState = scenes
+	current := initial
 
 	if err := current.Init(ctx); err != nil {
 		return err
 	}
 
 	for {
-		fmt.Fprintf(a.Out, current.View())
+		fmt.Fprintf(a.Out, current.View(a.Out.ScreenWidth()))
 		fmt.Fprintf(a.Out, ui.Prompt())
 
 		line, err := reader.ReadString('\n')
@@ -78,21 +73,17 @@ func (a *App) Repl(ctx context.Context) error {
 			return err
 		}
 		in := NewInput(line)
+		cmd := in.Command()
 
-		switch in.Command() {
-		case "scenes", "s":
-			current = scenes
+		if s, ok := a.States[cmd]; ok {
+			current = s
 			if err := current.Init(ctx); err != nil {
 				return err
 			}
 			continue
-		case "galleries", "g":
-			current = galleries
-			if err := current.Init(ctx); err != nil {
-				return err
-			}
-			continue
-		case "exit":
+		}
+
+		if cmd == "exit" {
 			return nil
 		}
 

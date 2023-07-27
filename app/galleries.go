@@ -9,8 +9,9 @@ import (
 	"github.com/drakenstar/stash-cli/ui"
 )
 
-type galleriesState struct {
-	*App
+type GalleriesState struct {
+	Stash  stash.Stash
+	Opener Opener
 
 	*paginator[stash.Gallery]
 
@@ -20,7 +21,7 @@ type galleriesState struct {
 	galleryFilter stash.GalleryFilter
 }
 
-func (s *galleriesState) Init(ctx context.Context) error {
+func (s *GalleriesState) Init(ctx context.Context) error {
 	s.paginator = NewPaginator[stash.Gallery](40)
 
 	s.query = ""
@@ -32,7 +33,7 @@ func (s *galleriesState) Init(ctx context.Context) error {
 	return s.update(ctx)
 }
 
-func (s *galleriesState) Update(ctx context.Context, in Input) error {
+func (s *GalleriesState) Update(ctx context.Context, in Input) error {
 	switch in.Command() {
 	case "":
 		if s.Next() {
@@ -89,6 +90,7 @@ func (s *galleriesState) Update(ctx context.Context, in Input) error {
 			Value:    ids,
 			Modifier: stash.CriterionModifierIncludes,
 		}
+		s.Reset()
 		if err := s.update(ctx); err != nil {
 			return err
 		}
@@ -99,7 +101,7 @@ func (s *galleriesState) Update(ctx context.Context, in Input) error {
 	return nil
 }
 
-func (s *galleriesState) View() string {
+func (s *GalleriesState) View(width int) string {
 	var rows []ui.Row
 	for i, gallery := range s.items {
 		rows = append(rows, ui.Row{
@@ -119,7 +121,7 @@ func (s *galleriesState) View() string {
 	}
 
 	leftStatus := []string{
-		"galleries",
+		"📷",
 		s.paginator.String(),
 		sort(s.sort, s.sortDirection),
 	}
@@ -135,14 +137,13 @@ func (s *galleriesState) View() string {
 		}
 	}
 
-	screenWidth := s.Out.ScreenWidth()
 	return lipgloss.JoinVertical(0,
-		galleriesTable.Render(screenWidth, rows),
-		statusBar.Render(screenWidth, leftStatus, rightStatus),
+		galleriesTable.Render(width, rows),
+		statusBar.Render(width, leftStatus, rightStatus),
 	)
 }
 
-func (s *galleriesState) update(ctx context.Context) (err error) {
+func (s *GalleriesState) update(ctx context.Context) (err error) {
 	f := stash.FindFilter{
 		Query:     s.query,
 		Page:      s.page,
@@ -150,7 +151,7 @@ func (s *galleriesState) update(ctx context.Context) (err error) {
 		Sort:      s.sort,
 		Direction: s.sortDirection,
 	}
-	s.items, s.total, err = s.Galleries(ctx, f, s.galleryFilter)
+	s.items, s.total, err = s.Stash.Galleries(ctx, f, s.galleryFilter)
 	return err
 }
 

@@ -69,17 +69,27 @@ func main() {
 	if cfg.Debug {
 		httpClient = &loggingTransport{}
 	}
-
 	client := graphql.NewClient(cfg.GraphURL().String(), httpClient)
+	stash := stash.New(client)
+	opener := makeOpener(cfg)
+
 	app := &app.App{
-		Stash:  stash.New(client),
-		In:     os.Stdin,
-		Out:    output{os.Stdout},
-		Opener: makeOpener(cfg),
+		In:  os.Stdin,
+		Out: output{os.Stdout},
+		States: map[string]app.AppState{
+			"galleries": &app.GalleriesState{
+				Stash:  stash,
+				Opener: opener,
+			},
+			"scenes": &app.ScenesState{
+				Stash:  stash,
+				Opener: opener,
+			},
+		},
 	}
 	ctx := context.Background()
 
-	fatalOnErr(app.Repl(ctx))
+	fatalOnErr(app.Run(ctx, app.States["scenes"]))
 }
 
 func usage() {
