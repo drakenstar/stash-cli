@@ -12,10 +12,7 @@ import (
 type scenesState struct {
 	*App
 
-	opened bool
-	*paginator
-
-	scenes []stash.Scene
+	*paginator[stash.Scene]
 
 	query         string
 	sort          string
@@ -24,53 +21,44 @@ type scenesState struct {
 }
 
 func (s *scenesState) Init(ctx context.Context) error {
-	s.paginator = &paginator{
-		Index:   0,
-		Total:   0,
-		Page:    1,
-		PerPage: 40,
-	}
+	s.paginator = NewPaginator[stash.Scene](40)
 
 	s.query = ""
 	s.sort = stash.SortDate
 	s.sortDirection = stash.SortDirectionDesc
 
 	s.sceneFilter = stash.SceneFilter{}
-	s.resetPagination()
+	s.Reset()
 	return s.update(ctx)
 }
 
 func (s *scenesState) Update(ctx context.Context, in Input) error {
 	switch in.Command() {
 	case "":
-		if s.opened {
-			if s.Skip(1) {
-				if err := s.update(ctx); err != nil {
-					return err
-				}
+		if s.Next() {
+			if err := s.update(ctx); err != nil {
+				return err
 			}
-		} else {
-			s.opened = true
 		}
-		if err := s.Opener(s.scenes[s.Index]); err != nil {
+		if err := s.Opener(s.Current()); err != nil {
 			return err
 		}
 
 	case "open", "o":
-		if err := s.Opener(s.scenes[s.Index]); err != nil {
+		if err := s.Opener(s.Current()); err != nil {
 			return err
 		}
 
 	case "filter", "f":
 		s.query = in.ArgString()
-		s.resetPagination()
+		s.Reset()
 		if err := s.update(ctx); err != nil {
 			return err
 		}
 
 	case "random", "r":
 		s.sort = stash.RandomSort()
-		s.resetPagination()
+		s.Reset()
 		if err := s.update(ctx); err != nil {
 			return err
 		}
@@ -94,7 +82,7 @@ func (s *scenesState) Update(ctx context.Context, in Input) error {
 
 	case "more":
 		var ids []string
-		for _, p := range s.scenes[s.Index].Performers {
+		for _, p := range s.Current().Performers {
 			ids = append(ids, p.ID)
 		}
 		s.sceneFilter.Performers = &stash.MultiCriterion{
@@ -106,14 +94,14 @@ func (s *scenesState) Update(ctx context.Context, in Input) error {
 		}
 
 	case "stash":
-		s.Opener(path.Join("scenes", s.scenes[s.Index].ID))
+		s.Opener(path.Join("scenes", s.Current().ID))
 	}
 	return nil
 }
 
 func (s *scenesState) View() string {
 	var rows []ui.Row
-	for i, scene := range s.scenes {
+	for i, scene := range s.items {
 		rows = append(rows, ui.Row{
 			Values: []string{
 				organised(scene.Organized),
@@ -126,29 +114,33 @@ func (s *scenesState) View() string {
 				details(scene.Details),
 			},
 		})
-		if s.Index == i {
+		if s.index == i {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
-	return sceneTable.Render(s.Out.ScreenWidth(), rows)
-}
-
-func (s *scenesState) resetPagination() {
-	s.Index = 0
-	s.Page = 1
-	s.opened = false
+	screenWidth := s.Out.ScreenWidth()
+	return lipgloss.JoinVertical(0,
+		sceneTable.Render(screenWidth, rows),
+		s.renderStatusBar(screenWidth),
+	)
 }
 
 func (s *scenesState) update(ctx context.Context) (err error) {
 	f := stash.FindFilter{
 		Query:     s.query,
-		Page:      s.Page,
-		PerPage:   s.PerPage,
+		Page:      s.page,
+		PerPage:   s.perPage,
 		Sort:      s.sort,
 		Direction: s.sortDirection,
 	}
-	s.scenes, s.Total, err = s.Scenes(ctx, f, s.sceneFilter)
+	s.items, s.total, err = s.Scenes(ctx, f, s.sceneFilter)
 	return err
+}
+
+func (s *scenesState) renderStatusBar(width int) string {
+	return ui.StatusRow(width, []string{
+		"scenes",
+	})
 }
 
 var (

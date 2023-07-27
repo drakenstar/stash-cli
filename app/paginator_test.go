@@ -7,10 +7,10 @@ import (
 )
 
 func TestPaginator(t *testing.T) {
-	p := &paginator{
-		Total:   5,
-		Page:    1,
-		PerPage: 3,
+	p := &paginator[int]{
+		total:   5,
+		page:    1,
+		perPage: 3,
 	}
 
 	require.False(t, p.Skip(1))
@@ -44,8 +44,8 @@ func TestPaginator(t *testing.T) {
 	requireIndexAndPage(t, p, 0, 1)
 }
 
-func requireIndexAndPage(t *testing.T, p *paginator, idx, pg int) {
+func requireIndexAndPage[T any](t *testing.T, p *paginator[T], idx, pg int) {
 	t.Helper()
-	require.Equal(t, idx, p.Index)
-	require.Equal(t, pg, p.Page)
+	require.Equal(t, idx, p.index)
+	require.Equal(t, pg, p.page)
 }

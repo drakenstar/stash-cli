@@ -12,10 +12,7 @@ import (
 type galleriesState struct {
 	*App
 
-	opened bool
-	*paginator
-
-	galleries []stash.Gallery
+	*paginator[stash.Gallery]
 
 	query         string
 	sort          string
@@ -24,53 +21,44 @@ type galleriesState struct {
 }
 
 func (s *galleriesState) Init(ctx context.Context) error {
-	s.paginator = &paginator{
-		Index:   0,
-		Total:   0,
-		Page:    1,
-		PerPage: 40,
-	}
+	s.paginator = NewPaginator[stash.Gallery](40)
 
 	s.query = ""
 	s.sort = stash.SortPath
 	s.sortDirection = stash.SortDirectionAsc
 
 	s.galleryFilter = stash.GalleryFilter{}
-	s.resetPagination()
+	s.Reset()
 	return s.update(ctx)
 }
 
 func (s *galleriesState) Update(ctx context.Context, in Input) error {
 	switch in.Command() {
 	case "":
-		if s.opened {
-			if s.Skip(1) {
-				if err := s.update(ctx); err != nil {
-					return err
-				}
+		if s.Next() {
+			if err := s.update(ctx); err != nil {
+				return err
 			}
-		} else {
-			s.opened = true
 		}
-		if err := s.Opener(s.galleries[s.Index]); err != nil {
+		if err := s.Opener(s.Current()); err != nil {
 			return err
 		}
 
 	case "open", "o":
-		if err := s.Opener(s.galleries[s.Index]); err != nil {
+		if err := s.Opener(s.Current()); err != nil {
 			return err
 		}
 
 	case "filter", "f":
 		s.query = in.ArgString()
-		s.resetPagination()
+		s.Reset()
 		if err := s.update(ctx); err != nil {
 			return err
 		}
 
 	case "random", "r":
 		s.sort = stash.RandomSort()
-		s.resetPagination()
+		s.Reset()
 		if err := s.update(ctx); err != nil {
 			return err
 		}
@@ -94,7 +82,7 @@ func (s *galleriesState) Update(ctx context.Context, in Input) error {
 
 	case "more":
 		var ids []string
-		for _, p := range s.galleries[s.Index].Performers {
+		for _, p := range s.Current().Performers {
 			ids = append(ids, p.ID)
 		}
 		s.galleryFilter.Performers = &stash.MultiCriterion{
@@ -106,14 +94,14 @@ func (s *galleriesState) Update(ctx context.Context, in Input) error {
 		}
 
 	case "stash":
-		s.Opener(path.Join("galleries", s.galleries[s.Index].ID))
+		s.Opener(path.Join("galleries", s.Current().ID))
 	}
 	return nil
 }
 
 func (s *galleriesState) View() string {
 	var rows []ui.Row
-	for i, gallery := range s.galleries {
+	for i, gallery := range s.items {
 		rows = append(rows, ui.Row{
 			Values: []string{
 				organised(gallery.Organized),
@@ -125,28 +113,22 @@ func (s *galleriesState) View() string {
 				tagList(gallery.Tags),
 				details(gallery.Details),
 			}})
-		if s.Index == i {
+		if s.index == i {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
 	return galleryTable.Render(s.Out.ScreenWidth(), rows)
 }
 
-func (s *galleriesState) resetPagination() {
-	s.Index = 0
-	s.Page = 1
-	s.opened = false
-}
-
 func (s *galleriesState) update(ctx context.Context) (err error) {
 	f := stash.FindFilter{
 		Query:     s.query,
-		Page:      s.Page,
-		PerPage:   s.PerPage,
+		Page:      s.page,
+		PerPage:   s.perPage,
 		Sort:      s.sort,
 		Direction: s.sortDirection,
 	}
-	s.galleries, s.Total, err = s.Galleries(ctx, f, s.galleryFilter)
+	s.items, s.total, err = s.Galleries(ctx, f, s.galleryFilter)
 	return err
 }
 
