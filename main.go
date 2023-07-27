@@ -71,7 +71,12 @@ func main() {
 	}
 
 	client := graphql.NewClient(cfg.GraphURL().String(), httpClient)
-	app := app.New(stash.New(client), app.Renderer{Out: output{os.Stdin}}, os.Stdout, makeOpener(cfg))
+	app := &app.App{
+		Stash:  stash.New(client),
+		In:     os.Stdin,
+		Out:    output{os.Stdout},
+		Opener: makeOpener(cfg),
+	}
 	ctx := context.Background()
 
 	fatalOnErr(app.Repl(ctx))

@@ -5,10 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -16,157 +14,90 @@ import (
 type App struct {
 	stash.Stash
 
-	In       io.Reader
-	Renderer Renderer
-	Opener   Opener
-
-	*appState
+	In     io.Reader
+	Out    Output
+	Opener Opener
 }
 
 type Opener func(content any) error
 
-func New(s stash.Stash, renderer Renderer, in io.Reader, opener Opener) *App {
-	return &App{
-		Stash:    s,
-		Renderer: renderer,
-		In:       in,
-		Opener:   opener,
-
-		appState: newAppState(),
-	}
+type Output interface {
+	io.Writer
+	ScreenWidth() int
 }
 
-var promptStyle = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#7D56F4"))
+// Input represents a complete line of input from the user
+type Input string
+
+func NewInput(s string) Input {
+	return Input(strings.TrimSpace(s))
+}
+
+// Command returns all characters up to the first encountered space in an input string.  This is to be interpretted
+// as the command for the rest of the input.
+func (i Input) Command() string {
+	idx := strings.Index(string(i), " ")
+	if idx == -1 {
+		return string(i)
+	}
+	return string(i[:idx])
+}
+
+// Returns all text after the initial command.  This may be interpretted in any way an action deems appropriate.
+func (i Input) ArgString() string {
+	idx := strings.Index(string(i), " ")
+	if idx == -1 {
+		return ""
+	}
+	return string(i[idx+1:])
+}
+
+type AppState interface {
+	Init(context.Context) error
+	Update(context.Context, Input) error
+	View() string
+}
 
 func (a *App) Repl(ctx context.Context) error {
 	reader := bufio.NewReader(a.In)
-	if err := a.query(ctx); err != nil {
+
+	galleries := &galleriesState{App: a}
+	scenes := &scenesState{App: a}
+	var current AppState = scenes
+
+	if err := current.Init(ctx); err != nil {
 		return err
 	}
-	a.Renderer.ContentList(a)
 
 	for {
-		a.Renderer.Prompt(a)
+		fmt.Fprintf(a.Out, current.View())
+		fmt.Fprintf(a.Out, ui.Prompt())
 
-		text, err := reader.ReadString('\n')
+		line, err := reader.ReadString('\n')
 		if err != nil {
 			return err
 		}
-		line := strings.TrimSpace(text)
-		var command string
-		tokens := strings.Split(line, " ")
-		if len(tokens) > 0 {
-			command = tokens[0]
-		}
+		in := NewInput(line)
 
-		switch command {
-		case "":
-			if a.Opened() {
-				if a.Skip(1) {
-					a.query(ctx)
-				}
-			}
-			a.Renderer.ContentRow(a)
-			if err := a.Opener(a.Current()); err != nil {
-				return err
-			}
-		case "open", "o":
-			a.Renderer.ContentRow(a)
-			if err := a.Opener(a.Current()); err != nil {
-				return err
-			}
+		switch in.Command() {
 		case "scenes", "s":
-			a.SetMode(FilterModeScenes)
-			if err := a.query(ctx); err != nil {
-				return fmt.Errorf("scenes: %w", err)
-			}
-			a.Renderer.ContentList(a)
-		case "galleries", "g":
-			a.SetMode(FilterModeGalleries)
-			if err := a.query(ctx); err != nil {
-				return fmt.Errorf("galleries: %w", err)
-			}
-			a.Renderer.ContentList(a)
-		case "filter", "f":
-			a.SetQuery(strings.Join(tokens[1:], " "))
-			a.query(ctx)
-			a.Renderer.ContentList(a)
-		case "random", "r":
-			a.SetSort(stash.RandomSort())
-			a.query(ctx)
-			a.Renderer.ContentList(a)
-		case "list":
-			a.Renderer.ContentList(a)
-		case "reset":
-			a.SetMode(a.mode)
-			if err := a.query(ctx); err != nil {
-				return fmt.Errorf("scenes: %w", err)
-			}
-			a.Renderer.ContentList(a)
-		case "refresh":
-			if err := a.query(ctx); err != nil {
+			current = scenes
+			if err := current.Init(ctx); err != nil {
 				return err
 			}
-			a.Renderer.ContentList(a)
-		case "organised", "organized":
-			organised := true
-			if a.mode == FilterModeScenes {
-				a.scenesState.contentFilter.Organized = &organised
-			} else {
-				a.galleriesState.contentFilter.Organized = &organised
+			continue
+		case "galleries", "g":
+			current = galleries
+			if err := current.Init(ctx); err != nil {
+				return err
 			}
-			a.query(ctx)
-			a.Renderer.ContentList(a)
-		case "more":
-			if a.mode == FilterModeScenes {
-				var ids []string
-				for _, p := range a.scenesState.Current().(stash.Scene).Performers {
-					ids = append(ids, p.ID)
-				}
-				a.scenesState.contentFilter.Performers = &stash.MultiCriterion{
-					Value:    ids,
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			} else {
-				var ids []string
-				for _, g := range a.galleriesState.Current().(stash.Gallery).Performers {
-					ids = append(ids, g.ID)
-				}
-				a.galleriesState.contentFilter.Performers = &stash.MultiCriterion{
-					Value:    ids,
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			a.query(ctx)
-			a.Renderer.ContentList(a)
-		case "stash":
-			var p string
-			switch a.mode {
-			case FilterModeScenes:
-				p = path.Join("scenes", a.scenesState.Current().(stash.Scene).ID)
-			case FilterModeGalleries:
-				p = path.Join("galleries", a.galleriesState.Current().(stash.Gallery).ID)
-			}
-			a.Opener(p)
+			continue
 		case "exit":
 			return nil
 		}
-	}
-}
 
-func (a *App) query(ctx context.Context) (err error) {
-	close := ui.Spinner(a.Renderer.Out)
-	defer close()
-
-	switch a.mode {
-	case FilterModeScenes:
-		a.scenesState.content, a.scenesState.total, err = a.Scenes(ctx, a.scenesState.filter, a.scenesState.contentFilter)
-	case FilterModeGalleries:
-		a.galleriesState.content, a.galleriesState.total, err = a.Galleries(ctx, a.galleriesState.filter, a.galleriesState.contentFilter)
-	default:
-		panic("mode not set")
+		if err := current.Update(ctx, in); err != nil {
+			return err
+		}
 	}
-	return err
 }
