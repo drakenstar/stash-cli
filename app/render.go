@@ -11,13 +11,15 @@ import (
 )
 
 var (
-	ColorGreen    = lipgloss.Color("#32CD32")
-	ColorYellow   = lipgloss.Color("#FAD689")
-	ColorPurple   = lipgloss.Color("#B39DDC")
-	ColorGrey     = lipgloss.Color("#D3D3D3")
-	ColorOffWhite = lipgloss.Color("#FAF0E6")
-	ColorSalmon   = lipgloss.Color("#FF9C8A")
-	ColorBlue     = lipgloss.Color("#A2D2FF")
+	ColorGreen       = lipgloss.Color("#32CD32")
+	ColorYellow      = lipgloss.Color("#FAD689")
+	ColorPurple      = lipgloss.Color("#B39DDC")
+	ColorGrey        = lipgloss.Color("#D3D3D3")
+	ColorOffWhite    = lipgloss.Color("#FAF0E6")
+	ColorSalmon      = lipgloss.Color("#FF9C8A")
+	ColorBlue        = lipgloss.Color("#A2D2FF")
+	ColorRowSelected = lipgloss.Color("#28664A")
+	ColorStatusLine  = lipgloss.Color("#483D8B")
 
 	check = lipgloss.NewStyle().
 		Foreground(ColorGreen).
@@ -29,21 +31,13 @@ var (
 		Render()
 )
 
-type scenePresenter struct {
-	stash.Scene
-}
-
-func (s scenePresenter) title() string {
+func sceneTitle(s stash.Scene) string {
 	if s.Title != "" {
 		return s.Title
 	}
 	fileName := filepath.Base(s.FilePath())
 	parentDir := filepath.Base(filepath.Dir(s.FilePath()))
 	return filepath.Join(parentDir, fileName)
-}
-
-func (s scenePresenter) performerList() string {
-	return performerList(s.Performers)
 }
 
 func performerList(performers []stash.Performer) string {
@@ -64,20 +58,12 @@ func performerList(performers []stash.Performer) string {
 	return strings.Join(names, "\n")
 }
 
-func (s scenePresenter) tagList() string {
-	return tagList(s.Tags)
-}
-
 func tagList(tags []stash.Tag) string {
 	var tagStrings []string
 	for _, t := range tags {
 		tagStrings = append(tagStrings, t.Name)
 	}
 	return strings.Join(tagStrings, ", ")
-}
-
-func (s scenePresenter) organised() string {
-	return organised(s.Organized)
 }
 
 func organised(o bool) string {
@@ -87,11 +73,11 @@ func organised(o bool) string {
 	return circle
 }
 
-func (s scenePresenter) details() string {
-	return strings.ReplaceAll(s.Details, "\n", " ")
+func details(details string) string {
+	return strings.ReplaceAll(details, "\n", " ")
 }
 
-func (s scenePresenter) size() string {
+func sceneSize(s stash.Scene) string {
 	if len(s.Files) > 0 {
 		return humanBytes(s.Files[0].Size)
 	}
@@ -116,33 +102,13 @@ func humanBytes(bytes int64) string {
 	}
 }
 
-type galleryPresenter struct {
-	stash.Gallery
-}
-
-func (g galleryPresenter) organised() string {
-	return organised(g.Organized)
-}
-
-func (g galleryPresenter) title() string {
+func galleryTitle(g stash.Gallery) string {
 	if g.Title != "" {
 		return g.Title
 	}
 	return filepath.Base(g.FilePath())
 }
 
-func (g galleryPresenter) size() string {
+func gallerySize(g stash.Gallery) string {
 	return strconv.Itoa(g.ImageCount)
-}
-
-func (g galleryPresenter) performerList() string {
-	return performerList(g.Performers)
-}
-
-func (g galleryPresenter) tagList() string {
-	return tagList(g.Tags)
-}
-
-func (g galleryPresenter) details() string {
-	return strings.ReplaceAll(g.Details, "\n", " ")
 }

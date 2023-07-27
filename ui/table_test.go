@@ -20,7 +20,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 20,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: false}},
-			rows:     []Row{{"content"}},
+			rows:     []Row{{Values: []string{"content"}}},
 			expected: []int{7},
 		},
 		{
@@ -28,7 +28,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 20,
 			padding:  2,
 			cols:     []Column{{Weight: 1, Flex: false}},
-			rows:     []Row{{"content"}},
+			rows:     []Row{{Values: []string{"content"}}},
 			expected: []int{7},
 		},
 		{
@@ -36,7 +36,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 20,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: true}},
-			rows:     []Row{{"content"}},
+			rows:     []Row{{Values: []string{"content"}}},
 			expected: []int{20},
 		},
 		{
@@ -44,7 +44,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 40,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: false}, {Weight: 0, Flex: false}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{7, 7},
 		},
 		{
@@ -52,7 +52,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 50,
 			padding:  2,
 			cols:     []Column{{Weight: 1, Flex: false}, {Weight: 2, Flex: false}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{7, 7},
 		},
 		{
@@ -60,7 +60,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 50,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: true}, {Weight: 0, Flex: true}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{24, 24},
 		},
 		{
@@ -68,7 +68,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 60,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: false}, {Weight: 2, Flex: false}, {Weight: 0, Flex: true}},
-			rows:     []Row{{"content", "content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content", "content"}}},
 			expected: []int{7, 7, 42},
 		},
 		{
@@ -76,7 +76,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 50,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: false}, {Weight: 0, Flex: false}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{7, 7},
 		},
 		{
@@ -84,7 +84,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 10,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: false}, {Weight: 0, Flex: false}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{7, 7},
 		},
 		{
@@ -92,7 +92,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 50,
 			padding:  2,
 			cols:     []Column{{Weight: 1, Flex: false}, {Weight: 2, Flex: false}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{7, 7},
 		},
 		{
@@ -100,7 +100,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 10,
 			padding:  2,
 			cols:     []Column{{Weight: 1, Flex: false}, {Weight: 2, Flex: false}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{3, 6},
 		},
 		{
@@ -108,7 +108,7 @@ func TestCalculateColumnWidths(t *testing.T) {
 			maxWidth: 5,
 			padding:  2,
 			cols:     []Column{{Weight: 0, Flex: true}, {Weight: 0, Flex: true}},
-			rows:     []Row{{"content", "content"}},
+			rows:     []Row{{Values: []string{"content", "content"}}},
 			expected: []int{1, 1},
 		},
 	}

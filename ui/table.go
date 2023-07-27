@@ -21,7 +21,10 @@ type Column struct {
 	Flex   bool
 }
 
-type Row []string
+type Row struct {
+	Values     []string
+	Background *lipgloss.Color
+}
 
 type Table struct {
 	Cols []Column
@@ -34,7 +37,9 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 	for x, row := range rows {
 		var cellStrings []string
 		rowStyle := lipgloss.NewStyle()
-		if x%2 == 0 {
+		if row.Background != nil {
+			rowStyle = rowStyle.Background(row.Background)
+		} else if x%2 == 0 {
 			rowStyle = rowStyle.Background(lipgloss.Color("#000000"))
 		}
 
@@ -55,7 +60,7 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 				style = style.Bold(col.Bold)
 			}
 
-			cellStrings = append(cellStrings, style.Render(truncate(row[i], widths[i], "…")))
+			cellStrings = append(cellStrings, style.Render(truncate(row.Values[i], widths[i], "…")))
 		}
 
 		rowStrings = append(rowStrings, rowStyle.MaxWidth(maxWidth).Render(wordwrapFix(lipgloss.JoinHorizontal(lipgloss.Top, cellStrings...))))
@@ -116,10 +121,10 @@ func calculateColumnWidths(maxWidth, padding int, cols []Column, rows []Row) []i
 		}
 
 		for _, row := range rows {
-			if len(row) != len(cols) {
-				panic(fmt.Errorf("row does not have same number of elements (%d) as column definitions (%d)", len(row), len(cols)))
+			if len(row.Values) != len(cols) {
+				panic(fmt.Errorf("row does not have same number of elements (%d) as column definitions (%d)", len(row.Values), len(cols)))
 			}
-			widths[i] = max(widths[i], lipgloss.Width(row[i]))
+			widths[i] = max(widths[i], lipgloss.Width(row.Values[i]))
 		}
 
 		if c.Weight == 0 {

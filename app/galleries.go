@@ -113,18 +113,21 @@ func (s *galleriesState) Update(ctx context.Context, in Input) error {
 
 func (s *galleriesState) View() string {
 	var rows []ui.Row
-	for _, s := range s.galleries {
-		gallery := galleryPresenter{s}
-		rows = append(rows, []string{
-			gallery.organised(),
-			gallery.Date,
-			gallery.title(),
-			gallery.size(),
-			gallery.Studio.Name,
-			gallery.performerList(),
-			gallery.tagList(),
-			gallery.details(),
-		})
+	for i, gallery := range s.galleries {
+		rows = append(rows, ui.Row{
+			Values: []string{
+				organised(gallery.Organized),
+				gallery.Date,
+				galleryTitle(gallery),
+				gallerySize(gallery),
+				gallery.Studio.Name,
+				performerList(gallery.Performers),
+				tagList(gallery.Tags),
+				details(gallery.Details),
+			}})
+		if s.Index == i {
+			rows[i].Background = &ColorRowSelected
+		}
 	}
 	return galleryTable.Render(s.Out.ScreenWidth(), rows)
 }

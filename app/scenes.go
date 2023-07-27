@@ -113,18 +113,22 @@ func (s *scenesState) Update(ctx context.Context, in Input) error {
 
 func (s *scenesState) View() string {
 	var rows []ui.Row
-	for _, s := range s.scenes {
-		scene := scenePresenter{s}
-		rows = append(rows, []string{
-			scene.organised(),
-			scene.Date,
-			scene.title(),
-			scene.size(),
-			scene.Studio.Name,
-			scene.performerList(),
-			scene.tagList(),
-			scene.details(),
+	for i, scene := range s.scenes {
+		rows = append(rows, ui.Row{
+			Values: []string{
+				organised(scene.Organized),
+				scene.Date,
+				sceneTitle(scene),
+				sceneSize(scene),
+				scene.Studio.Name,
+				performerList(scene.Performers),
+				tagList(scene.Tags),
+				details(scene.Details),
+			},
 		})
+		if s.Index == i {
+			rows[i].Background = &ColorRowSelected
+		}
 	}
 	return sceneTable.Render(s.Out.ScreenWidth(), rows)
 }
