@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -82,4 +83,10 @@ func (p *paginator[T]) Reset() {
 	p.page = 1
 	p.opened = false
 	p.items = nil
+}
+
+func (p paginator[T]) String() string {
+	firstItem := (p.page-1)*p.perPage + 1
+	lastItem := p.page * p.perPage
+	return fmt.Sprintf("%d-%d of %d", firstItem, lastItem, p.total)
 }

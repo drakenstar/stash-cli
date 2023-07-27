@@ -118,10 +118,28 @@ func (s *scenesState) View() string {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
+
+	leftStatus := []string{
+		"scenes",
+		s.paginator.String(),
+		sort(s.sort, s.sortDirection),
+	}
+	rightStatus := []string{}
+	if s.query != "" {
+		rightStatus = append(rightStatus, "\""+s.query+"\"")
+	}
+	if s.sceneFilter.Organized != nil {
+		if *s.sceneFilter.Organized {
+			rightStatus = append(rightStatus, "organized")
+		} else {
+			rightStatus = append(rightStatus, "not organized")
+		}
+	}
+
 	screenWidth := s.Out.ScreenWidth()
 	return lipgloss.JoinVertical(0,
 		sceneTable.Render(screenWidth, rows),
-		s.renderStatusBar(screenWidth),
+		statusBar.Render(screenWidth, leftStatus, rightStatus),
 	)
 }
 
@@ -135,12 +153,6 @@ func (s *scenesState) update(ctx context.Context) (err error) {
 	}
 	s.items, s.total, err = s.Scenes(ctx, f, s.sceneFilter)
 	return err
-}
-
-func (s *scenesState) renderStatusBar(width int) string {
-	return ui.StatusRow(width, []string{
-		"scenes",
-	})
 }
 
 var (

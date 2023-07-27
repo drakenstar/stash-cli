@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/stash"
+	"github.com/drakenstar/stash-cli/ui"
 )
 
 var (
@@ -19,7 +20,9 @@ var (
 	ColorSalmon      = lipgloss.Color("#FF9C8A")
 	ColorBlue        = lipgloss.Color("#A2D2FF")
 	ColorRowSelected = lipgloss.Color("#28664A")
-	ColorStatusLine  = lipgloss.Color("#483D8B")
+
+	ColorStatusBar  = lipgloss.Color("#2B2A60")
+	ColorStatusCell = lipgloss.Color("#483D8B")
 
 	check = lipgloss.NewStyle().
 		Foreground(ColorGreen).
@@ -29,6 +32,11 @@ var (
 		Foreground(ColorGrey).
 		SetString("○").
 		Render()
+
+	statusBar = ui.StatusBar{
+		Background:     ColorStatusBar,
+		CellBackground: ColorStatusCell,
+	}
 )
 
 func sceneTitle(s stash.Scene) string {
@@ -111,4 +119,19 @@ func galleryTitle(g stash.Gallery) string {
 
 func gallerySize(g stash.Gallery) string {
 	return strconv.Itoa(g.ImageCount)
+}
+
+func sort(order, direction string) string {
+	var sort string
+	if strings.HasPrefix(order, stash.SortRandomPrefix) {
+		sort = "random"
+	} else {
+		sort = order
+	}
+	if direction == stash.SortDirectionAsc {
+		sort += " ▲"
+	} else {
+		sort += " ▼"
+	}
+	return sort
 }

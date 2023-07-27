@@ -117,7 +117,29 @@ func (s *galleriesState) View() string {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
-	return galleryTable.Render(s.Out.ScreenWidth(), rows)
+
+	leftStatus := []string{
+		"galleries",
+		s.paginator.String(),
+		sort(s.sort, s.sortDirection),
+	}
+	rightStatus := []string{}
+	if s.query != "" {
+		rightStatus = append(rightStatus, "\""+s.query+"\"")
+	}
+	if s.galleryFilter.Organized != nil {
+		if *s.galleryFilter.Organized {
+			rightStatus = append(rightStatus, "organized")
+		} else {
+			rightStatus = append(rightStatus, "not organized")
+		}
+	}
+
+	screenWidth := s.Out.ScreenWidth()
+	return lipgloss.JoinVertical(0,
+		galleriesTable.Render(screenWidth, rows),
+		statusBar.Render(screenWidth, leftStatus, rightStatus),
+	)
 }
 
 func (s *galleriesState) update(ctx context.Context) (err error) {
@@ -133,7 +155,7 @@ func (s *galleriesState) update(ctx context.Context) (err error) {
 }
 
 var (
-	galleryTable = &ui.Table{
+	galleriesTable = &ui.Table{
 		Cols: []ui.Column{
 			{
 				Name: "Organised",
