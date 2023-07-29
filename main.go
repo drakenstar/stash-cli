@@ -2,44 +2,28 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/drakenstar/stash-cli/app"
+	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/hasura/go-graphql-client"
 	"golang.org/x/term"
 )
 
+const defaultConfigFile = ".stash-cli.json"
+
 func main() {
-	var cfg Config
+	cfg := loadConfig()
 
-	flag.BoolVar(&cfg.Debug, "debug", false, "enable HTTP debugging output")
-	flag.Parse()
-
-	stashInstance := flag.Arg(0)
-	if stashInstance == "" {
-		usage()
+	if cfg.Debug {
+		fmt.Printf("Connecting to stash instance %s\n", cfg.GraphURL())
 	}
-
-	stashInstanceURL, err := url.Parse(stashInstance)
-	if err != nil {
-		fatal(err)
-	}
-	cfg.StashInstance = *stashInstanceURL
-
-	cfg.PathMappings = map[string]string{
-		"/library": "/Volumes/Media/Library",
-	}
-	cfg.OpenCommands.Scene = "open -a VLC"
-	cfg.OpenCommands.Gallery = "open -a Xee³"
-
-	fmt.Printf("Connecting to stash instance %s\n", cfg.GraphURL())
 
 	var httpClient graphql.Doer = http.DefaultClient
 	if cfg.Debug {
@@ -97,4 +81,24 @@ type output struct {
 func (o output) ScreenWidth() int {
 	screenWidth, _, _ := term.GetSize(int(o.Fd()))
 	return screenWidth
+}
+
+func loadConfig() *config.Config {
+	var c config.Config
+
+	home, err := os.UserHomeDir()
+	fatalOnErr(err)
+	configPath := filepath.Join(home, defaultConfigFile)
+	if _, err := os.Stat(configPath); err == nil {
+		fmt.Printf("Loading configuration from '%s'\n", configPath)
+		f, err := os.Open(configPath)
+		fatalOnErr(err)
+		config.FromFile(&c, f)
+	}
+	config.FromArgs(&c, os.Args[1:])
+	if c.StashInstance == nil {
+		usage()
+	}
+
+	return &c
 }

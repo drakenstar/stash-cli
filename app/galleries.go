@@ -5,13 +5,14 @@ import (
 	"path"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
 
 type GalleriesState struct {
 	Stash  stash.Stash
-	Opener Opener
+	Opener config.Opener
 
 	*paginator[stash.Gallery]
 

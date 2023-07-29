@@ -16,8 +16,6 @@ type App struct {
 	States map[string]AppState
 }
 
-type Opener func(content any) error
-
 type Output interface {
 	io.Writer
 	ScreenWidth() int
