@@ -30,14 +30,16 @@
 - filter history
 - interactive ui that does not block while loading
 ✅ display loading indicator when querying
-- file path mappings are configurable
-- opening commands are configurable
-- configuration loading from file
+✅ file path mappings are configurable
+✅ opening commands are configurable
+✅ configuration loading from file
 - the default filtering should respect the configured default filters for that type
 - record scene playing count
+- output names of filtered entities instead of just ids or generically "performers"
 
 # Bugs & Refactors
 ✅ Refactor resetting of content state
 ✅ Refactor app command setup
 ✅ Table lines with emoji have incorrect width (generally -1 per emoji)
 - Should not exit on open error
+- Status line can likely have a wrapper to cater for both scenes and galleries
