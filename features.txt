@@ -36,6 +36,7 @@
 - the default filtering should respect the configured default filters for that type
 - record scene playing count
 - output names of filtered entities instead of just ids or generically "performers"
+- error reporting in bubbletea UI setup
 
 # Bugs & Refactors
 ✅ Refactor resetting of content state

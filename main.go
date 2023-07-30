@@ -39,17 +39,11 @@ func main() {
 
 	app := app.New([]app.AppModelMapping{
 		{
-			Model: &app.ScenesModel{
-				Stash:  stash,
-				Opener: opener,
-			},
+			Model:    app.NewScenesModel(stash, opener),
 			Commands: []string{"scenes", "s"},
 		},
 		{
-			Model: &app.GalleriesModel{
-				Stash:  stash,
-				Opener: opener,
-			},
+			Model:    app.NewGalleriesModel(stash, opener),
 			Commands: []string{"galleries", "g"},
 		},
 	})

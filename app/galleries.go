@@ -4,6 +4,7 @@ import (
 	"context"
 	"path"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/config"
@@ -16,6 +17,8 @@ type GalleriesModel struct {
 	Opener config.Opener
 
 	paginator[stash.Gallery]
+	loading bool
+	spinner spinner.Model
 
 	query         string
 	sort          string
@@ -23,6 +26,17 @@ type GalleriesModel struct {
 	galleryFilter stash.GalleryFilter
 
 	screen Size
+}
+
+func NewGalleriesModel(stash stash.Stash, opener config.Opener) *GalleriesModel {
+	s := &GalleriesModel{
+		Stash:  stash,
+		Opener: opener,
+	}
+
+	s.spinner = spinner.New(spinner.WithSpinner(spinner.Globe))
+
+	return s
 }
 
 func (s *GalleriesModel) Init(size Size) tea.Cmd {
@@ -37,7 +51,10 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 
 	s.screen = size
 
-	return s.update
+	return tea.Batch(
+		s.doUpdateCmd(),
+		spinner.Tick,
+	)
 }
 
 func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
@@ -51,7 +68,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		switch msg.Command() {
 		case "":
 			if s.Next() {
-				return &s, s.update
+				return &s, s.doUpdateCmd()
 			}
 			s.Opener(s.Current())
 
@@ -61,23 +78,23 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		case "filter", "f":
 			s.query = msg.ArgString()
 			s.Reset()
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "random", "r":
 			s.sort = stash.RandomSort()
 			s.Reset()
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "reset":
 			return &s, s.Init(s.screen)
 
 		case "refresh":
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "organised", "organized":
 			organised := true
 			s.galleryFilter.Organized = &organised
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "more":
 			var ids []string
@@ -89,18 +106,25 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 				Modifier: stash.CriterionModifierIncludes,
 			}
 			s.Reset()
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "stash":
 			s.Opener(path.Join("galleries", s.Current().ID))
 		}
 
 	case galleriesMessage:
+		s.loading = false
 		if msg.err != nil {
 			// TODO handle update error somehow
 		}
 		s.items, s.total = msg.galleries, msg.total
+
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		s.spinner, cmd = s.spinner.Update(msg)
+		return &s, cmd
 	}
+
 	return &s, nil
 }
 
@@ -123,10 +147,19 @@ func (s GalleriesModel) View() string {
 		}
 	}
 
-	leftStatus := []string{
-		"📷",
-		s.paginator.String(),
-		sort(s.sort, s.sortDirection),
+	var leftStatus []string
+	if s.loading {
+		leftStatus = []string{
+			s.spinner.View(),
+			"loading",
+			sort(s.sort, s.sortDirection),
+		}
+	} else {
+		leftStatus = []string{
+			"📷",
+			s.paginator.String(),
+			sort(s.sort, s.sortDirection),
+		}
 	}
 	rightStatus := []string{}
 	if s.query != "" {
@@ -152,17 +185,20 @@ type galleriesMessage struct {
 	err       error
 }
 
-func (s *GalleriesModel) update() tea.Msg {
-	f := stash.FindFilter{
-		Query:     s.query,
-		Page:      s.page,
-		PerPage:   s.perPage,
-		Sort:      s.sort,
-		Direction: s.sortDirection,
+func (s *GalleriesModel) doUpdateCmd() tea.Cmd {
+	s.loading = true
+	return func() tea.Msg {
+		f := stash.FindFilter{
+			Query:     s.query,
+			Page:      s.page,
+			PerPage:   s.perPage,
+			Sort:      s.sort,
+			Direction: s.sortDirection,
+		}
+		var g galleriesMessage
+		g.galleries, g.total, g.err = s.Stash.Galleries(context.Background(), f, s.galleryFilter)
+		return g
 	}
-	var g galleriesMessage
-	g.galleries, g.total, g.err = s.Stash.Galleries(context.Background(), f, s.galleryFilter)
-	return g
 }
 
 var (

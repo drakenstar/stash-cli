@@ -4,6 +4,7 @@ import (
 	"context"
 	"path"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/config"
@@ -16,6 +17,8 @@ type ScenesModel struct {
 	Opener config.Opener
 
 	paginator[stash.Scene]
+	loading bool
+	spinner spinner.Model
 
 	query         string
 	sort          string
@@ -23,6 +26,17 @@ type ScenesModel struct {
 	sceneFilter   stash.SceneFilter
 
 	screen Size
+}
+
+func NewScenesModel(stash stash.Stash, opener config.Opener) *ScenesModel {
+	s := &ScenesModel{
+		Stash:  stash,
+		Opener: opener,
+	}
+
+	s.spinner = spinner.New(spinner.WithSpinner(spinner.Globe))
+
+	return s
 }
 
 func (s *ScenesModel) Init(size Size) tea.Cmd {
@@ -34,7 +48,10 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 
 	s.sceneFilter = stash.SceneFilter{}
 	s.Reset()
-	return s.update
+	return tea.Batch(
+		s.doUpdateCmd(),
+		spinner.Tick,
+	)
 }
 
 func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
@@ -48,7 +65,7 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		switch msg.Command() {
 		case "":
 			if s.Next() {
-				return &s, s.update
+				return &s, s.doUpdateCmd()
 			}
 			s.Opener(s.Current())
 
@@ -58,23 +75,23 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		case "filter", "f":
 			s.query = msg.ArgString()
 			s.Reset()
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "random", "r":
 			s.sort = stash.RandomSort()
 			s.Reset()
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "reset":
 			return &s, s.Init(s.screen)
 
 		case "refresh":
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "organised", "organized":
 			organised := true
 			s.sceneFilter.Organized = &organised
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "more":
 			var ids []string
@@ -86,17 +103,23 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 				Modifier: stash.CriterionModifierIncludes,
 			}
 			s.Reset()
-			return &s, s.update
+			return &s, s.doUpdateCmd()
 
 		case "stash":
 			s.Opener(path.Join("scenes", s.Current().ID))
 		}
 
 	case scenesMessage:
+		s.loading = false
 		if msg.err != nil {
 			// TODO handle update error somehow
 		}
 		s.items, s.total = msg.scenes, msg.total
+
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		s.spinner, cmd = s.spinner.Update(msg)
+		return &s, cmd
 	}
 	return &s, nil
 }
@@ -121,10 +144,19 @@ func (s ScenesModel) View() string {
 		}
 	}
 
-	leftStatus := []string{
-		"🎬",
-		s.paginator.String(),
-		sort(s.sort, s.sortDirection),
+	var leftStatus []string
+	if s.loading {
+		leftStatus = []string{
+			s.spinner.View(),
+			"loading",
+			sort(s.sort, s.sortDirection),
+		}
+	} else {
+		leftStatus = []string{
+			"🎬",
+			s.paginator.String(),
+			sort(s.sort, s.sortDirection),
+		}
 	}
 	rightStatus := []string{}
 	if s.query != "" {
@@ -153,17 +185,21 @@ type scenesMessage struct {
 	err    error
 }
 
-func (s *ScenesModel) update() tea.Msg {
-	f := stash.FindFilter{
-		Query:     s.query,
-		Page:      s.page,
-		PerPage:   s.perPage,
-		Sort:      s.sort,
-		Direction: s.sortDirection,
+// doUpdateCmd sets initial loading state then returns a tea.Cmd to execute loading of scenes.
+func (s *ScenesModel) doUpdateCmd() tea.Cmd {
+	s.loading = true
+	return func() tea.Msg {
+		f := stash.FindFilter{
+			Query:     s.query,
+			Page:      s.page,
+			PerPage:   s.perPage,
+			Sort:      s.sort,
+			Direction: s.sortDirection,
+		}
+		var m scenesMessage
+		m.scenes, m.total, m.err = s.Stash.Scenes(context.Background(), f, s.sceneFilter)
+		return m
 	}
-	var m scenesMessage
-	m.scenes, m.total, m.err = s.Stash.Scenes(context.Background(), f, s.sceneFilter)
-	return m
 }
 
 var (
