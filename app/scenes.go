@@ -142,8 +142,8 @@ func (s ScenesModel) View() string {
 	}
 
 	return lipgloss.JoinVertical(0,
-		sceneTable.Render(s.screen.Width, rows),
 		statusBar.Render(s.screen.Width, leftStatus, rightStatus),
+		sceneTable.Render(s.screen.Width, rows),
 	)
 }
 

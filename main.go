@@ -54,7 +54,10 @@ func main() {
 		},
 	})
 
-	p := tea.NewProgram(app)
+	p := tea.NewProgram(
+		app,
+		// tea.WithAltScreen(), TODO buggy with emoji atm
+	)
 	if _, err := p.Run(); err != nil {
 		fatal(err)
 	}

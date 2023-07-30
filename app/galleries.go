@@ -141,8 +141,8 @@ func (s GalleriesModel) View() string {
 	}
 
 	return lipgloss.JoinVertical(0,
-		galleriesTable.Render(s.screen.Width, rows),
 		statusBar.Render(s.screen.Width, leftStatus, rightStatus),
+		galleriesTable.Render(s.screen.Width, rows),
 	)
 }
 

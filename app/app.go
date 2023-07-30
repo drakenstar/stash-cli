@@ -111,8 +111,11 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a Model) View() string {
+	viewportStyle := lipgloss.NewStyle().
+		Width(a.screen.Width).
+		Height(a.screen.Height - 2)
 	return lipgloss.JoinVertical(0,
-		a.models[a.active].View(),
+		viewportStyle.Render(a.models[a.active].View()),
 		a.text.View(),
 	)
 }
