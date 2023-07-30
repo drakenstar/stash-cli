@@ -1,31 +1,134 @@
 package app
 
 import (
-	"bufio"
-	"context"
-	"fmt"
-	"io"
 	"strings"
 
-	"github.com/drakenstar/stash-cli/ui"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-type App struct {
-	In     io.Reader
-	Out    Output
-	States map[string]AppState
+// AppModel is a subview of the App application, and operates similarly to a tea.Model.
+type AppModel interface {
+	// Provided the size of the current area the AppModel is to render within. Should return any initialisation
+	// commands to execute.
+	Init(Size) tea.Cmd
+	// Handle any tea.Msg that the app.Model passes on.  Should by a immutable operation and return a new AppModel
+	// with the new state after handling the message.
+	Update(tea.Msg) (AppModel, tea.Cmd)
+	// Normal tea.Model:View method, should render the current state of the view as a string.
+	View() string
 }
 
-type Output interface {
-	io.Writer
-	ScreenWidth() int
+// AppModelMapping maps a given AppModel to the commands that to map to it's activation.
+type AppModelMapping struct {
+	Model    AppModel
+	Commands []string
+}
+
+type Model struct {
+	text            textinput.Model
+	models          []AppModel
+	commandMappings map[string]int
+	active          int
+
+	screen Size
+	foo    AppModel
+}
+
+// New returns a new Model with the AppModels. The first AppModel in the slice will be the active one.  A panic will
+// occur if no AppModels are given.  Any duplicate command mappings will just get overwritten with last winning.
+func New(models []AppModelMapping) *Model {
+	if len(models) == 0 {
+		panic("must provide at least a single AppModel to run App")
+	}
+
+	a := new(Model)
+
+	a.commandMappings = make(map[string]int)
+	for i, m := range models {
+		a.models = append(a.models, m.Model)
+		for _, cmd := range m.Commands {
+			a.commandMappings[cmd] = i
+		}
+	}
+
+	a.text = textinput.New()
+	a.text.Focus()
+
+	return a
+}
+
+func (a Model) Init() tea.Cmd {
+	return tea.Batch(
+		textinput.Blink,
+		a.models[a.active].Init(a.screen),
+	)
+}
+
+func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			return a, tea.Quit
+
+		case tea.KeyEnter:
+			cmd := NewInputCmd(a.text.Value())
+			a.text.SetValue("")
+			return a, cmd
+		}
+
+	case Input:
+		cmd := msg.Command()
+		if i, ok := a.commandMappings[cmd]; ok && i != a.active {
+			a.active = i
+			return a, a.models[a.active].Init(a.screen)
+		}
+
+		if cmd == "exit" {
+			return a, tea.Quit
+		}
+
+	case tea.WindowSizeMsg:
+		a.screen = Size{
+			Width:  msg.Width,
+			Height: msg.Height,
+		}
+	}
+
+	a.text, cmd = a.text.Update(msg)
+	cmds = append(cmds, cmd)
+
+	next, cmd := a.models[a.active].Update(msg)
+	a.models[a.active] = next
+	cmds = append(cmds, cmd)
+
+	return a, tea.Batch(cmds...)
+}
+
+func (a Model) View() string {
+	return lipgloss.JoinVertical(0,
+		a.models[a.active].View(),
+		a.text.View(),
+	)
+}
+
+type Size struct {
+	Width  int
+	Height int
 }
 
 // Input represents a complete line of input from the user
 type Input string
 
-func NewInput(s string) Input {
-	return Input(strings.TrimSpace(s))
+func NewInputCmd(s string) tea.Cmd {
+	return func() tea.Msg {
+		return Input(strings.TrimSpace(s))
+	}
 }
 
 // Command returns all characters up to the first encountered space in an input string.  This is to be interpretted
@@ -45,48 +148,4 @@ func (i Input) ArgString() string {
 		return ""
 	}
 	return string(i[idx+1:])
-}
-
-type AppState interface {
-	Init(context.Context) error
-	Update(context.Context, Input) error
-	View(int) string
-}
-
-func (a *App) Run(ctx context.Context, initial AppState) error {
-	reader := bufio.NewReader(a.In)
-
-	current := initial
-
-	if err := current.Init(ctx); err != nil {
-		return err
-	}
-
-	for {
-		fmt.Fprintf(a.Out, current.View(a.Out.ScreenWidth()))
-		fmt.Fprintf(a.Out, ui.Prompt())
-
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		in := NewInput(line)
-		cmd := in.Command()
-
-		if s, ok := a.States[cmd]; ok {
-			current = s
-			if err := current.Init(ctx); err != nil {
-				return err
-			}
-			continue
-		}
-
-		if cmd == "exit" {
-			return nil
-		}
-
-		if err := current.Update(ctx, in); err != nil {
-			return err
-		}
-	}
 }

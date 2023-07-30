@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,11 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/drakenstar/stash-cli/app"
 	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/hasura/go-graphql-client"
-	"golang.org/x/term"
 )
 
 const defaultConfigFile = ".stash-cli.json"
@@ -38,23 +37,27 @@ func main() {
 		return exec.Command(name, args...).Run()
 	})
 
-	app := &app.App{
-		In:  os.Stdin,
-		Out: output{os.Stdout},
-		States: map[string]app.AppState{
-			"galleries": &app.GalleriesState{
+	app := app.New([]app.AppModelMapping{
+		{
+			Model: &app.ScenesModel{
 				Stash:  stash,
 				Opener: opener,
 			},
-			"scenes": &app.ScenesState{
-				Stash:  stash,
-				Opener: opener,
-			},
+			Commands: []string{"scenes", "s"},
 		},
-	}
-	ctx := context.Background()
+		{
+			Model: &app.GalleriesModel{
+				Stash:  stash,
+				Opener: opener,
+			},
+			Commands: []string{"galleries", "g"},
+		},
+	})
 
-	fatalOnErr(app.Run(ctx, app.States["scenes"]))
+	p := tea.NewProgram(app)
+	if _, err := p.Run(); err != nil {
+		fatal(err)
+	}
 }
 
 func usage() {
@@ -72,15 +75,6 @@ func fatalOnErr(err error) {
 		return
 	}
 	fatal(err)
-}
-
-type output struct {
-	*os.File
-}
-
-func (o output) ScreenWidth() int {
-	screenWidth, _, _ := term.GetSize(int(o.Fd()))
-	return screenWidth
 }
 
 func loadConfig() *config.Config {

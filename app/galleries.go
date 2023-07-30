@@ -4,25 +4,28 @@ import (
 	"context"
 	"path"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
 
-type GalleriesState struct {
+type GalleriesModel struct {
 	Stash  stash.Stash
 	Opener config.Opener
 
-	*paginator[stash.Gallery]
+	paginator[stash.Gallery]
 
 	query         string
 	sort          string
 	sortDirection string
 	galleryFilter stash.GalleryFilter
+
+	screen Size
 }
 
-func (s *GalleriesState) Init(ctx context.Context) error {
+func (s *GalleriesModel) Init(size Size) tea.Cmd {
 	s.paginator = NewPaginator[stash.Gallery](40)
 
 	s.query = ""
@@ -31,78 +34,77 @@ func (s *GalleriesState) Init(ctx context.Context) error {
 
 	s.galleryFilter = stash.GalleryFilter{}
 	s.Reset()
-	return s.update(ctx)
+
+	s.screen = size
+
+	return s.update
 }
 
-func (s *GalleriesState) Update(ctx context.Context, in Input) error {
-	switch in.Command() {
-	case "":
-		if s.Next() {
-			if err := s.update(ctx); err != nil {
-				return err
+func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		s.screen = Size{
+			Width:  msg.Width,
+			Height: msg.Height,
+		}
+	case Input:
+		switch msg.Command() {
+		case "":
+			if s.Next() {
+				return &s, s.update
 			}
-		}
-		if err := s.Opener(s.Current()); err != nil {
-			return err
+			s.Opener(s.Current())
+
+		case "open", "o":
+			s.Opener(s.Current())
+
+		case "filter", "f":
+			s.query = msg.ArgString()
+			s.Reset()
+			return &s, s.update
+
+		case "random", "r":
+			s.sort = stash.RandomSort()
+			s.Reset()
+			return &s, s.update
+
+		case "reset":
+			return &s, s.Init(s.screen)
+
+		case "refresh":
+			return &s, s.update
+
+		case "organised", "organized":
+			organised := true
+			s.galleryFilter.Organized = &organised
+			return &s, s.update
+
+		case "more":
+			var ids []string
+			for _, p := range s.Current().Performers {
+				ids = append(ids, p.ID)
+			}
+			s.galleryFilter.Performers = &stash.MultiCriterion{
+				Value:    ids,
+				Modifier: stash.CriterionModifierIncludes,
+			}
+			s.Reset()
+			return &s, s.update
+
+		case "stash":
+			s.Opener(path.Join("galleries", s.Current().ID))
 		}
 
-	case "open", "o":
-		if err := s.Opener(s.Current()); err != nil {
-			return err
+	case galleriesMessage:
+		if msg.err != nil {
+			// TODO handle update error somehow
 		}
-
-	case "filter", "f":
-		s.query = in.ArgString()
-		s.Reset()
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "random", "r":
-		s.sort = stash.RandomSort()
-		s.Reset()
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "reset":
-		if err := s.Init(ctx); err != nil {
-			return err
-		}
-
-	case "refresh":
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "organised", "organized":
-		organised := true
-		s.galleryFilter.Organized = &organised
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "more":
-		var ids []string
-		for _, p := range s.Current().Performers {
-			ids = append(ids, p.ID)
-		}
-		s.galleryFilter.Performers = &stash.MultiCriterion{
-			Value:    ids,
-			Modifier: stash.CriterionModifierIncludes,
-		}
-		s.Reset()
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "stash":
-		s.Opener(path.Join("galleries", s.Current().ID))
+		s.items, s.total = msg.galleries, msg.total
 	}
-	return nil
+	return &s, nil
 }
 
-func (s *GalleriesState) View(width int) string {
+func (s GalleriesModel) View() string {
 	var rows []ui.Row
 	for i, gallery := range s.items {
 		rows = append(rows, ui.Row{
@@ -139,12 +141,18 @@ func (s *GalleriesState) View(width int) string {
 	}
 
 	return lipgloss.JoinVertical(0,
-		galleriesTable.Render(width, rows),
-		statusBar.Render(width, leftStatus, rightStatus),
+		galleriesTable.Render(s.screen.Width, rows),
+		statusBar.Render(s.screen.Width, leftStatus, rightStatus),
 	)
 }
 
-func (s *GalleriesState) update(ctx context.Context) (err error) {
+type galleriesMessage struct {
+	galleries []stash.Gallery
+	total     int
+	err       error
+}
+
+func (s *GalleriesModel) update() tea.Msg {
 	f := stash.FindFilter{
 		Query:     s.query,
 		Page:      s.page,
@@ -152,8 +160,9 @@ func (s *GalleriesState) update(ctx context.Context) (err error) {
 		Sort:      s.sort,
 		Direction: s.sortDirection,
 	}
-	s.items, s.total, err = s.Stash.Galleries(ctx, f, s.galleryFilter)
-	return err
+	var g galleriesMessage
+	g.galleries, g.total, g.err = s.Stash.Galleries(context.Background(), f, s.galleryFilter)
+	return g
 }
 
 var (

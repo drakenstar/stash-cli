@@ -4,25 +4,28 @@ import (
 	"context"
 	"path"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
 
-type ScenesState struct {
+type ScenesModel struct {
 	Stash  stash.Stash
 	Opener config.Opener
 
-	*paginator[stash.Scene]
+	paginator[stash.Scene]
 
 	query         string
 	sort          string
 	sortDirection string
 	sceneFilter   stash.SceneFilter
+
+	screen Size
 }
 
-func (s *ScenesState) Init(ctx context.Context) error {
+func (s *ScenesModel) Init(size Size) tea.Cmd {
 	s.paginator = NewPaginator[stash.Scene](40)
 
 	s.query = ""
@@ -31,78 +34,74 @@ func (s *ScenesState) Init(ctx context.Context) error {
 
 	s.sceneFilter = stash.SceneFilter{}
 	s.Reset()
-	return s.update(ctx)
+	return s.update
 }
 
-func (s *ScenesState) Update(ctx context.Context, in Input) error {
-	switch in.Command() {
-	case "":
-		if s.Next() {
-			if err := s.update(ctx); err != nil {
-				return err
+func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		s.screen = Size{
+			Width:  msg.Width,
+			Height: msg.Height,
+		}
+	case Input:
+		switch msg.Command() {
+		case "":
+			if s.Next() {
+				return &s, s.update
 			}
-		}
-		if err := s.Opener(s.Current()); err != nil {
-			return err
+			s.Opener(s.Current())
+
+		case "open", "o":
+			s.Opener(s.Current())
+
+		case "filter", "f":
+			s.query = msg.ArgString()
+			s.Reset()
+			return &s, s.update
+
+		case "random", "r":
+			s.sort = stash.RandomSort()
+			s.Reset()
+			return &s, s.update
+
+		case "reset":
+			return &s, s.Init(s.screen)
+
+		case "refresh":
+			return &s, s.update
+
+		case "organised", "organized":
+			organised := true
+			s.sceneFilter.Organized = &organised
+			return &s, s.update
+
+		case "more":
+			var ids []string
+			for _, p := range s.Current().Performers {
+				ids = append(ids, p.ID)
+			}
+			s.sceneFilter.Performers = &stash.MultiCriterion{
+				Value:    ids,
+				Modifier: stash.CriterionModifierIncludes,
+			}
+			s.Reset()
+			return &s, s.update
+
+		case "stash":
+			s.Opener(path.Join("scenes", s.Current().ID))
 		}
 
-	case "open", "o":
-		if err := s.Opener(s.Current()); err != nil {
-			return err
+	case scenesMessage:
+		if msg.err != nil {
+			// TODO handle update error somehow
 		}
-
-	case "filter", "f":
-		s.query = in.ArgString()
-		s.Reset()
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "random", "r":
-		s.sort = stash.RandomSort()
-		s.Reset()
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "reset":
-		if err := s.Init(ctx); err != nil {
-			return err
-		}
-
-	case "refresh":
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "organised", "organized":
-		organised := true
-		s.sceneFilter.Organized = &organised
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "more":
-		var ids []string
-		for _, p := range s.Current().Performers {
-			ids = append(ids, p.ID)
-		}
-		s.sceneFilter.Performers = &stash.MultiCriterion{
-			Value:    ids,
-			Modifier: stash.CriterionModifierIncludes,
-		}
-		s.Reset()
-		if err := s.update(ctx); err != nil {
-			return err
-		}
-
-	case "stash":
-		s.Opener(path.Join("scenes", s.Current().ID))
+		s.items, s.total = msg.scenes, msg.total
 	}
-	return nil
+	return &s, nil
 }
 
-func (s *ScenesState) View(width int) string {
+func (s ScenesModel) View() string {
 	var rows []ui.Row
 	for i, scene := range s.items {
 		rows = append(rows, ui.Row{
@@ -143,12 +142,18 @@ func (s *ScenesState) View(width int) string {
 	}
 
 	return lipgloss.JoinVertical(0,
-		sceneTable.Render(width, rows),
-		statusBar.Render(width, leftStatus, rightStatus),
+		sceneTable.Render(s.screen.Width, rows),
+		statusBar.Render(s.screen.Width, leftStatus, rightStatus),
 	)
 }
 
-func (s *ScenesState) update(ctx context.Context) (err error) {
+type scenesMessage struct {
+	scenes []stash.Scene
+	total  int
+	err    error
+}
+
+func (s *ScenesModel) update() tea.Msg {
 	f := stash.FindFilter{
 		Query:     s.query,
 		Page:      s.page,
@@ -156,8 +161,9 @@ func (s *ScenesState) update(ctx context.Context) (err error) {
 		Sort:      s.sort,
 		Direction: s.sortDirection,
 	}
-	s.items, s.total, err = s.Stash.Scenes(ctx, f, s.sceneFilter)
-	return err
+	var m scenesMessage
+	m.scenes, m.total, m.err = s.Stash.Scenes(context.Background(), f, s.sceneFilter)
+	return m
 }
 
 var (

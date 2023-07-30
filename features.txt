@@ -43,3 +43,4 @@
 ✅ Table lines with emoji have incorrect width (generally -1 per emoji)
 - Should not exit on open error
 - Status line can likely have a wrapper to cater for both scenes and galleries
+- Empty paginator text should read something like "no results"
