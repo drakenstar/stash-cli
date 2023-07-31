@@ -121,6 +121,7 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		s.spinner, cmd = s.spinner.Update(msg)
 		return &s, cmd
 	}
+
 	return &s, nil
 }
 

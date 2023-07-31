@@ -37,6 +37,7 @@
 - record scene playing count
 - output names of filtered entities instead of just ids or generically "performers"
 - error reporting in bubbletea UI setup
+✅ ability to confirm actions taken with a multiple choice prompt
 
 # Bugs & Refactors
 ✅ Refactor resetting of content state
@@ -44,4 +45,4 @@
 ✅ Table lines with emoji have incorrect width (generally -1 per emoji)
 - Should not exit on open error
 - Status line can likely have a wrapper to cater for both scenes and galleries
-- Empty paginator text should read something like "no results"
+✅ Empty paginator text should read something like "no results"

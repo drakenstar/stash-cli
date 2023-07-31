@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/ui"
 )
 
 // AppModel is a subview of the App application, and operates similarly to a tea.Model.
@@ -27,13 +28,14 @@ type AppModelMapping struct {
 }
 
 type Model struct {
-	text            textinput.Model
 	models          []AppModel
 	commandMappings map[string]int
 	active          int
 
 	screen Size
-	foo    AppModel
+
+	text         textinput.Model
+	confirmation *ui.Confirmation
 }
 
 // New returns a new Model with the AppModels. The first AppModel in the slice will be the active one.  A panic will
@@ -73,18 +75,27 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyCtrlC:
 			return a, tea.Quit
 
+		case tea.KeyEsc:
+			if a.confirmation == nil {
+				return a, tea.Quit
+			}
+			a.confirmation = nil
+
 		case tea.KeyEnter:
-			cmd := NewInputCmd(a.text.Value())
-			a.text.SetValue("")
-			return a, cmd
+			if a.confirmation == nil {
+				cmd := NewInputCmd(a.text.Value())
+				a.text.SetValue("")
+				return a, cmd
+			}
 		}
 
 	case Input:
 		cmd := msg.Command()
 		if i, ok := a.commandMappings[cmd]; ok && i != a.active {
+			a.confirmation = nil
 			a.active = i
 			return a, a.models[a.active].Init(a.screen)
 		}
@@ -98,10 +109,27 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+
+	case ConfirmationMsg:
+		a.confirmation = &ui.Confirmation{
+			Message: msg.Message,
+			Options: []ui.ConfirmationOption{
+				{Text: msg.CancelOption, Cmd: ConfirmationCancelCmd},
+				{Text: msg.ConfirmOption, Cmd: msg.Cmd},
+			},
+		}
+
+	case ConfirmationCancelMsg:
+		a.confirmation = nil
 	}
 
-	a.text, cmd = a.text.Update(msg)
-	cmds = append(cmds, cmd)
+	if a.confirmation != nil {
+		a.confirmation, cmd = a.confirmation.Update(msg)
+		cmds = append(cmds, cmd)
+	} else {
+		a.text, cmd = a.text.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	next, cmd := a.models[a.active].Update(msg)
 	a.models[a.active] = next
@@ -113,10 +141,16 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a Model) View() string {
 	viewportStyle := lipgloss.NewStyle().
 		Width(a.screen.Width).
-		Height(a.screen.Height - 1)
+		Height(a.screen.Height - 2)
+	var bottom string
+	if a.confirmation != nil {
+		bottom = a.confirmation.View()
+	} else {
+		bottom = "\n" + a.text.View()
+	}
 	return lipgloss.JoinVertical(0,
 		viewportStyle.Render(a.models[a.active].View()),
-		a.text.View(),
+		bottom,
 	)
 }
 
@@ -144,11 +178,28 @@ func (i Input) Command() string {
 	return string(i[:idx])
 }
 
-// Returns all text after the initial command.  This may be interpretted in any way an action deems appropriate.
+// ArgString returns all text after the initial command.  This may be interpretted in any way an action deems appropriate.
 func (i Input) ArgString() string {
 	idx := strings.Index(string(i), " ")
 	if idx == -1 {
 		return ""
 	}
 	return string(i[idx+1:])
+}
+
+// ConfirmationMessage is a message that will prompt the user to confirm a command before confirming it. If the user
+// selects the ConfirmOption text, the command is dispatched.  Otherwise nothing occurs.
+type ConfirmationMsg struct {
+	Cmd           tea.Cmd
+	Message       string
+	ConfirmOption string
+	CancelOption  string
+}
+
+// ConfirmationCancelMsg cancels any existing confirmation modal. This is intended as the return message for when
+// cancel is selected from a confirmation.
+type ConfirmationCancelMsg struct{}
+
+func ConfirmationCancelCmd() tea.Msg {
+	return ConfirmationCancelMsg{}
 }

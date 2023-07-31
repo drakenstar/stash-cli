@@ -86,6 +86,9 @@ func (p *paginator[T]) Reset() {
 }
 
 func (p paginator[T]) String() string {
+	if p.total == 0 {
+		return "no results"
+	}
 	firstItem := (p.page-1)*p.perPage + 1
 	lastItem := min(p.page*p.perPage, p.total)
 	return fmt.Sprintf("%d-%d of %d", firstItem, lastItem, p.total)
