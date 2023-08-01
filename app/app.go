@@ -49,6 +49,9 @@ func New(models []AppModelMapping) *Model {
 
 	a.commandMappings = make(map[string]int)
 	for i, m := range models {
+		if len(m.Commands) == 0 {
+			panic("must provide at least one switch command per model")
+		}
 		a.models = append(a.models, m.Model)
 		for _, cmd := range m.Commands {
 			a.commandMappings[cmd] = i

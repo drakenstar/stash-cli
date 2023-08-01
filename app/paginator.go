@@ -15,9 +15,9 @@ type paginator[T any] struct {
 	items   []T
 }
 
-func NewPaginator[T any](pagepage int) paginator[T] {
+func NewPaginator[T any](perPage int) paginator[T] {
 	p := paginator[T]{
-		perPage: 40,
+		perPage: perPage,
 	}
 	p.Reset()
 	return p

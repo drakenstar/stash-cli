@@ -7,6 +7,13 @@ import (
 )
 
 func TestPaginator(t *testing.T) {
+	t.Run("new", func(t *testing.T) {
+		p := NewPaginator[int](10)
+		require.Equal(t, 0, p.index)
+		require.Equal(t, 0, p.total)
+		require.Equal(t, 1, p.page)
+		require.Equal(t, 10, p.perPage)
+	})
 	t.Run("skip", func(t *testing.T) {
 		p := &paginator[int]{
 			total:   5,
