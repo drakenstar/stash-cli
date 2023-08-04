@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -103,6 +104,9 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 
 		case "organised", "organized":
 			organised := true
+			if msg.ArgString() == "false" {
+				organised = false
+			}
 			s.sceneFilter.Organized = &organised
 			return &s, s.doUpdateCmd()
 
@@ -120,6 +124,9 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 
 		case "stash":
 			s.Opener(path.Join("scenes", s.Current().ID))
+
+		case "delete":
+			return &s, s.doDeleteConfirmCmd()
 		}
 
 	case scenesMessage:
@@ -133,6 +140,10 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		var cmd tea.Cmd
 		s.spinner, cmd = s.spinner.Update(msg)
 		return &s, cmd
+
+	case DeleteMsg:
+		s.loading = true
+		return &s, s.doDeleteCmd(msg)
 	}
 
 	return &s, nil
@@ -213,6 +224,40 @@ func (s *ScenesModel) doUpdateCmd() tea.Cmd {
 		var m scenesMessage
 		m.scenes, m.total, m.err = s.Stash.Scenes(context.Background(), f, s.sceneFilter)
 		return m
+	}
+}
+
+// doDeleteConfirmCmd returns a command to display a confirmation message about the current content.
+func (s *ScenesModel) doDeleteConfirmCmd() tea.Cmd {
+	return func() tea.Msg {
+		s := s.Current()
+		titleStyle := lipgloss.NewStyle().
+			Foreground(ColorOffWhite)
+		return ConfirmationMsg{
+			Message:       fmt.Sprintf("Are you sure you want to delete %s?", titleStyle.Render(sceneTitle(s))),
+			ConfirmOption: "Delete",
+			CancelOption:  "Cancel",
+			Cmd: func() tea.Msg {
+				return DeleteMsg{Scene: s}
+			},
+		}
+	}
+}
+
+type DeleteMsg struct {
+	Scene stash.Scene
+}
+
+// doDeleteCmd takes a DeleteMessage and attempts to delete the provided scene.  After successful deletion the current
+// scenes data is refreshed.
+func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
+	s.loading = true
+	return func() tea.Msg {
+		_, err := s.Stash.DeleteScene(context.Background(), d.Scene.ID)
+		if err != nil {
+			panic(err)
+		}
+		return s.doUpdateCmd()()
 	}
 }
 

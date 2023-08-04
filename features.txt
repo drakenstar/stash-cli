@@ -17,27 +17,31 @@
     ✅ performers
 ✅ current file shouldn't advance on open, it should advance if already opened
 ✅ view list of loaded content
-- advanced browsing
+✅ more advanced browsing
     ✅ organised
     ✅ more from this performer
     ✅ content specific filters
-    - other supported filtering fields
 ✅ view current filter options
 ✅ open stash URL
-- delete content
-- browse performers
-- saved filters
-- filter history
-- interactive ui that does not block while loading
+✅ delete content
+✅ interactive ui that does not block while loading
 ✅ display loading indicator when querying
 ✅ file path mappings are configurable
 ✅ opening commands are configurable
 ✅ configuration loading from file
-- the default filtering should respect the configured default filters for that type
-- record scene playing count
-- output names of filtered entities instead of just ids or generically "performers"
-- error reporting in bubbletea UI setup
 ✅ ability to confirm actions taken with a multiple choice prompt
+- there should be modal controls between inputting commands and navigating the list
+- error handling and output for actions (openers, remote actions)
+    - timeouts for remote actions
+- all input blocking while loading
+- better recording of "has opened" state while list navigating
+- output names of filtered entities instead of just ids or generically "performers"
+- filter history
+- saved filters
+    - the default filtering should respect the configured default filters for that type
+- browse performers
+- record scene playing count
+- full filter support of all fields
 
 # Bugs & Refactors
 ✅ Refactor resetting of content state

@@ -8,6 +8,7 @@ import (
 
 type Stash interface {
 	Scenes(context.Context, FindFilter, SceneFilter) ([]Scene, int, error)
+	DeleteScene(context.Context, string) (bool, error)
 	Galleries(context.Context, FindFilter, GalleryFilter) ([]Gallery, int, error)
 }
 

@@ -118,7 +118,7 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Message: msg.Message,
 			Options: []ui.ConfirmationOption{
 				{Text: msg.CancelOption, Cmd: ConfirmationCancelCmd},
-				{Text: msg.ConfirmOption, Cmd: msg.Cmd},
+				{Text: msg.ConfirmOption, Cmd: tea.Batch(ConfirmationCancelCmd, msg.Cmd)},
 			},
 		}
 
