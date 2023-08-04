@@ -59,11 +59,24 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 
 func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyUp:
+			if !s.loading && s.Skip(-1) {
+				return &s, s.doUpdateCmd()
+			}
+		case tea.KeyDown:
+			if !s.loading && s.Skip(1) {
+				return &s, s.doUpdateCmd()
+			}
+		}
+
 	case tea.WindowSizeMsg:
 		s.screen = Size{
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+
 	case Input:
 		switch msg.Command() {
 		case "":
