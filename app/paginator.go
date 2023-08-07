@@ -23,12 +23,29 @@ func NewPaginator[T any](perPage int) paginator[T] {
 	return p
 }
 
+// Next is the same as Skip(1) however it takes into account the opened flag and will only advance if open is set to
+// true.  If not it set's it return and does not Skip.  The intention of this is to allow calling code to always call
+// Next before opening, but to respect the start of a collection.
+func (p *paginator[T]) Next() bool {
+	if !p.opened {
+		p.opened = true
+		return false
+	}
+	return p.skip(1)
+}
+
+// Similar to Next but sets opened to false.  Used when navigating with keys.
+func (p *paginator[T]) Skip(count int) bool {
+	p.opened = false
+	return p.skip(count)
+}
+
 // Skip advances the current index by count places and returns a boolean as to whether the index has gone outside the
 // bounds of our loaded content indicating that the state of s.filter.page has been updated and s.content needs to be
 // re-queried.
 // If the relative position of index is outside the bounds of our total content, then we just reset to page 1 index 0.
 // Skip can also traverse backwards.
-func (p *paginator[T]) Skip(count int) bool {
+func (p *paginator[T]) skip(count int) bool {
 	p.index += count
 
 	totalindex := (p.page-1)*p.perPage + p.index
@@ -54,17 +71,6 @@ func (p *paginator[T]) Skip(count int) bool {
 	}
 
 	return false
-}
-
-// Next is the same as Skip(1) however it takes into account the opened flag and will only advance if open is set to
-// true.  If not it set's it return and does not Skip.  The intention of this is to allow calling code to always call
-// Next before opening, but to respect the start of a collection.
-func (p *paginator[T]) Next() bool {
-	if !p.opened {
-		p.opened = true
-		return false
-	}
-	return p.Skip(1)
 }
 
 // Returns the item at the current index.

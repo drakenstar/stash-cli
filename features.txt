@@ -34,7 +34,7 @@
 - error handling and output for actions (openers, remote actions)
     - timeouts for remote actions
 - all input blocking while loading
-- better recording of "has opened" state while list navigating
+✅ better recording of "has opened" state while list navigating
 - output names of filtered entities instead of just ids or generically "performers"
 - filter history
 - saved filters
