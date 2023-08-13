@@ -2,6 +2,7 @@ package app
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,6 +37,7 @@ type Model struct {
 
 	text         textinput.Model
 	confirmation *ui.Confirmation
+	err          error
 }
 
 // New returns a new Model with the AppModels. The first AppModel in the slice will be the active one.  A panic will
@@ -124,6 +126,15 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConfirmationCancelMsg:
 		a.confirmation = nil
+
+	case ErrorMsg:
+		a.err = msg.error
+		if a.err != nil {
+			return a, func() tea.Msg {
+				time.Sleep(5 * time.Second)
+				return ErrorMsg{}
+			}
+		}
 	}
 
 	if a.confirmation != nil {
@@ -149,7 +160,10 @@ func (a Model) View() string {
 	if a.confirmation != nil {
 		bottom = a.confirmation.View()
 	} else {
-		bottom = "\n" + a.text.View()
+		if a.err != nil {
+			bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(a.err.Error())
+		}
+		bottom += "\n" + a.text.View()
 	}
 	return lipgloss.JoinVertical(0,
 		viewportStyle.Render(a.models[a.active].View()),
@@ -190,6 +204,12 @@ func (i Input) ArgString() string {
 	return string(i[idx+1:])
 }
 
+// Args returns a tokenised set of arguments that come after the initial command, not including the command itself.
+// Tokens are split on space, with multiple spaces being ignored.
+func (i Input) Args() []string {
+	return strings.Fields(i.ArgString())
+}
+
 // ConfirmationMessage is a message that will prompt the user to confirm a command before confirming it. If the user
 // selects the ConfirmOption text, the command is dispatched.  Otherwise nothing occurs.
 type ConfirmationMsg struct {
@@ -205,4 +225,16 @@ type ConfirmationCancelMsg struct{}
 
 func ConfirmationCancelCmd() tea.Msg {
 	return ConfirmationCancelMsg{}
+}
+
+// ErrorMsg is a message used to display an error to the user that dismisses after a few seconds.
+type ErrorMsg struct {
+	error
+}
+
+// NewErrorCmd is a way to generate a tea.Cmd that returns an ErrorMsg.
+func NewErrorCmd(err error) tea.Cmd {
+	return func() tea.Msg {
+		return ErrorMsg{err}
+	}
 }

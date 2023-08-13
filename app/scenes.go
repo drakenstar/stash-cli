@@ -132,7 +132,7 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 	case scenesMessage:
 		s.loading = false
 		if msg.err != nil {
-			// TODO handle update error somehow
+			return &s, NewErrorCmd(msg.err)
 		}
 		s.items, s.total = msg.scenes, msg.total
 
@@ -255,7 +255,7 @@ func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
 	return func() tea.Msg {
 		_, err := s.Stash.DeleteScene(context.Background(), d.Scene.ID)
 		if err != nil {
-			panic(err)
+			return ErrorMsg{err}
 		}
 		return s.doUpdateCmd()()
 	}

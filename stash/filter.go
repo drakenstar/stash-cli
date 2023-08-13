@@ -52,9 +52,10 @@ func (SceneFilter) GetGraphQLType() string {
 
 type GalleryFilter struct {
 	FilterCombinator[GalleryFilter]
-	Organized  *bool            `json:"organized,omitempty"`
-	Performers *MultiCriterion  `json:"performers,omitempty"`
-	Path       *StringCriterion `json:"path,omitempty"`
+	Organized  *bool               `json:"organized,omitempty"`
+	Performers *MultiCriterion     `json:"performers,omitempty"`
+	Path       *StringCriterion    `json:"path,omitempty"`
+	CreatedAt  *TimestampCriterion `json:"created_at,omitempty"`
 }
 
 func (GalleryFilter) GetGraphQLType() string {
@@ -68,6 +69,12 @@ type MultiCriterion struct {
 
 type StringCriterion struct {
 	Value    string            `json:"value"`
+	Modifier CriterionModifier `json:"modifier"`
+}
+
+type TimestampCriterion struct {
+	Value    string            `json:"value"`
+	Value2   *string           `json:"value2"`
 	Modifier CriterionModifier `json:"modifier"`
 }
 

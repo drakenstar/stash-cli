@@ -2,7 +2,10 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"path"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -98,6 +101,50 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.Reset()
 			return &s, s.doUpdateCmd()
 
+		case "sort":
+			args := msg.Args()
+			if len(args) > 0 {
+				direction := stash.SortDirectionAsc
+				if len(args) >= 2 {
+					switch strings.ToUpper(args[1]) {
+					case stash.SortDirectionAsc:
+					case stash.SortDirectionDesc:
+						direction = stash.SortDirectionDesc
+					default:
+						return &s, NewErrorCmd(fmt.Errorf("invalid sort direction '%s'", args[1]))
+					}
+				}
+				s.sortDirection = direction
+
+				switch strings.ToLower(args[0]) {
+				case "random":
+					s.sort = stash.RandomSort()
+				case stash.SortDate:
+					s.sort = stash.SortDate
+				case stash.SortUpdatedAt:
+					s.sort = stash.SortUpdatedAt
+				case stash.SortCreatedAt:
+					s.sort = stash.SortCreatedAt
+				case stash.SortPath:
+					s.sort = stash.SortPath
+				default:
+					return &s, NewErrorCmd(fmt.Errorf("invalid sort type '%s'", args[1]))
+				}
+
+				s.Reset()
+				return &s, s.doUpdateCmd()
+			}
+
+		case "today":
+			now := time.Now()
+			midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			s.galleryFilter.CreatedAt = &stash.TimestampCriterion{
+				Value:    midnight.Format("2006-01-02 15:04"),
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
 		case "reset":
 			return &s, s.Init(s.screen)
 
@@ -128,7 +175,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 	case galleriesMessage:
 		s.loading = false
 		if msg.err != nil {
-			// TODO handle update error somehow
+			return &s, NewErrorCmd(msg.err)
 		}
 		s.items, s.total = msg.galleries, msg.total
 

@@ -118,3 +118,21 @@ func TestFindGalleries(t *testing.T) {
 	}, galleries)
 	require.Equal(t, 10, count)
 }
+
+func TestGalleryDelete(t *testing.T) {
+	doer := &mockEndpoint{
+		t:        t,
+		response: `{"data": {"galleryDestroy": true}}`,
+	}
+	client := graphql.NewClient("https://example.com/graph", doer)
+	s := stash{client}
+	ctx := context.Background()
+
+	d, err := s.GalleryDelete(ctx, "1234")
+	require.NoError(t, err)
+	require.True(t, d)
+}
+
+func TestGalleryUpdate(t *testing.T) {
+
+}

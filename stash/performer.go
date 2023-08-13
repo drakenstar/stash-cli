@@ -15,6 +15,10 @@ type Performer struct {
 	Favorite  bool    `graphql:"favorite"`
 }
 
+func (p Performer) EntityID() string {
+	return p.ID
+}
+
 type Gender int
 
 const (

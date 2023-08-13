@@ -3,12 +3,11 @@ package stash
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
@@ -29,7 +28,7 @@ func (m *mockEndpoint) Do(r *http.Request) (*http.Response, error) {
 		Query     string
 		Variables map[string]any
 	}
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	require.NoError(m.t, err)
 	json.Unmarshal(body, &g)
 
@@ -46,7 +45,6 @@ func (m *mockEndpoint) Do(r *http.Request) (*http.Response, error) {
 		Name:  "TestQuery",
 		Input: g.Query,
 	})
-	spew.Dump(g.Query)
 	require.NoError(m.t, err)
 
 	validationErrs := validator.Validate(schema, doc)
