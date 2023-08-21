@@ -67,19 +67,23 @@ func (s *stash) GalleryDelete(ctx context.Context, galleryID string) (bool, erro
 }
 
 type GalleryUpdate struct {
-	ClientMutationID *string      `graphql:"clientMutationId"`
-	ID               graphql.ID   `graphql:"id"`
-	Title            *string      `graphql:"title"`
-	URL              *string      `graphql:"url"`
-	Date             *string      `graphql:"date"`
-	Details          *string      `graphql:"details"`
-	Rating           *int         `graphql:"rating100"`
-	Organized        *bool        `graphql:"organized"`
-	SceneIDs         []graphql.ID `graphql:"scene_ids"`
-	StudioID         *graphql.ID  `graphql:"studio_id"`
-	TagIDs           []graphql.ID `graphql:"tag_ids"`
-	PerformerIDs     []graphql.ID `graphql:"performer_ids"`
-	PrimaryFileID    *graphql.ID  `graphql:"primary_file_id"`
+	ClientMutationID *string      `json:"clientMutationId,omitempty"`
+	ID               graphql.ID   `json:"id"`
+	Title            *string      `json:"title,omitempty"`
+	URL              *string      `json:"url,omitempty"`
+	Date             *string      `json:"date,omitempty"`
+	Details          *string      `json:"details,omitempty"`
+	Rating           *int         `json:"rating100,omitempty"`
+	Organized        *bool        `json:"organized,omitempty"`
+	SceneIDs         []graphql.ID `json:"scene_ids,omitempty"`
+	StudioID         *graphql.ID  `json:"studio_id,omitempty"`
+	TagIDs           []graphql.ID `json:"tag_ids,omitempty"`
+	PerformerIDs     []graphql.ID `json:"performer_ids,omitempty"`
+	PrimaryFileID    *graphql.ID  `json:"primary_file_id,omitempty"`
+}
+
+func (GalleryUpdate) GetGraphQLType() string {
+	return "GalleryUpdateInput"
 }
 
 // NewGalleryUpdate does a diff of an old and new Gallery and returns a GalleryUpdate that can be passed to
