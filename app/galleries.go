@@ -136,8 +136,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			}
 
 		case "today":
-			now := time.Now()
-			midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			midnight := time.Now().Add(-24 * time.Hour)
 			s.galleryFilter.CreatedAt = &stash.TimestampCriterion{
 				Value:    midnight.Format("2006-01-02 15:04"),
 				Modifier: stash.CriterionModifierGreaterThan,
