@@ -126,6 +126,8 @@ input BulkPerformerUpdateInput {
   height_cm: Int
   measurements: String
   fake_tits: String
+  penis_length: Float
+  circumcised: CircumisedEnum
   career_length: String
   tattoos: String
   piercings: String
@@ -152,6 +154,7 @@ input BulkSceneUpdateInput {
   details: String
   director: String
   url: String
+  urls: BulkUpdateStrings
   date: String
   rating: Int
   rating100: Int
@@ -177,6 +180,16 @@ input BulkUpdateIds {
 input BulkUpdateStrings {
   values: [String!]
   mode: BulkUpdateIdMode!
+}
+
+input CircumcisionCriterionInput {
+  value: [CircumisedEnum!]
+  modifier: CriterionModifier!
+}
+
+enum CircumisedEnum {
+  CUT
+  UNCUT
 }
 
 input CleanMetadataInput {
@@ -218,12 +231,14 @@ type ConfigDisableDropdownCreate {
   performer: Boolean!
   tag: Boolean!
   studio: Boolean!
+  movie: Boolean!
 }
 
 input ConfigDisableDropdownCreateInput {
   performer: Boolean
   tag: Boolean
   studio: Boolean
+  movie: Boolean
 }
 
 input ConfigDLNAInput {
@@ -237,6 +252,9 @@ input ConfigDLNAInput {
 
   """List of interfaces to run DLNA on. Empty for all"""
   interfaces: [String!]
+
+  """Order to sort videos"""
+  videoSortOrder: String
 }
 
 type ConfigDLNAResult {
@@ -250,6 +268,9 @@ type ConfigDLNAResult {
 
   """List of interfaces to run DLNA on. Empty for all"""
   interfaces: [String!]!
+
+  """Order to sort videos"""
+  videoSortOrder: String!
 }
 
 input ConfigGeneralInput {
@@ -318,25 +339,25 @@ input ConfigGeneralInput {
 
   """
   ffmpeg transcode input args - injected before input file
-    These are applied to generated transcodes (previews and transcodes)
+  These are applied to generated transcodes (previews and transcodes)
   """
   transcodeInputArgs: [String!]
 
   """
   ffmpeg transcode output args - injected before output file
-    These are applied to generated transcodes (previews and transcodes)
+  These are applied to generated transcodes (previews and transcodes)
   """
   transcodeOutputArgs: [String!]
 
   """
   ffmpeg stream input args - injected before input file
-    These are applied when live transcoding
+  These are applied when live transcoding
   """
   liveTranscodeInputArgs: [String!]
 
   """
   ffmpeg stream output args - injected before output file
-    These are applied when live transcoding
+  These are applied when live transcoding
   """
   liveTranscodeOutputArgs: [String!]
 
@@ -345,6 +366,11 @@ input ConfigGeneralInput {
 
   """Write image thumbnails to disk when generating on the fly"""
   writeImageThumbnails: Boolean
+
+  """
+  Create Image Clips from Video extensions when Videos are disabled in Library
+  """
+  createImageClipsFromVideos: Boolean
 
   """Username"""
   username: String
@@ -479,25 +505,25 @@ type ConfigGeneralResult {
 
   """
   ffmpeg transcode input args - injected before input file
-    These are applied to generated transcodes (previews and transcodes)
+  These are applied to generated transcodes (previews and transcodes)
   """
   transcodeInputArgs: [String!]!
 
   """
   ffmpeg transcode output args - injected before output file
-    These are applied to generated transcodes (previews and transcodes)
+  These are applied to generated transcodes (previews and transcodes)
   """
   transcodeOutputArgs: [String!]!
 
   """
   ffmpeg stream input args - injected before input file
-    These are applied when live transcoding
+  These are applied when live transcoding
   """
   liveTranscodeInputArgs: [String!]!
 
   """
   ffmpeg stream output args - injected before output file
-    These are applied when live transcoding
+  These are applied when live transcoding
   """
   liveTranscodeOutputArgs: [String!]!
 
@@ -506,6 +532,11 @@ type ConfigGeneralResult {
 
   """Write image thumbnails to disk when generating on the fly"""
   writeImageThumbnails: Boolean!
+
+  """
+  Create Image Clips from Video extensions when Videos are disabled in Library
+  """
+  createImageClipsFromVideos: Boolean!
 
   """API Key"""
   apiKey: String!
@@ -655,6 +686,9 @@ input ConfigInterfaceInput {
   """Funscript Time Offset"""
   funscriptOffset: Int
 
+  """Whether to use Stash Hosted Funscript"""
+  useStashHostedFunscript: Boolean
+
   """True if we should not auto-open a browser window on startup"""
   noBrowser: Boolean
 
@@ -731,6 +765,9 @@ type ConfigInterfaceResult {
 
   """Funscript Time Offset"""
   funscriptOffset: Int
+
+  """Whether to use Stash Hosted Funscript"""
+  useStashHostedFunscript: Boolean
 }
 
 """All configuration settings"""
@@ -956,6 +993,12 @@ type Fingerprint {
   value: String!
 }
 
+input FloatCriterionInput {
+  value: Float!
+  value2: Float
+  modifier: CriterionModifier!
+}
+
 type Folder {
   id: ID!
   path: String!
@@ -1017,9 +1060,9 @@ input GalleryChapterCreateInput {
 
 input GalleryChapterUpdateInput {
   id: ID!
-  gallery_id: ID!
-  title: String!
-  image_index: Int!
+  gallery_id: ID
+  title: String
+  image_index: Int
 }
 
 input GalleryCreateInput {
@@ -1040,7 +1083,7 @@ input GalleryDestroyInput {
   ids: [ID!]!
 
   """
-  If true, then the zip file will be deleted if the gallery is zip-file-based. 
+  If true, then the zip file will be deleted if the gallery is zip-file-based.
   If gallery is folder-based, then any files not associated with other
   galleries will be deleted, along with the folder, if it is not empty.
   """
@@ -1192,6 +1235,7 @@ input GenerateMetadataInput {
   forceTranscodes: Boolean
   phashes: Boolean
   interactiveHeatmapsSpeeds: Boolean
+  clipPreviews: Boolean
 
   """scene ids to generate for"""
   sceneIDs: [ID!]
@@ -1215,6 +1259,7 @@ type GenerateMetadataOptions {
   transcodes: Boolean
   phashes: Boolean
   interactiveHeatmapsSpeeds: Boolean
+  clipPreviews: Boolean
 }
 
 type GeneratePreviewOptions {
@@ -1262,6 +1307,7 @@ input HierarchicalMultiCriterionInput {
   value: [ID!]
   modifier: CriterionModifier!
   depth: Int
+  excludes: [ID!]
 }
 
 type IdentifyFieldOptions {
@@ -1296,8 +1342,8 @@ enum IdentifyFieldStrategy {
 
   """
   Always replaces the value if a value is found.
-    For multi-value fields, any existing values are removed and replaced with the
-    scraped values.
+  For multi-value fields, any existing values are removed and replaced with the
+  scraped values.
   """
   OVERWRITE
 }
@@ -1330,6 +1376,18 @@ type IdentifyMetadataOptions {
 
   """defaults to true if not provided"""
   includeMalePerformers: Boolean
+
+  """defaults to true if not provided"""
+  skipMultipleMatches: Boolean
+
+  """tag to tag skipped multiple matches with"""
+  skipMultipleMatchTag: String
+
+  """defaults to true if not provided"""
+  skipSingleNamePerformers: Boolean
+
+  """tag to tag skipped single name performers with"""
+  skipSingleNamePerformerTag: String
 }
 
 input IdentifyMetadataOptionsInput {
@@ -1344,6 +1402,18 @@ input IdentifyMetadataOptionsInput {
 
   """defaults to true if not provided"""
   includeMalePerformers: Boolean
+
+  """defaults to true if not provided"""
+  skipMultipleMatches: Boolean
+
+  """tag to tag skipped multiple matches with"""
+  skipMultipleMatchTag: String
+
+  """defaults to true if not provided"""
+  skipSingleNamePerformers: Boolean
+
+  """tag to tag skipped single name performers with"""
+  skipSingleNamePerformerTag: String
 }
 
 type IdentifyMetadataTaskOptions {
@@ -1384,8 +1454,9 @@ type Image {
   created_at: Time!
   updated_at: Time!
   file_mod_time: Time @deprecated(reason: "Use files.mod_time")
-  file: ImageFileType! @deprecated(reason: "Use files.mod_time")
-  files: [ImageFile!]!
+  file: ImageFileType! @deprecated(reason: "Use visual_files")
+  files: [ImageFile!]! @deprecated(reason: "Use visual_files")
+  visual_files: [VisualFile!]!
   paths: ImagePathsType!
   galleries: [Gallery!]!
   studio: Studio
@@ -1505,6 +1576,7 @@ enum ImageLightboxScrollMode {
 
 type ImagePathsType {
   thumbnail: String
+  preview: String
   image: String
 }
 
@@ -1644,8 +1716,8 @@ input MoveFilesInput {
 
 type Movie {
   id: ID!
-  checksum: String!
   name: String!
+  checksum: String! @deprecated(reason: "MD5 hash of name, use name directly")
   aliases: String
 
   """Duration in seconds"""
@@ -1661,7 +1733,7 @@ type Movie {
   updated_at: Time!
   front_image_path: String
   back_image_path: String
-  scene_count: Int
+  scene_count: Int!
   scenes: [Scene!]!
 }
 
@@ -1747,6 +1819,7 @@ input MovieUpdateInput {
 input MultiCriterionInput {
   value: [ID!]
   modifier: CriterionModifier!
+  excludes: [ID!]
 }
 
 type Mutation {
@@ -1833,12 +1906,12 @@ type Mutation {
 
   """
   Moves the given files to the given destination. Returns true if successful.
-    Either the destination_folder or destination_folder_id must be provided. If
-  both are provided, the destination_folder_id takes precedence.
-    Destination folder must be a subfolder of one of the stash library paths.
-    If provided, destination_basename must be a valid filename with an extension that
-    matches one of the media extensions.
-    Creates folder hierarchy if needed.
+  Either the destination_folder or destination_folder_id must be provided.
+  If both are provided, the destination_folder_id takes precedence.
+  Destination folder must be a subfolder of one of the stash library paths.
+  If provided, destination_basename must be a valid filename with an extension that
+  matches one of the media extensions.
+  Creates folder hierarchy if needed.
   """
   moveFiles(input: MoveFilesInput!): Boolean!
   deleteFiles(ids: [ID!]!): Boolean!
@@ -1903,6 +1976,9 @@ type Mutation {
   """
   anonymiseDatabase(input: AnonymiseDatabaseInput!): String
 
+  """Optimises the database. Returns the job ID"""
+  optimiseDatabase: ID!
+
   """Reload scrapers"""
   reloadScrapers: Boolean!
 
@@ -1926,8 +2002,19 @@ type Mutation {
   """
   backupDatabase(input: BackupDatabaseInput!): String
 
+  """DANGEROUS: Execute an arbitrary SQL statement that returns rows."""
+  querySQL(sql: String!, args: [Any]): SQLQueryResult!
+
+  """
+  DANGEROUS: Execute an arbitrary SQL statement without returning any rows.
+  """
+  execSQL(sql: String!, args: [Any]): SQLExecResult!
+
   """Run batch performer tag task. Returns the job ID."""
-  stashBoxBatchPerformerTag(input: StashBoxBatchPerformerTagInput!): String!
+  stashBoxBatchPerformerTag(input: StashBoxBatchTagInput!): String!
+
+  """Run batch studio tag task. Returns the job ID."""
+  stashBoxBatchStudioTag(input: StashBoxBatchTagInput!): String!
 
   """
   Enables DLNA for an optional duration. Has no effect if DLNA is enabled by default
@@ -1963,6 +2050,8 @@ type Performer {
   height_cm: Int
   measurements: String
   fake_tits: String
+  penis_length: Float
+  circumcised: CircumisedEnum
   career_length: String
   tattoos: String
   piercings: String
@@ -1972,9 +2061,12 @@ type Performer {
   tags: [Tag!]!
   ignore_auto_tag: Boolean!
   image_path: String
-  scene_count: Int
-  image_count: Int
-  gallery_count: Int
+  scene_count: Int!
+  image_count: Int!
+  gallery_count: Int!
+  movie_count: Int!
+  performer_count: Int!
+  o_counter: Int
   scenes: [Scene!]!
   stash_ids: [StashID!]!
   rating: Int @deprecated(reason: "Use 1-100 range with rating100")
@@ -1985,7 +2077,6 @@ type Performer {
   weight: Int
   created_at: Time!
   updated_at: Time!
-  movie_count: Int
   movies: [Movie!]!
 }
 
@@ -2002,6 +2093,8 @@ input PerformerCreateInput {
   height_cm: Int
   measurements: String
   fake_tits: String
+  penis_length: Float
+  circumcised: CircumisedEnum
   career_length: String
   tattoos: String
   piercings: String
@@ -2066,6 +2159,12 @@ input PerformerFilterType {
   """Filter by fake tits value"""
   fake_tits: StringCriterionInput
 
+  """Filter by penis length value"""
+  penis_length: FloatCriterionInput
+
+  """Filter by ciricumcision"""
+  circumcised: CircumcisionCriterionInput
+
   """Filter by career length"""
   career_length: StringCriterionInput
 
@@ -2099,6 +2198,9 @@ input PerformerFilterType {
   """Filter by gallery count"""
   gallery_count: IntCriterionInput
 
+  """Filter by o count"""
+  o_counter: IntCriterionInput
+
   """Filter by StashID"""
   stash_id: StringCriterionInput
 
@@ -2123,6 +2225,11 @@ input PerformerFilterType {
 
   """Filter by studios where performer appears in scene/image/gallery"""
   studios: HierarchicalMultiCriterionInput
+
+  """
+  Filter by performers where performer appears with another performer in scene/image/gallery
+  """
+  performers: MultiCriterionInput
 
   """Filter by autotag ignore value"""
   ignore_auto_tag: Boolean
@@ -2154,6 +2261,8 @@ input PerformerUpdateInput {
   height_cm: Int
   measurements: String
   fake_tits: String
+  penis_length: Float
+  circumcised: CircumisedEnum
   career_length: String
   tattoos: String
   piercings: String
@@ -2174,6 +2283,12 @@ input PerformerUpdateInput {
   hair_color: String
   weight: Int
   ignore_auto_tag: Boolean
+}
+
+input PhashDistanceCriterionInput {
+  value: String!
+  modifier: CriterionModifier!
+  distance: Int
 }
 
 input PHashDuplicationCriterionInput {
@@ -2262,9 +2377,20 @@ type Query {
   findScenes(scene_filter: SceneFilterType, scene_ids: [Int!], filter: FindFilterType): FindScenesResultType!
   findScenesByPathRegex(filter: FindFilterType): FindScenesResultType!
 
-  """ Returns any groups of scenes that are perceptual duplicates within the queried distance 
   """
-  findDuplicateScenes(distance: Int): [[Scene!]!]!
+  Returns any groups of scenes that are perceptual duplicates within the queried distance
+  and the difference between their duration is smaller than durationDiff
+  """
+  findDuplicateScenes(
+    distance: Int
+
+    """
+    Max difference in seconds between files in order to be considered for similarity matching.
+    Fractional seconds are ok: 0.5 will mean only files that have durations
+    within 0.5 seconds between them will be matched based on PHash distance.
+    """
+    duration_diff: Float
+  ): [[Scene!]!]!
 
   """Return valid stream paths"""
   sceneStreams(id: ID): [SceneStreamEndpoint!]!
@@ -2327,6 +2453,9 @@ type Query {
 
   """Scrape for multiple scenes"""
   scrapeMultiScenes(source: ScraperSourceInput!, input: ScrapeMultiScenesInput!): [[ScrapedScene!]!]!
+
+  """Scrape for a single studio"""
+  scrapeSingleStudio(source: ScraperSourceInput!, input: ScrapeSingleStudioInput!): [ScrapedStudio!]!
 
   """Scrape for a single performer"""
   scrapeSinglePerformer(source: ScraperSourceInput!, input: ScrapeSinglePerformerInput!): [ScrapedPerformer!]!
@@ -2443,19 +2572,25 @@ enum ResolutionEnum {
   QUAD_HD
 
   """1920p"""
-  VR_HD
+  VR_HD @deprecated(reason: "Use 4K instead")
 
-  """4k"""
+  """4K"""
   FOUR_K
 
-  """5k"""
+  """5K"""
   FIVE_K
 
-  """6k"""
+  """6K"""
   SIX_K
 
-  """8k"""
+  """7K"""
+  SEVEN_K
+
+  """8K"""
   EIGHT_K
+
+  """8K+"""
+  HUGE
 }
 
 type SavedFilter {
@@ -2512,6 +2647,9 @@ input ScanMetadataInput {
   """Generate image thumbnails during scan"""
   scanGenerateThumbnails: Boolean
 
+  """Generate image clip previews during scan"""
+  scanGenerateClipPreviews: Boolean
+
   """Filter options for the scan"""
   filter: ScanMetaDataFilterInput
 }
@@ -2540,6 +2678,9 @@ type ScanMetadataOptions {
 
   """Generate image thumbnails during scan"""
   scanGenerateThumbnails: Boolean!
+
+  """Generate image clip previews during scan"""
+  scanGenerateClipPreviews: Boolean!
 }
 
 type Scene {
@@ -2550,7 +2691,8 @@ type Scene {
   code: String
   details: String
   director: String
-  url: String
+  url: String @deprecated(reason: "Use urls")
+  urls: [String!]
   date: String
   rating: Int @deprecated(reason: "Use 1-100 range with rating100")
   rating100: Int
@@ -2597,6 +2739,7 @@ input SceneCreateInput {
   details: String
   director: String
   url: String
+  urls: [String!]
   date: String
   rating: Int
   rating100: Int
@@ -2612,8 +2755,9 @@ input SceneCreateInput {
   stash_ids: [StashIDInput!]
 
   """
-  The first id will be assigned as primary. Files will be reassigned from
-    existing scenes if applicable. Files must not already be primary for another scene
+  The first id will be assigned as primary.
+  Files will be reassigned from existing scenes if applicable.
+  Files must not already be primary for another scene.
   """
   file_ids: [ID!]
 }
@@ -2654,6 +2798,9 @@ input SceneFilterType {
   """Filter by file phash"""
   phash: StringCriterionInput
 
+  """Filter by file phash distance"""
+  phash_distance: PhashDistanceCriterionInput
+
   """Filter by path"""
   path: StringCriterionInput
 
@@ -2675,6 +2822,12 @@ input SceneFilterType {
 
   """Filter by resolution"""
   resolution: ResolutionCriterionInput
+
+  """Filter by video codec"""
+  video_codec: StringCriterionInput
+
+  """Filter by audio codec"""
+  audio_codec: StringCriterionInput
 
   """Filter by duration (in seconds)"""
   duration: IntCriterionInput
@@ -2820,17 +2973,17 @@ type SceneMarkerTag {
 
 input SceneMarkerUpdateInput {
   id: ID!
-  title: String!
-  seconds: Float!
-  scene_id: ID!
-  primary_tag_id: ID!
+  title: String
+  seconds: Float
+  scene_id: ID
+  primary_tag_id: ID
   tag_ids: [ID!]
 }
 
 input SceneMergeInput {
   """
   If destination scene has no files, then the primary file of the
-    first source scene will be assigned as primary
+  first source scene will be assigned as primary
   """
   source: [ID!]!
   destination: ID!
@@ -2914,6 +3067,7 @@ input SceneUpdateInput {
   details: String
   director: String
   url: String
+  urls: [String!]
   date: String
   rating: Int
   rating100: Int
@@ -3016,6 +3170,8 @@ type ScrapedPerformer {
   height: String
   measurements: String
   fake_tits: String
+  penis_length: String
+  circumcised: String
   career_length: String
   tattoos: String
   piercings: String
@@ -3048,6 +3204,8 @@ input ScrapedPerformerInput {
   height: String
   measurements: String
   fake_tits: String
+  penis_length: String
+  circumcised: String
   career_length: String
   tattoos: String
   piercings: String
@@ -3064,7 +3222,8 @@ type ScrapedScene {
   code: String
   details: String
   director: String
-  url: String
+  url: String @deprecated(reason: "use urls")
+  urls: [String!]
   date: String
 
   """This should be a base64 encoded data URL"""
@@ -3085,6 +3244,7 @@ input ScrapedSceneInput {
   details: String
   director: String
   url: String
+  urls: [String!]
   date: String
   remote_site_id: String
 }
@@ -3094,6 +3254,7 @@ type ScrapedStudio {
   stored_id: ID
   name: String!
   url: String
+  parent: ScrapedStudio
   image: String
   remote_site_id: String
 }
@@ -3207,6 +3368,11 @@ input ScrapeSingleSceneInput {
   scene_input: ScrapedSceneInput
 }
 
+input ScrapeSingleStudioInput {
+  """Query can be either a name or a Stash ID"""
+  query: String
+}
+
 enum ScrapeType {
   """From text query"""
   NAME
@@ -3238,8 +3404,11 @@ input SetupInput {
 
   """Empty to indicate default"""
   cacheLocation: String!
+  storeBlobsInDatabase: Boolean!
 
-  """Empty to indicate database storage for blobs"""
+  """
+  Empty to indicate default - only applicable if storeBlobsInDatabase is false
+  """
   blobsLocation: String!
 }
 
@@ -3248,26 +3417,56 @@ enum SortDirectionEnum {
   DESC
 }
 
+type SQLExecResult {
+  """
+  The number of rows affected by the query, usually an UPDATE, INSERT, or DELETE.
+  Not all queries or databases support this feature.
+  """
+  rows_affected: Int64
+
+  """
+  The integer generated by the database in response to a command.
+  Typically this will be from an "auto increment" column when inserting a new row.
+  Not all databases support this feature, and the syntax of such statements varies.
+  """
+  last_insert_id: Int64
+}
+
+type SQLQueryResult {
+  """The column names, in the order they appear in the result set."""
+  columns: [String!]!
+
+  """The returned rows."""
+  rows: [[Any]!]!
+}
+
 type StashBox {
   endpoint: String!
   api_key: String!
   name: String!
 }
 
-"""
-If neither performer_ids nor performer_names are set, tag all performers
-"""
-input StashBoxBatchPerformerTagInput {
-  """Stash endpoint to use for the performer tagging"""
+"""If neither ids nor names are set, tag all items"""
+input StashBoxBatchTagInput {
+  """Stash endpoint to use for the tagging"""
   endpoint: Int!
 
-  """Fields to exclude when executing the performer tagging"""
+  """Fields to exclude when executing the tagging"""
   exclude_fields: [String!]
 
   """
-  Refresh performers already tagged by StashBox if true. Only tag performers with no StashBox tagging if false
+  Refresh items already tagged by StashBox if true. Only tag items with no StashBox tagging if false
   """
   refresh: Boolean!
+
+  """If batch adding studios, should their parent studios also be created?"""
+  createParent: Boolean!
+
+  """If set, only tag these ids"""
+  ids: [ID!]
+
+  """If set, only tag these names"""
+  names: [String!]
 
   """If set, only tag these performer ids"""
   performer_ids: [ID!]
@@ -3351,7 +3550,7 @@ type StashID {
 input StashIDCriterionInput {
   """
   If present, this value is treated as a predicate.
-    That is, it will filter based on stash_ids with the matching endpoint
+  That is, it will filter based on stash_ids with the matching endpoint
   """
   endpoint: String
   stash_id: String
@@ -3374,6 +3573,10 @@ type StatsResultType {
   studio_count: Int!
   movie_count: Int!
   tag_count: Int!
+  total_o_count: Int!
+  total_play_duration: Float!
+  total_play_count: Int!
+  scenes_played: Int!
 }
 
 enum StreamingResolutionEnum {
@@ -3403,25 +3606,25 @@ input StringCriterionInput {
 
 type Studio {
   id: ID!
-  checksum: String!
   name: String!
+  checksum: String! @deprecated(reason: "MD5 hash of name, use name directly")
   url: String
   parent_studio: Studio
   child_studios: [Studio!]!
   aliases: [String!]!
   ignore_auto_tag: Boolean!
   image_path: String
-  scene_count: Int
-  image_count: Int
-  gallery_count: Int
-  performer_count: Int
+  scene_count(depth: Int): Int!
+  image_count(depth: Int): Int!
+  gallery_count(depth: Int): Int!
+  performer_count(depth: Int): Int!
+  movie_count(depth: Int): Int!
   stash_ids: [StashID!]!
   rating: Int @deprecated(reason: "Use 1-100 range with rating100")
   rating100: Int
   details: String
   created_at: Time!
   updated_at: Time!
-  movie_count: Int
   movies: [Movie!]!
 }
 
@@ -3538,11 +3741,11 @@ type Tag {
   created_at: Time!
   updated_at: Time!
   image_path: String
-  scene_count: Int
-  scene_marker_count: Int
-  image_count: Int
-  gallery_count: Int
-  performer_count: Int
+  scene_count(depth: Int): Int!
+  scene_marker_count(depth: Int): Int!
+  image_count(depth: Int): Int!
+  gallery_count(depth: Int): Int!
+  performer_count(depth: Int): Int!
   parents: [Tag!]!
   children: [Tag!]!
 }
@@ -3684,4 +3887,6 @@ type VideoFile implements BaseFile {
   created_at: Time!
   updated_at: Time!
 }
+
+union VisualFile = VideoFile | ImageFile
 
