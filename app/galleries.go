@@ -56,7 +56,7 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 
 	return tea.Batch(
 		s.doUpdateCmd(),
-		spinner.Tick,
+		s.spinner.Tick,
 	)
 }
 
@@ -66,10 +66,12 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyUp:
 			if !s.loading && s.Skip(-1) {
+				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 		case tea.KeyDown:
 			if !s.loading && s.Skip(1) {
+				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 		}

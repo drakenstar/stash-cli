@@ -51,7 +51,7 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 	s.Reset()
 	return tea.Batch(
 		s.doUpdateCmd(),
-		spinner.Tick,
+		s.spinner.Tick,
 	)
 }
 
@@ -61,10 +61,12 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyUp:
 			if !s.loading && s.Skip(-1) {
+				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 		case tea.KeyDown:
 			if !s.loading && s.Skip(1) {
+				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 		}

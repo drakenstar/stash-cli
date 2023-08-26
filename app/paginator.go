@@ -83,12 +83,17 @@ func (p paginator[T]) Position() int {
 	return (p.page-1)*p.perPage + p.index
 }
 
-// Reset sets the index and page to 0 and the opened flag to false.
+// Clear empties the items slice and resets opened state.
+func (p *paginator[T]) Clear() {
+	p.opened = false
+	p.items = nil
+}
+
+// Reset does the same as Clear but additionally resets page and index.
 func (p *paginator[T]) Reset() {
 	p.index = 0
 	p.page = 1
-	p.opened = false
-	p.items = nil
+	p.Clear()
 }
 
 func (p paginator[T]) String() string {
