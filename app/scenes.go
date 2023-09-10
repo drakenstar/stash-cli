@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -95,6 +96,15 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 
 		case "random", "r":
 			s.sort = stash.RandomSort()
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
+		case "today":
+			yesterday := time.Now().Add(-24 * time.Hour)
+			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
+				Value:    yesterday.Format("2006-01-02 15:04"),
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
 			s.Reset()
 			return &s, s.doUpdateCmd()
 
