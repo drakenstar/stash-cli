@@ -157,6 +157,14 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.galleryFilter.Organized = &organised
 			return &s, s.doUpdateCmd()
 
+		case "favourite", "favorite":
+			favourite := true
+			if msg.ArgString() == "false" {
+				favourite = false
+			}
+			s.galleryFilter.PerformerFavourite = &favourite
+			return &s, s.doUpdateCmd()
+
 		case "more":
 			var ids []string
 			for _, p := range s.Current().Performers {

@@ -42,11 +42,13 @@ type FilterCombinator[T SceneFilter | GalleryFilter] struct {
 
 type SceneFilter struct {
 	FilterCombinator[SceneFilter]
-	Organized  *bool                       `json:"organized,omitempty"`
-	Performers *MultiCriterion             `json:"performers,omitempty"`
-	Path       *StringCriterion            `json:"path,omitempty"`
-	CreatedAt  *TimestampCriterion         `json:"created_at,omitempty"`
-	Studios    *HierarchicalMultiCriterion `json:"studios,omitempty"`
+	Organized          *bool                       `json:"organized,omitempty"`
+	Performers         *MultiCriterion             `json:"performers,omitempty"`
+	Path               *StringCriterion            `json:"path,omitempty"`
+	CreatedAt          *TimestampCriterion         `json:"created_at,omitempty"`
+	Studios            *HierarchicalMultiCriterion `json:"studios,omitempty"`
+	PerformerFavourite *bool                       `json:"performer_favorite,omitempty"`
+	PerformerTags      *HierarchicalMultiCriterion `json:"performer_tags,omitempty"`
 }
 
 func (SceneFilter) GetGraphQLType() string {
@@ -55,11 +57,12 @@ func (SceneFilter) GetGraphQLType() string {
 
 type GalleryFilter struct {
 	FilterCombinator[GalleryFilter]
-	Organized  *bool                       `json:"organized,omitempty"`
-	Performers *MultiCriterion             `json:"performers,omitempty"`
-	Path       *StringCriterion            `json:"path,omitempty"`
-	CreatedAt  *TimestampCriterion         `json:"created_at,omitempty"`
-	Studios    *HierarchicalMultiCriterion `json:"studios,omitempty"`
+	Organized          *bool                       `json:"organized,omitempty"`
+	Performers         *MultiCriterion             `json:"performers,omitempty"`
+	Path               *StringCriterion            `json:"path,omitempty"`
+	CreatedAt          *TimestampCriterion         `json:"created_at,omitempty"`
+	Studios            *HierarchicalMultiCriterion `json:"studios,omitempty"`
+	PerformerFavourite *bool                       `json:"performer_favorite,omitempty"`
 }
 
 func (GalleryFilter) GetGraphQLType() string {

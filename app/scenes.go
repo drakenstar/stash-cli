@@ -122,6 +122,21 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.sceneFilter.Organized = &organised
 			return &s, s.doUpdateCmd()
 
+		case "pt":
+			s.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
+				Value:    []string{msg.ArgString()},
+				Modifier: stash.CriterionModifierIncludes,
+			}
+			return &s, s.doUpdateCmd()
+
+		case "favourite", "favorite":
+			favourite := true
+			if msg.ArgString() == "false" {
+				favourite = false
+			}
+			s.sceneFilter.PerformerFavourite = &favourite
+			return &s, s.doUpdateCmd()
+
 		case "more":
 			var ids []string
 			for _, p := range s.Current().Performers {
