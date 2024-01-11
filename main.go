@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,10 +25,12 @@ func main() {
 		fmt.Printf("Connecting to stash instance %s\n", cfg.GraphURL())
 	}
 
-	var httpClient graphql.Doer = http.DefaultClient
-	if cfg.Debug {
-		httpClient = &loggingTransport{}
+	httpClient := &client{
+		Client: http.DefaultClient,
+		APIKey: cfg.APIKey,
+		Debug:  cfg.Debug,
 	}
+
 	client := graphql.NewClient(cfg.GraphURL().String(), httpClient)
 	stash := stash.New(client)
 	opener := cfg.Opener(func(name string, args ...string) error {
@@ -92,4 +95,26 @@ func loadConfig() *config.Config {
 	}
 
 	return &c
+}
+
+// client that implements the required API Key authentication and debugging capabilities.
+type client struct {
+	*http.Client
+	APIKey string
+	Debug  bool
+}
+
+func (c *client) Do(req *http.Request) (*http.Response, error) {
+	req.Header.Set("ApiKey", c.APIKey)
+
+	if c.Debug {
+		bytes, _ := httputil.DumpRequestOut(req, true)
+		resp, err := http.DefaultTransport.RoundTrip(req)
+		respBytes, _ := httputil.DumpResponse(resp, true)
+		bytes = append(bytes, respBytes...)
+		fmt.Printf("%s\n", bytes)
+		return resp, err
+	}
+
+	return c.Client.Do(req)
 }

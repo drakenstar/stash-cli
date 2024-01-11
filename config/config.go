@@ -23,6 +23,7 @@ type OpenCommands struct {
 type Config struct {
 	Debug         bool              `json:"-"`
 	StashInstance *jsonURL          `json:"stashInstance"`
+	APIKey        string            `json:"apiKey"`
 	PathMappings  map[string]string `json:"pathMappings"`
 	OpenCommands  OpenCommands      `json:"openCommands"`
 }
