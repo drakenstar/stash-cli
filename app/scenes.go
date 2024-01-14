@@ -100,9 +100,8 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			return &s, s.doUpdateCmd()
 
 		case "today":
-			yesterday := time.Now().Add(-24 * time.Hour)
 			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
-				Value:    yesterday.Format("2006-01-02 15:04"),
+				Value:    time.Now().Add(-24 * time.Hour),
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
 			s.Reset()
