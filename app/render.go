@@ -49,21 +49,34 @@ func sceneTitle(s stash.Scene) string {
 }
 
 func performerList(performers []stash.Performer) string {
-	var names []string
-	for _, p := range performers {
-		name := p.Name
-		if p.Gender != stash.GenderFemale {
-			name += " " + p.Gender.String()
+	switch len(performers) {
+	case 0:
+		return ""
+	case 1:
+		return performer(performers[0])
+	default:
+		var show stash.Performer
+		for _, p := range performers {
+			if p.SceneCount > show.SceneCount {
+				show = p
+			}
 		}
-		if p.Country != "" {
-			name += " " + p.Country.String()
-		}
-		if p.Favorite {
-			name += " ❤️"
-		}
-		names = append(names, name)
+		return fmt.Sprintf("%s (+%d)", performer(show), len(performers)-1)
 	}
-	return strings.Join(names, "\n")
+}
+
+func performer(p stash.Performer) string {
+	name := p.Name
+	if p.Gender != stash.GenderFemale {
+		name += " " + p.Gender.String()
+	}
+	if p.Country != "" {
+		name += " " + p.Country.String()
+	}
+	if p.Favorite {
+		name += " ❤️"
+	}
+	return name
 }
 
 func tagList(tags []stash.Tag) string {

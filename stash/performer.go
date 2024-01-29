@@ -8,13 +8,14 @@ import (
 )
 
 type Performer struct {
-	ID        string  `graphql:"id"`
-	Name      string  `graphql:"name"`
-	URL       string  `graphql:"url"`
-	Birthdate string  `graphql:"birthdate"`
-	Gender    Gender  `graphql:"gender"`
-	Country   Country `graphql:"country"`
-	Favorite  bool    `graphql:"favorite"`
+	ID         string  `graphql:"id"`
+	Name       string  `graphql:"name"`
+	URL        string  `graphql:"url"`
+	Birthdate  string  `graphql:"birthdate"`
+	Gender     Gender  `graphql:"gender"`
+	Country    Country `graphql:"country"`
+	Favorite   bool    `graphql:"favorite"`
+	SceneCount int     `graphql:"scene_count"`
 }
 
 func (p Performer) EntityID() string {
