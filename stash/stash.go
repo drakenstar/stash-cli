@@ -15,6 +15,9 @@ type Stash interface {
 
 	PerformersAll(context.Context) ([]PerformerSummary, error)
 	PerformerCreate(context.Context, PerformerCreate) (Performer, error)
+	PerformerGet(context.Context, string) (Performer, error)
+
+	TagGet(context.Context, string) (Tag, error)
 }
 
 func New(client *graphql.Client) Stash {
@@ -26,11 +29,6 @@ type stash struct {
 }
 
 type Studio struct {
-	ID   string `graphql:"id"`
-	Name string `graphql:"name"`
-}
-
-type Tag struct {
 	ID   string `graphql:"id"`
 	Name string `graphql:"name"`
 }

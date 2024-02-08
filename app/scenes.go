@@ -15,7 +15,7 @@ import (
 )
 
 type ScenesModel struct {
-	Stash  stash.Stash
+	stash  stashCache
 	Opener config.Opener
 
 	paginator[stash.Scene]
@@ -32,7 +32,7 @@ type ScenesModel struct {
 
 func NewScenesModel(stash stash.Stash, opener config.Opener) *ScenesModel {
 	s := &ScenesModel{
-		Stash:  stash,
+		stash:  newStashCache(stash),
 		Opener: opener,
 	}
 
@@ -230,7 +230,12 @@ func (s ScenesModel) View() string {
 		}
 	}
 	if s.sceneFilter.Performers != nil {
-		rightStatus = append(rightStatus, "performers") // TODO actually output performer names
+		p := make([]stash.Performer, len(s.sceneFilter.Performers.Value))
+
+		for i, v := range s.sceneFilter.Performers.Value {
+			p[i] = s.stash.pCache[v]
+		}
+		rightStatus = append(rightStatus, performerList(p))
 	}
 
 	return lipgloss.JoinVertical(0,
@@ -257,7 +262,7 @@ func (s *ScenesModel) doUpdateCmd() tea.Cmd {
 			Direction: s.sortDirection,
 		}
 		var m scenesMessage
-		m.scenes, m.total, m.err = s.Stash.Scenes(context.Background(), f, s.sceneFilter)
+		m.scenes, m.total, m.err = s.stash.Scenes(context.Background(), f, s.sceneFilter)
 		return m
 	}
 }
@@ -288,7 +293,7 @@ type DeleteMsg struct {
 func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
 	s.loading = true
 	return func() tea.Msg {
-		_, err := s.Stash.DeleteScene(context.Background(), d.Scene.ID)
+		_, err := s.stash.DeleteScene(context.Background(), d.Scene.ID)
 		if err != nil {
 			return ErrorMsg{err}
 		}

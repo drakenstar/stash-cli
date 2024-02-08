@@ -160,3 +160,17 @@ func (s stash) PerformerCreate(ctx context.Context, p PerformerCreate) (Performe
 	err := s.client.Mutate(ctx, &m, map[string]any{"input": p})
 	return m.Performer, err
 }
+
+type findPerformerQuery struct {
+	Performer Performer `graphql:"findPerformer(id: $id)"`
+}
+
+// PerformerGet returns a single performer by ID.
+func (s stash) PerformerGet(ctx context.Context, id string) (Performer, error) {
+	resp := findPerformerQuery{}
+	err := s.client.Query(ctx, &resp, map[string]any{"id": id})
+	if err != nil {
+		return Performer{}, err
+	}
+	return resp.Performer, nil
+}
