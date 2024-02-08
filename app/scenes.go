@@ -82,6 +82,7 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		switch msg.Command() {
 		case "":
 			if s.Next() {
+				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 			s.Opener(s.Current())
@@ -102,6 +103,14 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		case "recent":
 			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
 				Value:    time.Now().Add(-24 * time.Hour * 7),
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
+		case "year":
+			s.sceneFilter.Date = &stash.DateCriterion{
+				Value:    time.Now().Add(-24 * time.Hour * 365),
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
 			s.Reset()

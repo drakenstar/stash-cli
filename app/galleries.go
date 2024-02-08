@@ -86,6 +86,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		switch msg.Command() {
 		case "":
 			if s.Next() {
+				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 			s.Opener(s.Current())
