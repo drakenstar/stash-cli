@@ -218,24 +218,9 @@ func (s ScenesModel) View() string {
 			sort(s.sort, s.sortDirection),
 		}
 	}
-	rightStatus := []string{}
+	rightStatus := sceneFilterStatus(s.sceneFilter, &s.stash)
 	if s.query != "" {
 		rightStatus = append(rightStatus, "\""+s.query+"\"")
-	}
-	if s.sceneFilter.Organized != nil {
-		if *s.sceneFilter.Organized {
-			rightStatus = append(rightStatus, "organized")
-		} else {
-			rightStatus = append(rightStatus, "not organized")
-		}
-	}
-	if s.sceneFilter.Performers != nil {
-		p := make([]stash.Performer, len(s.sceneFilter.Performers.Value))
-
-		for i, v := range s.sceneFilter.Performers.Value {
-			p[i] = s.stash.pCache[v]
-		}
-		rightStatus = append(rightStatus, performerList(p))
 	}
 
 	return lipgloss.JoinVertical(0,

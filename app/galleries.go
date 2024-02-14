@@ -16,7 +16,7 @@ import (
 )
 
 type GalleriesModel struct {
-	Stash  stash.Stash
+	Stash  stashCache
 	Opener config.Opener
 
 	paginator[stash.Gallery]
@@ -33,7 +33,7 @@ type GalleriesModel struct {
 
 func NewGalleriesModel(stash stash.Stash, opener config.Opener) *GalleriesModel {
 	s := &GalleriesModel{
-		Stash:  stash,
+		Stash:  newStashCache(stash),
 		Opener: opener,
 	}
 
@@ -230,16 +230,9 @@ func (s GalleriesModel) View() string {
 			sort(s.sort, s.sortDirection),
 		}
 	}
-	rightStatus := []string{}
+	rightStatus := galleryFilterStatus(s.galleryFilter, &s.Stash)
 	if s.query != "" {
 		rightStatus = append(rightStatus, "\""+s.query+"\"")
-	}
-	if s.galleryFilter.Organized != nil {
-		if *s.galleryFilter.Organized {
-			rightStatus = append(rightStatus, "organized")
-		} else {
-			rightStatus = append(rightStatus, "not organized")
-		}
 	}
 
 	return lipgloss.JoinVertical(0,

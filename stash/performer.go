@@ -16,6 +16,7 @@ type Performer struct {
 	Country    Country `graphql:"country"`
 	Favorite   bool    `graphql:"favorite"`
 	SceneCount int     `graphql:"scene_count"`
+	Tags       []Tag   `graphql:"tags"`
 }
 
 func (p Performer) EntityID() string {
