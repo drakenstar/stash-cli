@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -202,6 +204,15 @@ func (i Input) ArgString() string {
 		return ""
 	}
 	return string(i[idx+1:])
+}
+
+// ArgInt attempts to parse any value given after the command as an integer.
+func (i Input) ArgInt() (int, error) {
+	idx := strings.Index(string(i), " ")
+	if idx == -1 {
+		return 0, fmt.Errorf("no argument given")
+	}
+	return strconv.Atoi(string(i[idx+1:]))
 }
 
 // Args returns a tokenised set of arguments that come after the initial command, not including the command itself.

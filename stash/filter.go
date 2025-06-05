@@ -63,7 +63,7 @@ type SceneFilter struct {
 	AudioCodec         *StringCriterion            `json:"audio_codec,omitempty"`
 	Duration           *IntCriterion               `json:"duration,omitempty"`
 	HasMarkers         *string                     `json:"has_markers,omitempty"`
-	IsMissing          string                      `json:"is_missing,omitempty"`
+	IsMissing          *string                     `json:"is_missing,omitempty"`
 	Studios            *HierarchicalMultiCriterion `json:"studios,omitempty"`
 	Movies             *MultiCriterion             `json:"movies,omitempty"`
 	Tags               *HierarchicalMultiCriterion `json:"tags,omitempty"`

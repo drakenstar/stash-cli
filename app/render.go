@@ -186,9 +186,9 @@ func sceneFilterStatus(filter stash.SceneFilter, cache *stashCache) []string {
 	if filter.HasMarkers != nil {
 		status = append(status, *filter.HasMarkers)
 	}
-	if filter.IsMissing != "" {
-		status = append(status, "Is missing "+filter.IsMissing)
-	}
+	// if filter.IsMissing != "" {
+	// 	status = append(status, "Is missing "+filter.IsMissing)
+	// }
 	status.heirarchicalMultiCriterion("Studios", filter.Studios, func(id string) string {
 		return cache.studios[id].Name
 	})
@@ -400,10 +400,10 @@ func (r *criterionRenderer) dateCriterion(fieldLabel string, c *stash.DateCriter
 	}
 	data := criterionData{
 		FieldLabel: fieldLabel,
-		Value:      c.Value.Format("2006-02-01"),
+		Value:      c.Value.Format("2006-01-02"),
 	}
 	if c.Value2 != nil {
-		data.Value2 = c.Value2.Format("2006-02-01")
+		data.Value2 = c.Value2.Format("2006-01-02")
 	}
 	*r = append(*r, renderCriterion(c.Modifier, data))
 }

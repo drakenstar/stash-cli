@@ -95,6 +95,30 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.Reset()
 			return &s, s.doUpdateCmd()
 
+		case "sort":
+			sort := msg.ArgString()
+			switch sort {
+			case "date":
+				s.sort = sort
+				s.sortDirection = stash.SortDirectionAsc
+				s.Reset()
+				return &s, s.doUpdateCmd()
+
+			case "-date":
+				s.sort = sort[1:]
+				s.sortDirection = stash.SortDirectionDesc
+				s.Reset()
+				return &s, s.doUpdateCmd()
+			}
+		
+		case "studio":
+			s.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
+				Value:    msg.Args(),
+				Modifier: stash.CriterionModifierIncludes,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
 		case "random", "r":
 			s.sort = stash.RandomSort()
 			s.Reset()
@@ -115,6 +139,45 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			}
 			s.Reset()
 			return &s, s.doUpdateCmd()
+		
+		case "before":
+			val, err := msg.ArgInt()
+			if err != nil {
+				return &s, NewErrorCmd(err)
+			}
+			t := time.Date(val, time.January, 1, 0, 0, 0, 0, time.UTC)
+			s.sceneFilter.Date = &stash.DateCriterion{
+				Value:    t,
+				Modifier: stash.CriterionModifierLessThan,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
+		case "6mo":
+			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
+				Value:    time.Now().Add(-24 * time.Hour * 182),
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
+		case "1mo":
+			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
+				Value:    time.Now().Add(-24 * time.Hour * 30),
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
+		case "duration":
+			val, err := msg.ArgInt()
+			if err != nil {
+				return &s, NewErrorCmd(err)
+			}
+			s.sceneFilter.Duration = &stash.IntCriterion{
+				Value:    val,
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
 
 		case "reset":
 			return &s, s.Init(s.screen)
@@ -128,6 +191,13 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 				organised = false
 			}
 			s.sceneFilter.Organized = &organised
+			return &s, s.doUpdateCmd()
+
+		case "tags":
+			s.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
+				Value:    []string{msg.ArgString()},
+				Modifier: stash.CriterionModifierIncludes,
+			}
 			return &s, s.doUpdateCmd()
 
 		case "pt":
@@ -153,6 +223,13 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.sceneFilter.Performers = &stash.MultiCriterion{
 				Value:    ids,
 				Modifier: stash.CriterionModifierIncludes,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
+		case "rated":
+			s.sceneFilter.Rating100 = &stash.IntCriterion{
+				Modifier: stash.CriterionModifierNotNull,
 			}
 			s.Reset()
 			return &s, s.doUpdateCmd()

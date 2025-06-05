@@ -146,6 +146,18 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.Reset()
 			return &s, s.doUpdateCmd()
 
+		case "count":
+			val, err := msg.ArgInt()
+			if err != nil {
+				return &s, NewErrorCmd(err)
+			}
+			s.galleryFilter.ImageCount = &stash.IntCriterion{
+				Value: val,
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+			s.Reset()
+			return &s, s.doUpdateCmd()
+
 		case "reset":
 			return &s, s.Init(s.screen)
 
