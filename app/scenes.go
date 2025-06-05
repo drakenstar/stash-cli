@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"math"
 	"path"
 	"time"
 
@@ -268,6 +269,7 @@ func (s ScenesModel) View() string {
 			Values: []string{
 				organised(scene.Organized),
 				scene.Date,
+				rating(scene.Rating),
 				sceneTitle(scene),
 				sceneSize(scene),
 				scene.Studio.Name,
@@ -374,6 +376,9 @@ var (
 				Foreground: &ColorGrey,
 			},
 			{
+				Name: "Rating",
+			},
+			{
 				Name:       "Title",
 				Foreground: &ColorOffWhite,
 				Bold:       true,
@@ -407,3 +412,14 @@ var (
 		},
 	}
 )
+
+func rating(value int) string {
+    if value <= 0 {
+        return ""
+    }
+    if value > 100 {
+        value = 100
+    }
+    stars := int(math.Ceil(float64(value) * 5.0 / 100.0))
+    return fmt.Sprintf("%d⭐", stars)
+}
