@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/brunoga/deep"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,6 +15,13 @@ import (
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
+
+type filterState struct {
+	query         string
+	sort          string
+	sortDirection string
+	sceneFilter   stash.SceneFilter
+}
 
 type ScenesModel struct {
 	stash  stashCache
@@ -23,10 +31,8 @@ type ScenesModel struct {
 	loading bool
 	spinner spinner.Model
 
-	query         string
-	sort          string
-	sortDirection string
-	sceneFilter   stash.SceneFilter
+	current *filterState
+	history []filterState
 
 	screen Size
 }
@@ -45,16 +51,44 @@ func NewScenesModel(stash stash.Stash, opener config.Opener) *ScenesModel {
 func (s *ScenesModel) Init(size Size) tea.Cmd {
 	s.paginator = NewPaginator[stash.Scene](40)
 
-	s.query = ""
-	s.sort = stash.SortDate
-	s.sortDirection = stash.SortDirectionDesc
-
-	s.sceneFilter = stash.SceneFilter{}
-	s.Reset()
+	s.current = nil
+	s.history = []filterState{}
+	s.Push(&filterState{
+		query: "",
+		sort: stash.SortDate,
+		sortDirection: stash.SortDirectionDesc,
+		sceneFilter: stash.SceneFilter{},
+	})
+	
 	return tea.Batch(
 		s.doUpdateCmd(),
 		s.spinner.Tick,
 	)
+}
+
+func (s *ScenesModel) Clone() *filterState {
+	f := deep.MustCopy(s.current)
+	return f
+}
+
+// Push sets the new current state and pushes the existing state onto the history stack.  Pagination is reset.
+func (s *ScenesModel) Push(f *filterState) {
+	if (s.current != nil) {
+		s.history = append(s.history, *s.current)
+	}
+	s.current = f
+	s.Reset()
+}
+
+// Pop sets the current state to the previous state from the history stack.  If the history stack is empty this is a
+// noop.
+func (s *ScenesModel) Pop() {
+	if (len(s.history) == 0) {
+		return
+	}
+	s.current = &s.history[len(s.history) - 1]
+	s.history = s.history[0:len(s.history) - 1]
+	s.Reset()
 }
 
 func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
@@ -92,53 +126,60 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			s.Opener(s.Current())
 
 		case "filter", "f":
-			s.query = msg.ArgString()
-			s.Reset()
+			f := s.Clone()
+			f.query = msg.ArgString()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "sort":
 			sort := msg.ArgString()
 			switch sort {
 			case "date":
-				s.sort = sort
-				s.sortDirection = stash.SortDirectionAsc
-				s.Reset()
+				f := s.Clone()
+				f.sort = sort
+				f.sortDirection = stash.SortDirectionAsc
+				s.Push(f)
 				return &s, s.doUpdateCmd()
 
 			case "-date":
-				s.sort = sort[1:]
-				s.sortDirection = stash.SortDirectionDesc
-				s.Reset()
+				f := s.Clone()
+				f.sort = sort[1:]
+				f.sortDirection = stash.SortDirectionDesc
+				s.Push(f)
 				return &s, s.doUpdateCmd()
 			}
 		
 		case "studio":
-			s.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
+			f := s.Clone()
+			f.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
 				Value:    msg.Args(),
 				Modifier: stash.CriterionModifierIncludes,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "random", "r":
-			s.sort = stash.RandomSort()
-			s.Reset()
+			f := s.Clone()
+			f.sort = stash.RandomSort()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "recent":
-			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
+			f := s.Clone()
+			f.sceneFilter.CreatedAt = &stash.TimestampCriterion{
 				Value:    time.Now().Add(-24 * time.Hour * 7),
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "year":
-			s.sceneFilter.Date = &stash.DateCriterion{
+			f := s.Clone()
+			f.sceneFilter.Date = &stash.DateCriterion{
 				Value:    time.Now().Add(-24 * time.Hour * 365),
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 		
 		case "before":
@@ -147,27 +188,34 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 				return &s, NewErrorCmd(err)
 			}
 			t := time.Date(val, time.January, 1, 0, 0, 0, 0, time.UTC)
-			s.sceneFilter.Date = &stash.DateCriterion{
+			f := s.Clone()
+			f.sceneFilter.Date = &stash.DateCriterion{
 				Value:    t,
 				Modifier: stash.CriterionModifierLessThan,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "6mo":
-			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
+			f := s.Clone()
+			f.sceneFilter.CreatedAt = &stash.TimestampCriterion{
 				Value:    time.Now().Add(-24 * time.Hour * 182),
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "1mo":
-			s.sceneFilter.CreatedAt = &stash.TimestampCriterion{
+			f := s.Clone()
+			f.sceneFilter.CreatedAt = &stash.TimestampCriterion{
 				Value:    time.Now().Add(-24 * time.Hour * 30),
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
-			s.Reset()
+			s.Push(f)
+			return &s, s.doUpdateCmd()
+
+		case "pop", "p":
+			s.Pop()
 			return &s, s.doUpdateCmd()
 
 		case "duration":
@@ -175,10 +223,13 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			if err != nil {
 				return &s, NewErrorCmd(err)
 			}
-			s.sceneFilter.Duration = &stash.IntCriterion{
+			f := s.Clone()
+			f.sceneFilter.Duration = &stash.IntCriterion{
 				Value:    val,
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
+			s.Push(f)
+			return &s, s.doUpdateCmd()
 
 		case "reset":
 			return &s, s.Init(s.screen)
@@ -191,21 +242,27 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			if msg.ArgString() == "false" {
 				organised = false
 			}
-			s.sceneFilter.Organized = &organised
+			f := s.Clone()
+			f.sceneFilter.Organized = &organised
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "tags":
-			s.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
+			f := s.Clone()
+			f.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
 				Value:    []string{msg.ArgString()},
 				Modifier: stash.CriterionModifierIncludes,
 			}
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "pt":
-			s.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
+			f := s.Clone()
+			f.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
 				Value:    []string{msg.ArgString()},
 				Modifier: stash.CriterionModifierIncludes,
 			}
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "favourite", "favorite":
@@ -213,7 +270,9 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			if msg.ArgString() == "false" {
 				favourite = false
 			}
-			s.sceneFilter.PerformerFavourite = &favourite
+			f := s.Clone()
+			f.sceneFilter.PerformerFavourite = &favourite
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "more":
@@ -221,18 +280,20 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			for _, p := range s.Current().Performers {
 				ids = append(ids, p.ID)
 			}
-			s.sceneFilter.Performers = &stash.MultiCriterion{
+			f := s.Clone()
+			f.sceneFilter.Performers = &stash.MultiCriterion{
 				Value:    ids,
 				Modifier: stash.CriterionModifierIncludes,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "rated":
-			s.sceneFilter.Rating100 = &stash.IntCriterion{
+			f := s.Clone()
+			f.sceneFilter.Rating100 = &stash.IntCriterion{
 				Modifier: stash.CriterionModifierNotNull,
 			}
-			s.Reset()
+			s.Push(f)
 			return &s, s.doUpdateCmd()
 
 		case "stash":
@@ -288,18 +349,19 @@ func (s ScenesModel) View() string {
 		leftStatus = []string{
 			s.spinner.View(),
 			"loading",
-			sort(s.sort, s.sortDirection),
+			sort(s.current.sort, s.current.sortDirection),
 		}
 	} else {
 		leftStatus = []string{
 			"🎬",
 			s.paginator.String(),
-			sort(s.sort, s.sortDirection),
+			sort(s.current.sort, s.current.sortDirection),
 		}
 	}
-	rightStatus := sceneFilterStatus(s.sceneFilter, &s.stash)
-	if s.query != "" {
-		rightStatus = append(rightStatus, "\""+s.query+"\"")
+	rightStatus := []string{fmt.Sprintf("[%d]", len(s.history))}
+	rightStatus = append(rightStatus, sceneFilterStatus(s.current.sceneFilter, &s.stash)...)
+	if s.current.query != "" {
+		rightStatus = append(rightStatus, "\""+s.current.query+"\"")
 	}
 
 	return lipgloss.JoinVertical(0,
@@ -319,14 +381,14 @@ func (s *ScenesModel) doUpdateCmd() tea.Cmd {
 	s.loading = true
 	return func() tea.Msg {
 		f := stash.FindFilter{
-			Query:     s.query,
+			Query:     s.current.query,
 			Page:      s.page,
 			PerPage:   s.perPage,
-			Sort:      s.sort,
-			Direction: s.sortDirection,
+			Sort:      s.current.sort,
+			Direction: s.current.sortDirection,
 		}
 		var m scenesMessage
-		m.scenes, m.total, m.err = s.stash.Scenes(context.Background(), f, s.sceneFilter)
+		m.scenes, m.total, m.err = s.stash.Scenes(context.Background(), f, s.current.sceneFilter)
 		return m
 	}
 }
