@@ -19,9 +19,10 @@ type GalleriesModel struct {
 	Stash  stashCache
 	Opener config.Opener
 
-	paginator[stash.Gallery]
+	paginator
 	loading bool
 	spinner spinner.Model
+	galleries []stash.Gallery
 
 	query         string
 	sort          string
@@ -42,8 +43,12 @@ func NewGalleriesModel(stash stash.Stash, opener config.Opener) *GalleriesModel 
 	return s
 }
 
+func (m *GalleriesModel) Current() stash.Gallery {
+	return m.galleries[m.paginator.index]
+}
+
 func (s *GalleriesModel) Init(size Size) tea.Cmd {
-	s.paginator = NewPaginator[stash.Gallery](40)
+	s.paginator = NewPaginator(40)
 
 	s.query = ""
 	s.sort = stash.SortPath
@@ -198,7 +203,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 		if msg.err != nil {
 			return &s, NewErrorCmd(msg.err)
 		}
-		s.items, s.total = msg.galleries, msg.total
+		s.galleries, s.total = msg.galleries, msg.total
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -211,7 +216,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 
 func (s GalleriesModel) View() string {
 	var rows []ui.Row
-	for i, gallery := range s.items {
+	for i, gallery := range s.galleries {
 		rows = append(rows, ui.Row{
 			Values: []string{
 				organised(gallery.Organized),

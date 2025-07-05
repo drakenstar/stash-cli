@@ -6,17 +6,16 @@ import (
 )
 
 // paginator is a utility type to keep track of where we are at in a collection of a variable size and page size.
-type paginator[T any] struct {
+type paginator struct {
 	index   int
 	total   int
 	page    int
 	perPage int
 	opened  bool
-	items   []T
 }
 
-func NewPaginator[T any](perPage int) paginator[T] {
-	p := paginator[T]{
+func NewPaginator(perPage int) paginator {
+	p := paginator{
 		perPage: perPage,
 	}
 	p.Reset()
@@ -26,7 +25,7 @@ func NewPaginator[T any](perPage int) paginator[T] {
 // Next is the same as Skip(1) however it takes into account the opened flag and will only advance if open is set to
 // true.  If not it set's it return and does not Skip.  The intention of this is to allow calling code to always call
 // Next before opening, but to respect the start of a collection.
-func (p *paginator[T]) Next() bool {
+func (p *paginator) Next() bool {
 	if !p.opened {
 		p.opened = true
 		return false
@@ -35,7 +34,7 @@ func (p *paginator[T]) Next() bool {
 }
 
 // Similar to Next but sets opened to false.  Used when navigating with keys.
-func (p *paginator[T]) Skip(count int) bool {
+func (p *paginator) Skip(count int) bool {
 	p.opened = false
 	return p.skip(count)
 }
@@ -45,7 +44,7 @@ func (p *paginator[T]) Skip(count int) bool {
 // re-queried.
 // If the relative position of index is outside the bounds of our total content, then we just reset to page 1 index 0.
 // Skip can also traverse backwards.
-func (p *paginator[T]) skip(count int) bool {
+func (p *paginator) skip(count int) bool {
 	p.index += count
 
 	totalindex := (p.page-1)*p.perPage + p.index
@@ -73,30 +72,24 @@ func (p *paginator[T]) skip(count int) bool {
 	return false
 }
 
-// Returns the item at the current index.
-func (p *paginator[T]) Current() T {
-	return p.items[p.index]
-}
-
 // Position returns the current index but relative to the entire collection.
-func (p paginator[T]) Position() int {
+func (p paginator) Position() int {
 	return (p.page-1)*p.perPage + p.index
 }
 
 // Clear empties the items slice and resets opened state.
-func (p *paginator[T]) Clear() {
+func (p *paginator) Clear() {
 	p.opened = false
-	p.items = nil
 }
 
 // Reset does the same as Clear but additionally resets page and index.
-func (p *paginator[T]) Reset() {
+func (p *paginator) Reset() {
 	p.index = 0
 	p.page = 1
 	p.Clear()
 }
 
-func (p paginator[T]) String() string {
+func (p paginator) String() string {
 	if p.total == 0 {
 		return "no results"
 	}

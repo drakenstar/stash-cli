@@ -43,6 +43,7 @@
 - record scene playing count
 - full filter support of all fields
 - left/right should change pages
+- tabs
 
 # Bugs & Refactors
 ✅ Refactor resetting of content state
@@ -54,3 +55,4 @@
 - Output should be restricted to single line
 - Switching pages skips the first entry on next page
 - Switching pages doesn't open first item
+- StashCache needs to be improved

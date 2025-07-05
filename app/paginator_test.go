@@ -8,14 +8,14 @@ import (
 
 func TestPaginator(t *testing.T) {
 	t.Run("new", func(t *testing.T) {
-		p := NewPaginator[int](10)
+		p := NewPaginator(10)
 		require.Equal(t, 0, p.index)
 		require.Equal(t, 0, p.total)
 		require.Equal(t, 1, p.page)
 		require.Equal(t, 10, p.perPage)
 	})
 	t.Run("skip", func(t *testing.T) {
-		p := &paginator[int]{
+		p := &paginator{
 			total:   5,
 			page:    1,
 			perPage: 3,
@@ -53,7 +53,7 @@ func TestPaginator(t *testing.T) {
 	})
 
 	t.Run("stringer", func(t *testing.T) {
-		p := &paginator[int]{
+		p := &paginator{
 			total:   5,
 			page:    1,
 			perPage: 10,
@@ -66,7 +66,7 @@ func TestPaginator(t *testing.T) {
 	})
 }
 
-func requireIndexAndPage[T any](t *testing.T, p *paginator[T], idx, pg int) {
+func requireIndexAndPage(t *testing.T, p *paginator, idx, pg int) {
 	t.Helper()
 	require.Equal(t, idx, p.index)
 	require.Equal(t, pg, p.page)
