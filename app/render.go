@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	ColorBlack       = lipgloss.Color("#000000")
 	ColorGreen       = lipgloss.Color("#32CD32")
 	ColorYellow      = lipgloss.Color("#FAD689")
 	ColorPurple      = lipgloss.Color("#B39DDC")
@@ -35,6 +36,12 @@ var (
 		Foreground(ColorGrey).
 		SetString("○").
 		Render()
+
+	tabBar = ui.Tabs{
+		Background:       ColorBlack,
+		CellBackground:   ColorStatusBar,
+		ActiveBackground: ColorStatusCell,
+	}
 
 	statusBar = ui.StatusBar{
 		Background:     ColorStatusBar,

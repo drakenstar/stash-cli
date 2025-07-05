@@ -31,13 +31,13 @@ type ScenesModel struct {
 	paginator
 	loading bool
 	spinner spinner.Model
-	scenes []stash.Scene
+	scenes  []stash.Scene
 
 	query         string
 	sort          string
 	sortDirection string
 	sceneFilter   stash.SceneFilter
-	
+
 	history []filterState
 
 	screen Size
@@ -61,24 +61,30 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 	s.sort = stash.SortDate
 	s.sortDirection = stash.SortDirectionDesc
 	s.sceneFilter = stash.SceneFilter{}
-	
+
+	s.screen = size
+
 	return tea.Batch(
 		s.doUpdateCmd(),
 		s.spinner.Tick,
 	)
 }
 
+func (s *ScenesModel) TabTitle() string {
+	return "Scenes"
+}
+
 func (s *ScenesModel) Current() stash.Scene {
 	return s.scenes[s.index]
 }
 
-func (s *ScenesModel) PushState(mutate func (*ScenesModel)) (*ScenesModel, tea.Cmd) {
+func (s *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cmd) {
 	s.history = append(s.history, filterState{
-		query: s.query,
-		sort: s.sort,
+		query:         s.query,
+		sort:          s.sort,
 		sortDirection: s.sortDirection,
-		sceneFilter: s.sceneFilter,
-		pageState: s.paginator,
+		sceneFilter:   s.sceneFilter,
+		pageState:     s.paginator,
 	})
 	mutate(s)
 	s.paginator.Reset()
@@ -88,13 +94,13 @@ func (s *ScenesModel) PushState(mutate func (*ScenesModel)) (*ScenesModel, tea.C
 // Pop sets the current state to the previous state from the history stack.  If the history stack is empty this is a
 // noop.
 func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
-	if (len(s.history) == 0) {
+	if len(s.history) == 0 {
 		return s, nil
 	}
-	
-	state := s.history[len(s.history) - 1]
-	s.history = s.history[0:len(s.history) - 1]
-	
+
+	state := s.history[len(s.history)-1]
+	s.history = s.history[0 : len(s.history)-1]
+
 	// Restore previous state, including pagination
 	s.paginator = state.pageState
 	s.query = state.query
@@ -160,7 +166,7 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 					sm.sortDirection = stash.SortDirectionDesc
 				})
 			}
-		
+
 		case "studio":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
@@ -189,7 +195,7 @@ func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 					Modifier: stash.CriterionModifierGreaterThan,
 				}
 			})
-		
+
 		case "before":
 			val, err := msg.ArgInt()
 			if err != nil {
@@ -355,12 +361,12 @@ func (s ScenesModel) View() string {
 			sort(s.sort, s.sortDirection),
 		}
 	}
-	
+
 	rightStatus := sceneFilterStatus(s.sceneFilter, &s.stash)
 	if s.query != "" {
 		rightStatus = append(rightStatus, "\""+s.query+"\"")
 	}
-	if (len(s.history) > 0) {
+	if len(s.history) > 0 {
 		rightStatus = append(rightStatus, fmt.Sprintf("[%d]", len(s.history)))
 	}
 
@@ -381,12 +387,12 @@ func (s *ScenesModel) doUpdateCmd() tea.Cmd {
 	s.loading = true
 	sf := s.sceneFilter
 	f := stash.FindFilter{
-			Query:     s.query,
-			Page:      s.page,
-			PerPage:   s.perPage,
-			Sort:      s.sort,
-			Direction: s.sortDirection,
-		}
+		Query:     s.query,
+		Page:      s.page,
+		PerPage:   s.perPage,
+		Sort:      s.sort,
+		Direction: s.sortDirection,
+	}
 	return func() tea.Msg {
 		var m scenesMessage
 		m.scenes, m.total, m.err = s.stash.Scenes(context.Background(), f, sf)
@@ -430,6 +436,7 @@ func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
 
 var (
 	sceneTable = &ui.Table{
+		AltBackground: ColorBlack,
 		Cols: []ui.Column{
 			{
 				Name: "Organised",
@@ -477,12 +484,12 @@ var (
 )
 
 func rating(value int) string {
-    if value <= 0 {
-        return ""
-    }
-    if value > 100 {
-        value = 100
-    }
-    stars := int(math.Ceil(float64(value) * 5.0 / 100.0))
-    return fmt.Sprintf("%d⭐", stars)
+	if value <= 0 {
+		return ""
+	}
+	if value > 100 {
+		value = 100
+	}
+	stars := int(math.Ceil(float64(value) * 5.0 / 100.0))
+	return fmt.Sprintf("%d⭐", stars)
 }

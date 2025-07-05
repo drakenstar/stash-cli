@@ -20,8 +20,8 @@ type GalleriesModel struct {
 	Opener config.Opener
 
 	paginator
-	loading bool
-	spinner spinner.Model
+	loading   bool
+	spinner   spinner.Model
 	galleries []stash.Gallery
 
 	query         string
@@ -63,6 +63,10 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 		s.doUpdateCmd(),
 		s.spinner.Tick,
 	)
+}
+
+func (s *GalleriesModel) TabTitle() string {
+	return "Galleries"
 }
 
 func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
@@ -157,7 +161,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 				return &s, NewErrorCmd(err)
 			}
 			s.galleryFilter.ImageCount = &stash.IntCriterion{
-				Value: val,
+				Value:    val,
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
 			s.Reset()
@@ -282,6 +286,7 @@ func (s *GalleriesModel) doUpdateCmd() tea.Cmd {
 
 var (
 	galleriesTable = &ui.Table{
+		AltBackground: ColorBlack,
 		Cols: []ui.Column{
 			{
 				Name: "Organised",

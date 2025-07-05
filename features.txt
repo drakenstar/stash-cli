@@ -43,7 +43,7 @@
 - record scene playing count
 - full filter support of all fields
 - left/right should change pages
-- tabs
+✅ tabs
 
 # Bugs & Refactors
 ✅ Refactor resetting of content state

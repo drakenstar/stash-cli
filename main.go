@@ -42,11 +42,11 @@ func main() {
 
 	app := app.New([]app.AppModelMapping{
 		{
-			Model:    app.NewScenesModel(stash, opener),
+			NewFunc:  func() app.AppModel { return app.NewScenesModel(stash, opener) },
 			Commands: []string{"scenes", "s"},
 		},
 		{
-			Model:    app.NewGalleriesModel(stash, opener),
+			NewFunc:  func() app.AppModel { return app.NewGalleriesModel(stash, opener) },
 			Commands: []string{"galleries", "g"},
 		},
 	})

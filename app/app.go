@@ -22,17 +22,19 @@ type AppModel interface {
 	Update(tea.Msg) (AppModel, tea.Cmd)
 	// Normal tea.Model:View method, should render the current state of the view as a string.
 	View() string
+	// Returns a string name to be used for the tab title
+	TabTitle() string
 }
 
 // AppModelMapping maps a given AppModel to the commands that to map to it's activation.
 type AppModelMapping struct {
-	Model    AppModel
+	NewFunc  func() AppModel
 	Commands []string
 }
 
 type Model struct {
-	models          []AppModel
-	commandMappings map[string]int
+	tabs            []AppModel
+	commandMappings map[string]AppModelMapping
 	active          int
 
 	screen Size
@@ -51,16 +53,17 @@ func New(models []AppModelMapping) *Model {
 
 	a := new(Model)
 
-	a.commandMappings = make(map[string]int)
-	for i, m := range models {
+	a.commandMappings = make(map[string]AppModelMapping)
+	for _, m := range models {
 		if len(m.Commands) == 0 {
 			panic("must provide at least one switch command per model")
 		}
-		a.models = append(a.models, m.Model)
 		for _, cmd := range m.Commands {
-			a.commandMappings[cmd] = i
+			a.commandMappings[cmd] = m
 		}
 	}
+
+	a.tabs = append(a.tabs, models[0].NewFunc())
 
 	a.text = textinput.New()
 	a.text.Focus()
@@ -71,7 +74,7 @@ func New(models []AppModelMapping) *Model {
 func (a Model) Init() tea.Cmd {
 	return tea.Batch(
 		textinput.Blink,
-		a.models[a.active].Init(a.screen),
+		a.tabs[a.active].Init(a.screen),
 	)
 }
 
@@ -97,14 +100,36 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.text.SetValue("")
 				return a, cmd
 			}
+
+		case tea.KeyF1:
+			a.TabSet(0)
+			return a, nil
+		case tea.KeyF2:
+			a.TabSet(1)
+			return a, nil
+		case tea.KeyF3:
+			a.TabSet(2)
+			return a, nil
+		case tea.KeyF4:
+			a.TabSet(3)
+			return a, nil
+		case tea.KeyF5:
+			a.TabSet(4)
+			return a, nil
+		// TODO more tab bindings?
+
+		case tea.KeyCtrlW:
+			a.TabClose(a.active)
+			return a, nil
 		}
 
 	case Input:
 		cmd := msg.Command()
-		if i, ok := a.commandMappings[cmd]; ok && i != a.active {
+		if _, ok := a.commandMappings[cmd]; ok {
 			a.confirmation = nil
-			a.active = i
-			return a, a.models[a.active].Init(a.screen)
+			a.tabs = append(a.tabs, a.commandMappings[cmd].NewFunc())
+			a.active = len(a.tabs) - 1
+			return a, a.tabs[a.active].Init(a.screen)
 		}
 
 		if cmd == "exit" {
@@ -147,8 +172,8 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	next, cmd := a.models[a.active].Update(msg)
-	a.models[a.active] = next
+	next, cmd := a.tabs[a.active].Update(msg)
+	a.tabs[a.active] = next
 	cmds = append(cmds, cmd)
 
 	return a, tea.Batch(cmds...)
@@ -157,7 +182,7 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a Model) View() string {
 	viewportStyle := lipgloss.NewStyle().
 		Width(a.screen.Width).
-		Height(a.screen.Height - 2)
+		Height(a.screen.Height - 3)
 	var bottom string
 	if a.confirmation != nil {
 		bottom = a.confirmation.View()
@@ -167,10 +192,36 @@ func (a Model) View() string {
 		}
 		bottom += "\n" + a.text.View()
 	}
+
+	titles := make([]string, len(a.tabs))
+	for i, tab := range a.tabs {
+		titles[i] = tab.TabTitle()
+	}
+
 	return lipgloss.JoinVertical(0,
-		viewportStyle.Render(a.models[a.active].View()),
+		tabBar.Render(a.screen.Width, titles, a.active),
+		viewportStyle.Render(a.tabs[a.active].View()),
 		bottom,
 	)
+}
+
+// TabSet navigates to a specific Tab.  This is a noop if the tab does not exist.
+func (a *Model) TabSet(i int) {
+	if len(a.tabs) > i {
+		a.active = i
+	}
+}
+
+// TabClose closes a tab at the specified index.  Is a noop if tab does not
+// exist.  The final tab cannot be closed.  If the current tab is active, then
+// the previous tab will be set as active.
+func (a *Model) TabClose(i int) {
+	if len(a.tabs) > i && len(a.tabs) > 1 {
+		if i >= a.active {
+			a.active = max(a.active-1, 0)
+		}
+		a.tabs = append(a.tabs[:i], a.tabs[i+1:]...)
+	}
 }
 
 type Size struct {

@@ -28,6 +28,8 @@ type Row struct {
 
 type Table struct {
 	Cols []Column
+
+	AltBackground lipgloss.Color
 }
 
 func (t *Table) Render(maxWidth int, rows []Row) string {
@@ -40,7 +42,7 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 		if row.Background != nil {
 			rowStyle = rowStyle.Background(row.Background)
 		} else if x%2 == 0 {
-			rowStyle = rowStyle.Background(lipgloss.Color("#000000"))
+			rowStyle = rowStyle.Background(t.AltBackground)
 		}
 
 		for i, col := range t.Cols {
