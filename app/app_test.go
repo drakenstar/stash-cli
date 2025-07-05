@@ -23,24 +23,28 @@ func (m mockAppModel) View() string {
 	return m.name + "View"
 }
 
+func (m mockAppModel) TabTitle() string {
+	return "Title"
+}
+
 func TestApp(t *testing.T) {
 	t.Run("new panics without AppModels or commands", func(t *testing.T) {
 		require.Panics(t, func() {
 			New([]AppModelMapping{})
 		})
 		require.Panics(t, func() {
-			New([]AppModelMapping{{Model: mockAppModel{}}})
+			New([]AppModelMapping{{NewFunc: func() AppModel { return mockAppModel{} }}})
 		})
 	})
 
 	t.Run("new initalises state", func(t *testing.T) {
 		a := New([]AppModelMapping{
 			{
-				Model:    mockAppModel{"mock1"},
+				NewFunc:  func() AppModel { return mockAppModel{"mock1"} },
 				Commands: []string{"mock1", "m1"},
 			},
 			{
-				Model:    mockAppModel{"mock2"},
+				NewFunc:  func() AppModel { return mockAppModel{"mock2"} },
 				Commands: []string{"mock2", "m2"},
 			},
 		})

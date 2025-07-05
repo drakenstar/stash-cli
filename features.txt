@@ -36,7 +36,7 @@
 - all input blocking while loading
 ✅ better recording of "has opened" state while list navigating
 - output names of filtered entities instead of just ids or generically "performers"
-- filter history
+✅ filter history
 - saved filters
     - the default filtering should respect the configured default filters for that type
 - browse performers
