@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -46,8 +47,7 @@ func (t *Table) Render(maxWidth int, rows []Row) string {
 		}
 
 		for i, col := range t.Cols {
-			style := rowStyle.Copy().
-				Align(col.Align)
+			style := rowStyle.Align(col.Align)
 
 			if i < len(t.Cols)-1 {
 				style = style.Width(widths[i] + 1).PaddingRight(1)
@@ -185,10 +185,31 @@ func min(a, b int) int {
 	return b
 }
 
-func truncate(s string, l int, suffix string) string {
-	if lipgloss.Width(s) > l {
-		r := []rune(s)
-		return string(r[:l-lipgloss.Width(suffix)]) + suffix
+// Truncates the string so that it fits within the limit.  If it's over the limit, then suffix will be appended.  Since
+// this uses lipgloss.Width to determine the width, it builds up the string so that it stays within the limit.
+func truncate(s string, limit int, suffix string) string {
+	if lipgloss.Width(s) <= limit {
+		return s
 	}
-	return s
+
+	suffixWidth := lipgloss.Width(suffix)
+	max := limit - suffixWidth
+
+	var out strings.Builder
+	w := 0
+
+	for len(s) > 0 {
+		r, size := utf8.DecodeRuneInString(s)
+		rw := lipgloss.Width(string(r))
+
+		if w+rw > max {
+			break
+		}
+
+		out.WriteRune(r)
+		w += rw
+		s = s[size:]
+	}
+
+	return out.String() + suffix
 }
