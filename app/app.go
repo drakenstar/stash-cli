@@ -1,9 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -25,6 +22,11 @@ type AppModel interface {
 	// Returns a string name to be used for the tab title
 	TabTitle() string
 }
+
+const (
+	ModeNormal = iota
+	ModCommand
+)
 
 // AppModelMapping maps a given AppModel to the commands that to map to it's activation.
 type AppModelMapping struct {
@@ -96,7 +98,7 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			if a.confirmation == nil {
-				cmd := NewInputCmd(a.text.Value())
+				cmd := NewCommandCmd(a.text.Value())
 				a.text.SetValue("")
 				return a, cmd
 			}
@@ -116,15 +118,14 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyF5:
 			a.TabSet(4)
 			return a, nil
-		// TODO more tab bindings?
 
 		case tea.KeyCtrlW:
 			a.TabClose(a.active)
 			return a, nil
 		}
 
-	case Input:
-		cmd := msg.Command()
+	case Command:
+		cmd := msg.Name()
 		if _, ok := a.commandMappings[cmd]; ok {
 			a.confirmation = nil
 			a.tabs = append(a.tabs, a.commandMappings[cmd].NewFunc())
@@ -227,49 +228,6 @@ func (a *Model) TabClose(i int) {
 type Size struct {
 	Width  int
 	Height int
-}
-
-// Input represents a complete line of input from the user
-type Input string
-
-func NewInputCmd(s string) tea.Cmd {
-	return func() tea.Msg {
-		return Input(strings.TrimSpace(s))
-	}
-}
-
-// Command returns all characters up to the first encountered space in an input string.  This is to be interpretted
-// as the command for the rest of the input.
-func (i Input) Command() string {
-	idx := strings.Index(string(i), " ")
-	if idx == -1 {
-		return string(i)
-	}
-	return string(i[:idx])
-}
-
-// ArgString returns all text after the initial command.  This may be interpretted in any way an action deems appropriate.
-func (i Input) ArgString() string {
-	idx := strings.Index(string(i), " ")
-	if idx == -1 {
-		return ""
-	}
-	return string(i[idx+1:])
-}
-
-// ArgInt attempts to parse any value given after the command as an integer.
-func (i Input) ArgInt() (int, error) {
-	idx := strings.Index(string(i), " ")
-	if idx == -1 {
-		return 0, fmt.Errorf("no argument given")
-	}
-	return strconv.Atoi(string(i[idx+1:]))
-}
-
-// Args returns a tokenised set of arguments that come after the initial command, not including the command itself.
-// Tokens are split on space, with multiple spaces being ignored.
-func (i Input) Args() []string {
-	return strings.Fields(i.ArgString())
 }
 
 // ConfirmationMessage is a message that will prompt the user to confirm a command before confirming it. If the user

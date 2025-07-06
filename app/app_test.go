@@ -62,7 +62,7 @@ func TestApp(t *testing.T) {
 		})
 
 		t.Run("switch active state", func(t *testing.T) {
-			_, cmd := a.Update(Input("mock2"))
+			_, cmd := a.Update(Command("mock2"))
 			assertCmdsReturnMsg(t, cmd, "mock2Init")
 		})
 
@@ -92,7 +92,7 @@ func TestApp(t *testing.T) {
 		})
 
 		t.Run("exit functions", func(t *testing.T) {
-			_, cmd := a.Update(Input("exit"))
+			_, cmd := a.Update(Command("exit"))
 			assertCmdsReturnMsg(t, cmd, tea.QuitMsg{})
 
 			_, cmd = a.Update(tea.KeyMsg{Type: tea.KeyEsc})

@@ -91,8 +91,8 @@ func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
 			Height: msg.Height,
 		}
 
-	case Input:
-		switch msg.Command() {
+	case Command:
+		switch msg.Name() {
 		case "":
 			if s.Next() {
 				s.Clear()
