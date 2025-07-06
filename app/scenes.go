@@ -126,6 +126,20 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
+		case tea.KeyEnter:
+			s.Opener(s.Current())
+			return &s, nil
+		}
+
+		switch msg.String() {
+		case "/":
+			return &s, NewModeCommandCmd("/", "filter ")
+		case "r":
+			return s.PushState(func(sm *ScenesModel) {
+				sm.sort = stash.RandomSort()
+			})
+		case "u": // "Undo"
+			return s.Pop()
 		}
 
 	case tea.WindowSizeMsg:
@@ -143,10 +157,10 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			}
 			s.Opener(s.Current())
 
-		case "open", "o":
+		case "open":
 			s.Opener(s.Current())
 
-		case "filter", "f":
+		case "filter":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.query = msg.ArgString()
 			})
@@ -175,7 +189,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				}
 			})
 
-		case "random", "r":
+		case "random":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sort = stash.RandomSort()
 			})
@@ -225,7 +239,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				}
 			})
 
-		case "pop", "p":
+		case "pop":
 			return s.Pop()
 
 		case "duration":

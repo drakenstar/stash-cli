@@ -1,10 +1,10 @@
 package app
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/ui"
@@ -29,16 +29,19 @@ const (
 	ModeCommand
 )
 
-// TabModelMapping maps a given TabModel to the commands that to map to it's activation.
-type TabModelMapping struct {
-	NewFunc  func() TabModel
-	Commands []string
+// TabModelConfig maps a given TabModel to the commands that to map to it's activation.
+type TabModelConfig struct {
+	NewFunc func() TabModel
+	Name    string
+	KeyBind string
 }
 
 type Model struct {
-	tabs            []TabModel
-	commandMappings map[string]TabModelMapping
-	active          int
+	tabs   []TabModel
+	active int
+
+	tabFuncs map[string](func() TabModel)
+	keyBinds map[string]tea.Cmd
 
 	screen Size
 
@@ -49,21 +52,18 @@ type Model struct {
 
 // New returns a new Model with the TabModels. The first TabModel in the slice will be the active one.  A panic will
 // occur if no TabModels are given.  Any duplicate command mappings will just get overwritten with last winning.
-func New(models []TabModelMapping) *Model {
+func New(models []TabModelConfig) *Model {
 	if len(models) == 0 {
 		panic("must provide at least a single TabModel to run App")
 	}
 
 	a := new(Model)
 
-	a.commandMappings = make(map[string]TabModelMapping)
+	a.tabFuncs = make(map[string](func() TabModel))
+	a.keyBinds = make(map[string]tea.Cmd)
 	for _, m := range models {
-		if len(m.Commands) == 0 {
-			panic("must provide at least one switch command per model")
-		}
-		for _, cmd := range m.Commands {
-			a.commandMappings[cmd] = m
-		}
+		a.tabFuncs[m.Name] = m.NewFunc
+		a.keyBinds[m.KeyBind] = func() tea.Msg { return TabOpenMsg{m.NewFunc} }
 	}
 
 	a.tabs = append(a.tabs, models[0].NewFunc())
@@ -74,10 +74,7 @@ func New(models []TabModelMapping) *Model {
 }
 
 func (a Model) Init() tea.Cmd {
-	return tea.Batch(
-		textinput.Blink,
-		a.tabs[a.active].Init(a.screen),
-	)
+	return a.tabs[a.active].Init(a.screen)
 }
 
 func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -104,9 +101,11 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 
 			case ":":
-				a.mode = ModeCommand
-				a.commandInput.Focus()
-				return a, nil
+				return a, NewModeCommandCmd(":", "")
+			}
+
+			if bind, ok := a.keyBinds[msg.String()]; ok {
+				return a, bind
 			}
 		}
 
@@ -114,10 +113,15 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.mode = ModeNormal
 
 		cmd := msg.Name()
-		if _, ok := a.commandMappings[cmd]; ok {
-			a.tabs = append(a.tabs, a.commandMappings[cmd].NewFunc())
-			a.active = len(a.tabs) - 1
-			return a, a.tabs[a.active].Init(a.screen)
+		if cmd == "tab" {
+			args := msg.Args()
+			if len(args) == 2 && args[0] == "new" {
+				tabFunc, ok := a.tabFuncs[args[1]]
+				if !ok {
+					return a, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", args[1]))
+				}
+				return a, func() tea.Msg { return TabOpenMsg{tabFunc} }
+			}
 		}
 
 		if cmd == "exit" {
@@ -143,6 +147,13 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return ErrorMsg{}
 			}
 		}
+
+	case ModeCommandMsg:
+		a.mode = ModeCommand
+		return a, a.commandInput.Focus(msg.prompt, msg.prefix)
+
+	case TabOpenMsg:
+		return a.TabOpen(msg.tabFunc())
 	}
 
 	// If the message was not handled somewhere above, then it may be a message for the current TabView to handle.
@@ -179,6 +190,13 @@ func (a Model) View() string {
 	)
 }
 
+// TabOpen creates a new tab with the given TabModel and sets it as active.
+func (a *Model) TabOpen(m TabModel) (tea.Model, tea.Cmd) {
+	a.tabs = append(a.tabs, m)
+	a.active = len(a.tabs) - 1
+	return a, a.tabs[a.active].Init(a.screen)
+}
+
 // TabSet navigates to a specific Tab.  This is a noop if the tab does not exist.
 func (a *Model) TabSet(i int) {
 	if len(a.tabs) > i {
@@ -186,9 +204,8 @@ func (a *Model) TabSet(i int) {
 	}
 }
 
-// TabClose closes a tab at the specified index.  Is a noop if tab does not
-// exist.  The final tab cannot be closed.  If the current tab is active, then
-// the previous tab will be set as active.
+// TabClose closes a tab at the specified index.  Is a noop if tab does not exist.  The final tab cannot be closed.
+// If the current tab is active, then the previous tab will be set as active.
 func (a *Model) TabClose(i int) {
 	if len(a.tabs) > i && len(a.tabs) > 1 {
 		if i >= a.active {
@@ -213,4 +230,19 @@ func NewErrorCmd(err error) tea.Cmd {
 	return func() tea.Msg {
 		return ErrorMsg{err}
 	}
+}
+
+type ModeCommandMsg struct {
+	prompt string
+	prefix string
+}
+
+func NewModeCommandCmd(prompt, prefix string) tea.Cmd {
+	return func() tea.Msg {
+		return ModeCommandMsg{prompt: prompt, prefix: prefix}
+	}
+}
+
+type TabOpenMsg struct {
+	tabFunc (func() TabModel)
 }

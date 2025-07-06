@@ -54,14 +54,27 @@ type CommandExitMsg struct{}
 // CommandInput is a single-line text input that allows a user to enter a command.  Upon pressing return, the command
 // is returned as a tea.Cmd from Update.
 type CommandInput struct {
-	textinput.Model
+	text   textinput.Model
+	prefix string
 }
 
 // NewCommandInput returns a newly initialised CommandInput model.
 func NewCommandInput() CommandInput {
-	return CommandInput{
-		Model: textinput.New(),
+	m := CommandInput{
+		text: textinput.New(),
 	}
+	m.text.Prompt = ":"
+	return m
+}
+
+func (m *CommandInput) Focus(prompt, prefix string) tea.Cmd {
+	m.text.Prompt = prompt
+	m.prefix = prefix
+	return m.text.Focus()
+}
+
+func (m *CommandInput) Blur() {
+	m.text.Blur()
 }
 
 func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
@@ -72,12 +85,14 @@ func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyEsc:
-			m.Model.SetValue("")
+			m.text.SetValue("")
+			m.prefix = ""
 			return m, func() tea.Msg { return CommandExitMsg{} }
 
 		case tea.KeyEnter:
-			command := m.Model.Value()
-			m.Model.SetValue("")
+			command := m.prefix + m.text.Value()
+			m.text.SetValue("")
+			m.prefix = ""
 			return m, func() tea.Msg {
 				return CommandExecuteMsg{Command: command}
 			}
@@ -85,10 +100,10 @@ func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.Model, cmd = m.Model.Update(msg)
+	m.text, cmd = m.text.Update(msg)
 	return m, cmd
 }
 
 func (m CommandInput) View() string {
-	return m.Model.View()
+	return m.text.View()
 }

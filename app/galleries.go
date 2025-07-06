@@ -83,6 +83,23 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
+		case tea.KeyEnter:
+			if s.Next() {
+				s.Clear()
+				return &s, s.doUpdateCmd()
+			}
+			s.Opener(s.Current())
+			return &s, nil
+		}
+
+		switch msg.String() {
+		case "o":
+			s.Opener(s.Current())
+			return &s, nil
+		case "r":
+			s.sort = stash.RandomSort()
+			s.Reset()
+			return &s, s.doUpdateCmd()
 		}
 
 	case tea.WindowSizeMsg:
@@ -93,22 +110,16 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 
 	case ui.CommandExecuteMsg:
 		switch msg.Name() {
-		case "":
-			if s.Next() {
-				s.Clear()
-				return &s, s.doUpdateCmd()
-			}
+		case "open":
 			s.Opener(s.Current())
+			return &s, nil
 
-		case "open", "o":
-			s.Opener(s.Current())
-
-		case "filter", "f":
+		case "filter":
 			s.query = msg.ArgString()
 			s.Reset()
 			return &s, s.doUpdateCmd()
 
-		case "random", "r":
+		case "random":
 			s.sort = stash.RandomSort()
 			s.Reset()
 			return &s, s.doUpdateCmd()

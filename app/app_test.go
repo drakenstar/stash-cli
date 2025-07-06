@@ -31,25 +31,27 @@ func (m mockTabModel) Title() string {
 func TestApp(t *testing.T) {
 	t.Run("new panics without TabModels or commands", func(t *testing.T) {
 		require.Panics(t, func() {
-			New([]TabModelMapping{})
+			New([]TabModelConfig{})
 		})
 		require.Panics(t, func() {
-			New([]TabModelMapping{{NewFunc: func() TabModel { return mockTabModel{} }}})
+			New([]TabModelConfig{{NewFunc: func() TabModel { return mockTabModel{} }}})
 		})
 	})
 
 	t.Run("new initalises state", func(t *testing.T) {
-		a := New([]TabModelMapping{
+		a := New([]TabModelConfig{
 			{
-				NewFunc:  func() TabModel { return mockTabModel{"mock1"} },
-				Commands: []string{"mock1", "m1"},
+				NewFunc: func() TabModel { return mockTabModel{"mock1"} },
+				Name:    "mock1",
+				KeyBind: "m1",
 			},
 			{
-				NewFunc:  func() TabModel { return mockTabModel{"mock2"} },
-				Commands: []string{"mock2", "m2"},
+				NewFunc: func() TabModel { return mockTabModel{"mock2"} },
+				Name:    "mock2",
+				KeyBind: "m2",
 			},
 		})
-		require.Equal(t, map[string]int{"mock1": 0, "m1": 0, "mock2": 1, "m2": 1}, a.commandMappings)
+		require.Equal(t, map[string]int{"mock1": 0, "m1": 0, "mock2": 1, "m2": 1}, nil)
 
 		t.Run("init initialises active TabModel", func(t *testing.T) {
 			cmds := a.Init()
