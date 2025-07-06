@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -25,7 +26,7 @@ type TabModel interface {
 
 const (
 	ModeNormal = iota
-	ModCommand
+	ModeCommand
 )
 
 // TabModelMapping maps a given TabModel to the commands that to map to it's activation.
@@ -41,8 +42,8 @@ type Model struct {
 
 	screen Size
 
-	text         textinput.Model
-	confirmation *ui.Confirmation
+	mode         int
+	commandInput ui.CommandInput
 	err          error
 }
 
@@ -67,8 +68,7 @@ func New(models []TabModelMapping) *Model {
 
 	a.tabs = append(a.tabs, models[0].NewFunc())
 
-	a.text = textinput.New()
-	a.text.Focus()
+	a.commandInput = ui.NewCommandInput()
 
 	return a
 }
@@ -81,53 +81,40 @@ func (a Model) Init() tea.Cmd {
 }
 
 func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return a, tea.Quit
 
-		case tea.KeyEsc:
-			if a.confirmation == nil {
-				return a, tea.Quit
-			}
-			a.confirmation = nil
-
-		case tea.KeyEnter:
-			if a.confirmation == nil {
-				cmd := NewCommandCmd(a.text.Value())
-				a.text.SetValue("")
-				return a, cmd
-			}
-
-		case tea.KeyF1:
-			a.TabSet(0)
-			return a, nil
-		case tea.KeyF2:
-			a.TabSet(1)
-			return a, nil
-		case tea.KeyF3:
-			a.TabSet(2)
-			return a, nil
-		case tea.KeyF4:
-			a.TabSet(3)
-			return a, nil
-		case tea.KeyF5:
-			a.TabSet(4)
-			return a, nil
-
 		case tea.KeyCtrlW:
 			a.TabClose(a.active)
 			return a, nil
 		}
 
-	case Command:
+		if a.mode == ModeCommand {
+			newInput, cmd := a.commandInput.Update(msg)
+			a.commandInput = newInput
+			return a, cmd
+		} else {
+			switch msg.String() {
+			case "1", "2", "3", "4", "5":
+				i, _ := strconv.Atoi(msg.String())
+				a.TabSet(i - 1)
+				return a, nil
+
+			case ":":
+				a.mode = ModeCommand
+				a.commandInput.Focus()
+				return a, nil
+			}
+		}
+
+	case ui.CommandExecuteMsg:
+		a.mode = ModeNormal
+
 		cmd := msg.Name()
 		if _, ok := a.commandMappings[cmd]; ok {
-			a.confirmation = nil
 			a.tabs = append(a.tabs, a.commandMappings[cmd].NewFunc())
 			a.active = len(a.tabs) - 1
 			return a, a.tabs[a.active].Init(a.screen)
@@ -137,23 +124,16 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 
+	case ui.CommandExitMsg:
+		a.mode = ModeNormal
+		a.commandInput.Blur()
+		return a, nil
+
 	case tea.WindowSizeMsg:
 		a.screen = Size{
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
-
-	case ConfirmationMsg:
-		a.confirmation = &ui.Confirmation{
-			Message: msg.Message,
-			Options: []ui.ConfirmationOption{
-				{Text: msg.CancelOption, Cmd: ConfirmationCancelCmd},
-				{Text: msg.ConfirmOption, Cmd: tea.Batch(ConfirmationCancelCmd, msg.Cmd)},
-			},
-		}
-
-	case ConfirmationCancelMsg:
-		a.confirmation = nil
 
 	case ErrorMsg:
 		a.err = msg.error
@@ -165,19 +145,10 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if a.confirmation != nil {
-		a.confirmation, cmd = a.confirmation.Update(msg)
-		cmds = append(cmds, cmd)
-	} else {
-		a.text, cmd = a.text.Update(msg)
-		cmds = append(cmds, cmd)
-	}
-
+	// If the message was not handled somewhere above, then it may be a message for the current TabView to handle.
 	next, cmd := a.tabs[a.active].Update(msg)
 	a.tabs[a.active] = next
-	cmds = append(cmds, cmd)
-
-	return a, tea.Batch(cmds...)
+	return a, cmd
 }
 
 func (a Model) View() string {
@@ -185,13 +156,15 @@ func (a Model) View() string {
 		Width(a.screen.Width).
 		Height(a.screen.Height - 3)
 	var bottom string
-	if a.confirmation != nil {
-		bottom = a.confirmation.View()
+
+	if a.err != nil {
+		bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(a.err.Error())
+	}
+
+	if a.mode == ModeCommand {
+		bottom += "\n" + a.commandInput.View()
 	} else {
-		if a.err != nil {
-			bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(a.err.Error())
-		}
-		bottom += "\n" + a.text.View()
+		bottom += "\n"
 	}
 
 	titles := make([]string, len(a.tabs))
@@ -228,23 +201,6 @@ func (a *Model) TabClose(i int) {
 type Size struct {
 	Width  int
 	Height int
-}
-
-// ConfirmationMessage is a message that will prompt the user to confirm a command before confirming it. If the user
-// selects the ConfirmOption text, the command is dispatched.  Otherwise nothing occurs.
-type ConfirmationMsg struct {
-	Cmd           tea.Cmd
-	Message       string
-	ConfirmOption string
-	CancelOption  string
-}
-
-// ConfirmationCancelMsg cancels any existing confirmation modal. This is intended as the return message for when
-// cancel is selected from a confirmation.
-type ConfirmationCancelMsg struct{}
-
-func ConfirmationCancelCmd() tea.Msg {
-	return ConfirmationCancelMsg{}
 }
 
 // ErrorMsg is a message used to display an error to the user that dismisses after a few seconds.

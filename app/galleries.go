@@ -91,7 +91,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Height: msg.Height,
 		}
 
-	case Command:
+	case ui.CommandExecuteMsg:
 		switch msg.Name() {
 		case "":
 			if s.Next() {

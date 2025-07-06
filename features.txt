@@ -29,7 +29,7 @@
 ✅ file path mappings are configurable
 ✅ opening commands are configurable
 ✅ configuration loading from file
-✅ ability to confirm actions taken with a multiple choice prompt
+- ability to confirm actions taken with a multiple choice prompt
 - there should be modal controls between inputting commands and navigating the list
 - error handling and output for actions (openers, remote actions)
     - timeouts for remote actions

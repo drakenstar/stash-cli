@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/drakenstar/stash-cli/ui"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,37 +63,12 @@ func TestApp(t *testing.T) {
 		})
 
 		t.Run("switch active state", func(t *testing.T) {
-			_, cmd := a.Update(Command("mock2"))
+			_, cmd := a.Update(ui.CommandExecuteMsg{Command: "mock2"})
 			assertCmdsReturnMsg(t, cmd, "mock2Init")
 		})
 
-		t.Run("set confirmation dialog", func(t *testing.T) {
-			type confirmMsg struct{}
-
-			showConfirmation, _ := a.Update(ConfirmationMsg{
-				Cmd:           func() tea.Msg { return confirmMsg{} },
-				Message:       "confirmation",
-				ConfirmOption: "confirm",
-				CancelOption:  "cancel",
-			})
-			require.Contains(t, showConfirmation.View(), "confirmation")
-
-			hideConfirmation, cmd := showConfirmation.Update(tea.KeyMsg{Type: tea.KeyEsc})
-			require.NotContains(t, hideConfirmation.View(), "confirmation")
-			assertNotCmdsReturnMsg(t, cmd, tea.QuitMsg{})
-
-			cancel, cmd := showConfirmation.Update(tea.KeyMsg{Type: tea.KeyEnter})
-			assertCmdsReturnMsg(t, cmd, ConfirmationCancelMsg{})
-			cancel, _ = cancel.Update(ConfirmationCancelMsg{})
-			require.NotContains(t, cancel.View(), "confirmation")
-
-			confirm, _ := showConfirmation.Update(tea.KeyMsg{Type: tea.KeyRight})
-			confirm, cmd = confirm.Update(tea.KeyMsg{Type: tea.KeyEnter})
-			assertCmdsReturnMsg(t, cmd, confirmMsg{})
-		})
-
 		t.Run("exit functions", func(t *testing.T) {
-			_, cmd := a.Update(Command("exit"))
+			_, cmd := a.Update(ui.CommandExecuteMsg{Command: "exit"})
 			assertCmdsReturnMsg(t, cmd, tea.QuitMsg{})
 
 			_, cmd = a.Update(tea.KeyMsg{Type: tea.KeyEsc})

@@ -134,7 +134,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Height: msg.Height,
 		}
 
-	case Command:
+	case ui.CommandExecuteMsg:
 		switch msg.Name() {
 		case "":
 			if s.Next() {
@@ -402,19 +402,21 @@ func (s *ScenesModel) doUpdateCmd() tea.Cmd {
 
 // doDeleteConfirmCmd returns a command to display a confirmation message about the current content.
 func (s *ScenesModel) doDeleteConfirmCmd() tea.Cmd {
-	return func() tea.Msg {
-		s := s.Current()
-		titleStyle := lipgloss.NewStyle().
-			Foreground(ColorOffWhite)
-		return ConfirmationMsg{
-			Message:       fmt.Sprintf("Are you sure you want to delete %s?", titleStyle.Render(sceneTitle(s))),
-			ConfirmOption: "Delete",
-			CancelOption:  "Cancel",
-			Cmd: func() tea.Msg {
-				return DeleteMsg{Scene: s}
-			},
-		}
-	}
+	return nil
+	// TODO reimplement deletion once app modal confirmation is in a better state
+	// return func() tea.Msg {
+	// 	s := s.Current()
+	// 	titleStyle := lipgloss.NewStyle().
+	// 		Foreground(ColorOffWhite)
+	// 	return ConfirmationMsg{
+	// 		Message:       fmt.Sprintf("Are you sure you want to delete %s?", titleStyle.Render(sceneTitle(s))),
+	// 		ConfirmOption: "Delete",
+	// 		CancelOption:  "Cancel",
+	// 		Cmd: func() tea.Msg {
+	// 			return DeleteMsg{Scene: s}
+	// 		},
+	// 	}
+	// }
 }
 
 type DeleteMsg struct {
