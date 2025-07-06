@@ -40,13 +40,13 @@ func main() {
 		return exec.Command(name, args...).Run()
 	})
 
-	app := app.New([]app.AppModelMapping{
+	app := app.New([]app.TabModelMapping{
 		{
-			NewFunc:  func() app.AppModel { return app.NewScenesModel(stash, opener) },
+			NewFunc:  func() app.TabModel { return app.NewScenesModel(stash, opener) },
 			Commands: []string{"scenes", "s"},
 		},
 		{
-			NewFunc:  func() app.AppModel { return app.NewGalleriesModel(stash, opener) },
+			NewFunc:  func() app.TabModel { return app.NewGalleriesModel(stash, opener) },
 			Commands: []string{"galleries", "g"},
 		},
 	})

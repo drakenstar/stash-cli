@@ -9,18 +9,18 @@ import (
 	"github.com/drakenstar/stash-cli/ui"
 )
 
-// AppModel is a subview of the App application, and operates similarly to a tea.Model.
-type AppModel interface {
-	// Provided the size of the current area the AppModel is to render within. Should return any initialisation
+// TabModel is a subview of the App application, and operates similarly to a tea.Model.
+type TabModel interface {
+	// Provided the size of the current area the TabModel is to render within. Should return any initialisation
 	// commands to execute.
 	Init(Size) tea.Cmd
-	// Handle any tea.Msg that the app.Model passes on.  Should by a immutable operation and return a new AppModel
+	// Handle any tea.Msg that the app.Model passes on.  Should by a immutable operation and return a new TabModel
 	// with the new state after handling the message.
-	Update(tea.Msg) (AppModel, tea.Cmd)
+	Update(tea.Msg) (TabModel, tea.Cmd)
 	// Normal tea.Model:View method, should render the current state of the view as a string.
 	View() string
 	// Returns a string name to be used for the tab title
-	TabTitle() string
+	Title() string
 }
 
 const (
@@ -28,15 +28,15 @@ const (
 	ModCommand
 )
 
-// AppModelMapping maps a given AppModel to the commands that to map to it's activation.
-type AppModelMapping struct {
-	NewFunc  func() AppModel
+// TabModelMapping maps a given TabModel to the commands that to map to it's activation.
+type TabModelMapping struct {
+	NewFunc  func() TabModel
 	Commands []string
 }
 
 type Model struct {
-	tabs            []AppModel
-	commandMappings map[string]AppModelMapping
+	tabs            []TabModel
+	commandMappings map[string]TabModelMapping
 	active          int
 
 	screen Size
@@ -46,16 +46,16 @@ type Model struct {
 	err          error
 }
 
-// New returns a new Model with the AppModels. The first AppModel in the slice will be the active one.  A panic will
-// occur if no AppModels are given.  Any duplicate command mappings will just get overwritten with last winning.
-func New(models []AppModelMapping) *Model {
+// New returns a new Model with the TabModels. The first TabModel in the slice will be the active one.  A panic will
+// occur if no TabModels are given.  Any duplicate command mappings will just get overwritten with last winning.
+func New(models []TabModelMapping) *Model {
 	if len(models) == 0 {
-		panic("must provide at least a single AppModel to run App")
+		panic("must provide at least a single TabModel to run App")
 	}
 
 	a := new(Model)
 
-	a.commandMappings = make(map[string]AppModelMapping)
+	a.commandMappings = make(map[string]TabModelMapping)
 	for _, m := range models {
 		if len(m.Commands) == 0 {
 			panic("must provide at least one switch command per model")
@@ -196,7 +196,7 @@ func (a Model) View() string {
 
 	titles := make([]string, len(a.tabs))
 	for i, tab := range a.tabs {
-		titles[i] = tab.TabTitle()
+		titles[i] = tab.Title()
 	}
 
 	return lipgloss.JoinVertical(0,

@@ -7,55 +7,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockAppModel struct {
+type mockTabModel struct {
 	name string
 }
 
-func (m mockAppModel) Init(Size) tea.Cmd {
+func (m mockTabModel) Init(Size) tea.Cmd {
 	return func() tea.Msg {
 		return m.name + "Init"
 	}
 }
-func (m mockAppModel) Update(tea.Msg) (AppModel, tea.Cmd) {
+func (m mockTabModel) Update(tea.Msg) (TabModel, tea.Cmd) {
 	return m, nil
 }
-func (m mockAppModel) View() string {
+func (m mockTabModel) View() string {
 	return m.name + "View"
 }
 
-func (m mockAppModel) TabTitle() string {
+func (m mockTabModel) Title() string {
 	return "Title"
 }
 
 func TestApp(t *testing.T) {
-	t.Run("new panics without AppModels or commands", func(t *testing.T) {
+	t.Run("new panics without TabModels or commands", func(t *testing.T) {
 		require.Panics(t, func() {
-			New([]AppModelMapping{})
+			New([]TabModelMapping{})
 		})
 		require.Panics(t, func() {
-			New([]AppModelMapping{{NewFunc: func() AppModel { return mockAppModel{} }}})
+			New([]TabModelMapping{{NewFunc: func() TabModel { return mockTabModel{} }}})
 		})
 	})
 
 	t.Run("new initalises state", func(t *testing.T) {
-		a := New([]AppModelMapping{
+		a := New([]TabModelMapping{
 			{
-				NewFunc:  func() AppModel { return mockAppModel{"mock1"} },
+				NewFunc:  func() TabModel { return mockTabModel{"mock1"} },
 				Commands: []string{"mock1", "m1"},
 			},
 			{
-				NewFunc:  func() AppModel { return mockAppModel{"mock2"} },
+				NewFunc:  func() TabModel { return mockTabModel{"mock2"} },
 				Commands: []string{"mock2", "m2"},
 			},
 		})
 		require.Equal(t, map[string]int{"mock1": 0, "m1": 0, "mock2": 1, "m2": 1}, a.commandMappings)
 
-		t.Run("init initialises active AppModel", func(t *testing.T) {
+		t.Run("init initialises active TabModel", func(t *testing.T) {
 			cmds := a.Init()
 			assertCmdsReturnMsg(t, cmds, "mock1Init")
 		})
 
-		t.Run("view renders active AppModel", func(t *testing.T) {
+		t.Run("view renders active TabModel", func(t *testing.T) {
 			v := a.View()
 			require.Contains(t, v, "mock1View")
 			require.Contains(t, v, ">")

@@ -70,7 +70,7 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 	)
 }
 
-func (s *ScenesModel) TabTitle() string {
+func (s *ScenesModel) Title() string {
 	return "Scenes"
 }
 
@@ -112,7 +112,7 @@ func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
 	return s, s.doUpdateCmd()
 }
 
-func (s ScenesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
+func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {

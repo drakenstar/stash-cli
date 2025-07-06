@@ -65,11 +65,11 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 	)
 }
 
-func (s *GalleriesModel) TabTitle() string {
+func (s *GalleriesModel) Title() string {
 	return "Galleries"
 }
 
-func (s GalleriesModel) Update(msg tea.Msg) (AppModel, tea.Cmd) {
+func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
