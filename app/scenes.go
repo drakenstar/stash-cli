@@ -126,7 +126,11 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
-		case tea.KeyEnter:
+		case tea.KeyEnter, tea.KeySpace:
+			if s.Next() {
+				s.Clear()
+				return &s, s.doUpdateCmd()
+			}
 			s.Opener(s.Current())
 			return &s, nil
 		}
@@ -140,6 +144,15 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			})
 		case "u": // "Undo"
 			return s.Pop()
+		case "f":
+			return s.PushState(func(sm *ScenesModel) {
+				if sm.sceneFilter.PerformerFavourite == nil {
+					favourite := true
+					sm.sceneFilter.PerformerFavourite = &favourite
+				} else {
+					sm.sceneFilter.PerformerFavourite = nil
+				}
+			})
 		}
 
 	case tea.WindowSizeMsg:

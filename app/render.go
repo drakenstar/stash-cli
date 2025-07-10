@@ -145,6 +145,11 @@ func galleryTitle(g stash.Gallery) string {
 	if g.Title != "" {
 		return g.Title
 	}
+	// TODO Fix this hard-coded library path
+	rel, err := filepath.Rel("/library", g.FilePath())
+	if err == nil {
+		return rel
+	}
 	return filepath.Base(g.FilePath())
 }
 

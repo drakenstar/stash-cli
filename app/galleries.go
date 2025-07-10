@@ -83,7 +83,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
-		case tea.KeyEnter:
+		case tea.KeyEnter, tea.KeySpace:
 			if s.Next() {
 				s.Clear()
 				return &s, s.doUpdateCmd()
@@ -100,6 +100,8 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			s.sort = stash.RandomSort()
 			s.Reset()
 			return &s, s.doUpdateCmd()
+		case "/":
+			return &s, NewModeCommandCmd("/", "filter ")
 		}
 
 	case tea.WindowSizeMsg:
@@ -310,7 +312,7 @@ var (
 				Name:       "Title",
 				Foreground: &ColorOffWhite,
 				Bold:       true,
-				Weight:     1,
+				Weight:     2,
 			},
 			{
 				Name:       "Size",

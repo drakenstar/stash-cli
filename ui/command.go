@@ -89,6 +89,12 @@ func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 			m.prefix = ""
 			return m, func() tea.Msg { return CommandExitMsg{} }
 
+		case tea.KeyBackspace:
+			if m.text.Value() == "" {
+				m.prefix = ""
+				return m, func() tea.Msg { return CommandExitMsg{} }
+			}
+
 		case tea.KeyEnter:
 			command := m.prefix + m.text.Value()
 			m.text.SetValue("")
