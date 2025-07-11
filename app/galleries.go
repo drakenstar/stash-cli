@@ -25,7 +25,6 @@ type GalleriesModel struct {
 	Opener config.Opener
 
 	paginator
-	loading   bool
 	spinner   spinner.Model
 	galleries []stash.Gallery
 
@@ -80,12 +79,12 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
-			if !s.loading && s.Skip(-1) {
+			if s.Skip(-1) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 		case tea.KeyDown:
-			if !s.loading && s.Skip(1) {
+			if s.Skip(1) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
@@ -222,7 +221,6 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 
 	case galleriesMessage:
-		s.loading = false
 		if msg.err != nil {
 			return &s, NewErrorCmd(msg.err)
 		}
@@ -256,20 +254,12 @@ func (s GalleriesModel) View() string {
 		}
 	}
 
-	var leftStatus []string
-	if s.loading {
-		leftStatus = []string{
-			s.spinner.View(),
-			"loading",
-			sort(s.sort, s.sortDirection),
-		}
-	} else {
-		leftStatus = []string{
-			"📷",
-			s.paginator.String(),
-			sort(s.sort, s.sortDirection),
-		}
+	leftStatus := []string{
+		"📷",
+		s.paginator.String(),
+		sort(s.sort, s.sortDirection),
 	}
+
 	rightStatus := galleryFilterStatus(s.galleryFilter, s.StashLookup)
 	if s.query != "" {
 		rightStatus = append(rightStatus, "\""+s.query+"\"")
@@ -288,7 +278,6 @@ type galleriesMessage struct {
 }
 
 func (s *GalleriesModel) doUpdateCmd() tea.Cmd {
-	s.loading = true
 	return func() tea.Msg {
 		f := stash.FindFilter{
 			Query:     s.query,

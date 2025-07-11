@@ -35,7 +35,6 @@ type ScenesModel struct {
 	Opener config.Opener
 
 	paginator
-	loading bool
 	spinner spinner.Model
 	scenes  []stash.Scene
 
@@ -124,12 +123,12 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
-			if !s.loading && s.Skip(-1) {
+			if s.Skip(-1) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
 		case tea.KeyDown:
-			if !s.loading && s.Skip(1) {
+			if s.Skip(1) {
 				s.Clear()
 				return &s, s.doUpdateCmd()
 			}
@@ -341,7 +340,6 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 
 	case scenesMessage:
-		s.loading = false
 		if msg.err != nil {
 			return &s, NewErrorCmd(msg.err)
 		}
@@ -353,7 +351,6 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		return &s, cmd
 
 	case DeleteMsg:
-		s.loading = true
 		return &s, s.doDeleteCmd(msg)
 	}
 
@@ -381,19 +378,9 @@ func (s ScenesModel) View() string {
 		}
 	}
 
-	var leftStatus []string
-	if s.loading {
-		leftStatus = []string{
-			s.spinner.View(),
-			"loading",
-			sort(s.sort, s.sortDirection),
-		}
-	} else {
-		leftStatus = []string{
-			"🎬",
-			s.paginator.String(),
-			sort(s.sort, s.sortDirection),
-		}
+	leftStatus := []string{
+		s.paginator.String(),
+		sort(s.sort, s.sortDirection),
 	}
 
 	rightStatus := sceneFilterStatus(s.sceneFilter, s.StashLookup)
@@ -418,7 +405,6 @@ type scenesMessage struct {
 
 // doUpdateCmd sets initial loading state then returns a tea.Cmd to execute loading of scenes.
 func (s *ScenesModel) doUpdateCmd() tea.Cmd {
-	s.loading = true
 	sf := s.sceneFilter
 	f := stash.FindFilter{
 		Query:     s.query,
@@ -460,7 +446,6 @@ type DeleteMsg struct {
 // doDeleteCmd takes a DeleteMessage and attempts to delete the provided scene.  After successful deletion the current
 // scenes data is refreshed.
 func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
-	s.loading = true
 	return func() tea.Msg {
 		_, err := s.DeleteScene(context.Background(), d.Scene.ID)
 		if err != nil {
