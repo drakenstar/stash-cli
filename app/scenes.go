@@ -24,8 +24,14 @@ type filterState struct {
 	pageState paginator
 }
 
+type SceneService interface {
+	Scenes(context.Context, stash.FindFilter, stash.SceneFilter) ([]stash.Scene, int, error)
+	DeleteScene(context.Context, string) (bool, error)
+}
+
 type ScenesModel struct {
-	stash  stashCache
+	SceneService
+	StashLookup
 	Opener config.Opener
 
 	paginator
@@ -43,10 +49,11 @@ type ScenesModel struct {
 	screen Size
 }
 
-func NewScenesModel(stash stash.Stash, opener config.Opener) *ScenesModel {
+func NewScenesModel(sceneService SceneService, lookup StashLookup, opener config.Opener) *ScenesModel {
 	s := &ScenesModel{
-		stash:  newStashCache(stash),
-		Opener: opener,
+		SceneService: sceneService,
+		StashLookup:  lookup,
+		Opener:       opener,
 	}
 
 	s.spinner = spinner.New(spinner.WithSpinner(spinner.Globe))
@@ -389,7 +396,7 @@ func (s ScenesModel) View() string {
 		}
 	}
 
-	rightStatus := sceneFilterStatus(s.sceneFilter, &s.stash)
+	rightStatus := sceneFilterStatus(s.sceneFilter, s.StashLookup)
 	if s.query != "" {
 		rightStatus = append(rightStatus, "\""+s.query+"\"")
 	}
@@ -422,7 +429,7 @@ func (s *ScenesModel) doUpdateCmd() tea.Cmd {
 	}
 	return func() tea.Msg {
 		var m scenesMessage
-		m.scenes, m.total, m.err = s.stash.Scenes(context.Background(), f, sf)
+		m.scenes, m.total, m.err = s.Scenes(context.Background(), f, sf)
 		return m
 	}
 }
@@ -455,7 +462,7 @@ type DeleteMsg struct {
 func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
 	s.loading = true
 	return func() tea.Msg {
-		_, err := s.stash.DeleteScene(context.Background(), d.Scene.ID)
+		_, err := s.DeleteScene(context.Background(), d.Scene.ID)
 		if err != nil {
 			return ErrorMsg{err}
 		}

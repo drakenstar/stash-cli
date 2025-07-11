@@ -40,18 +40,7 @@ func main() {
 		return exec.Command(name, args...).Run()
 	})
 
-	app := app.New([]app.TabModelConfig{
-		{
-			NewFunc: func() app.TabModel { return app.NewScenesModel(stash, opener) },
-			Name:    "scenes",
-			KeyBind: "s",
-		},
-		{
-			NewFunc: func() app.TabModel { return app.NewGalleriesModel(stash, opener) },
-			Name:    "galleries",
-			KeyBind: "g",
-		},
-	})
+	app := app.New(stash, opener)
 
 	p := tea.NewProgram(
 		app,

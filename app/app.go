@@ -7,6 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/config"
+	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
 
@@ -50,11 +52,21 @@ type Model struct {
 	err          error
 }
 
-// New returns a new Model with the TabModels. The first TabModel in the slice will be the active one.  A panic will
-// occur if no TabModels are given.  Any duplicate command mappings will just get overwritten with last winning.
-func New(models []TabModelConfig) *Model {
-	if len(models) == 0 {
-		panic("must provide at least a single TabModel to run App")
+func New(stash stash.Stash, opener config.Opener) *Model {
+	lookup := newCacheLookup()
+	s := &cachingStash{stash, lookup}
+
+	models := []TabModelConfig{
+		{
+			NewFunc: func() TabModel { return NewScenesModel(s, lookup, opener) },
+			Name:    "scenes",
+			KeyBind: "s",
+		},
+		{
+			NewFunc: func() TabModel { return NewGalleriesModel(s, lookup, opener) },
+			Name:    "galleries",
+			KeyBind: "g",
+		},
 	}
 
 	a := new(Model)

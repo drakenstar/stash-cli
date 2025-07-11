@@ -172,7 +172,18 @@ func sort(order, direction string) string {
 	return sort
 }
 
-func sceneFilterStatus(filter stash.SceneFilter, cache *stashCache) []string {
+// StashRenderLookupService is a service to lookup stash entities by ID.  These methods should not require I/O and
+// should either return a valid result, or error.  Since this is used in render methods, we do not want to block, nor
+// should we have side-effects or error handling.
+type StashLookup interface {
+	GetStudio(id string) (stash.Studio, error)
+	GetTag(id string) (stash.Tag, error)
+	GetPerformer(id string) (stash.Performer, error)
+}
+
+// sceneFilterStatus takes a stash.SceneFilter and returns a slice of strings, each string representing an enabled
+// filter.  This can be used to display UI to the user with regard to what is being filtered on.
+func sceneFilterStatus(filter stash.SceneFilter, srv StashLookup) []string {
 	var status criterionRenderer
 
 	// FilterCombinator is ignored for this render function.
@@ -202,22 +213,39 @@ func sceneFilterStatus(filter stash.SceneFilter, cache *stashCache) []string {
 	// 	status = append(status, "Is missing "+filter.IsMissing)
 	// }
 	status.heirarchicalMultiCriterion("Studios", filter.Studios, func(id string) string {
-		return cache.studios[id].Name
+		studio, err := srv.GetStudio(id)
+		if err != nil {
+			return "error studio"
+		}
+		return studio.Name
+
 	})
-	status.multiCriterion("Studios", filter.Movies, func(id string) string {
+	status.multiCriterion("Movies", filter.Movies, func(id string) string {
 		return id // TODO: movie cache
 	})
 	status.heirarchicalMultiCriterion("Tags", filter.Tags, func(id string) string {
-		return cache.tags[id].Name
+		tag, err := srv.GetTag(id)
+		if err != nil {
+			return "error tag"
+		}
+		return tag.Name
 	})
 	status.intCriterion("Tag #", filter.TagCount)
 	status.heirarchicalMultiCriterion("Performer tags", filter.PerformerTags, func(id string) string {
-		return cache.tags[id].Name
+		tag, err := srv.GetTag(id)
+		if err != nil {
+			return "error tag"
+		}
+		return tag.Name
 	})
 	status.boolCriterion(filter.PerformerFavourite, "Favourite", "Non-favourite")
 	status.intCriterion("Age", filter.PerformerAge)
 	status.multiCriterion("Performers", filter.Performers, func(id string) string {
-		return cache.performers[id].Name
+		performer, err := srv.GetPerformer(id)
+		if err != nil {
+			return "error performer"
+		}
+		return performer.Name
 	})
 	status.intCriterion("Performer #", filter.PerformerCount)
 	status.stringCriterion("URL", filter.URL)
@@ -234,7 +262,7 @@ func sceneFilterStatus(filter stash.SceneFilter, cache *stashCache) []string {
 	return status
 }
 
-func galleryFilterStatus(filter stash.GalleryFilter, cache *stashCache) []string {
+func galleryFilterStatus(filter stash.GalleryFilter, srv StashLookup) []string {
 	var status criterionRenderer
 
 	status.intCriterion("ID", filter.ID)
@@ -252,17 +280,33 @@ func galleryFilterStatus(filter stash.GalleryFilter, cache *stashCache) []string
 	status.resolutionCriterion("Resolution", filter.AverageResolution)
 	// TODO: HasChapters
 	status.heirarchicalMultiCriterion("Studios", filter.Studios, func(id string) string {
-		return cache.studios[id].Name
+		studio, err := srv.GetStudio(id)
+		if err != nil {
+			return "error studio"
+		}
+		return studio.Name
 	})
 	status.heirarchicalMultiCriterion("Tags", filter.Tags, func(id string) string {
-		return cache.tags[id].Name
+		tag, err := srv.GetTag(id)
+		if err != nil {
+			return "error tag"
+		}
+		return tag.Name
 	})
 	status.intCriterion("Tag #", filter.TagCount)
 	status.heirarchicalMultiCriterion("Performer tags", filter.PerformerTags, func(id string) string {
-		return cache.tags[id].Name
+		tag, err := srv.GetTag(id)
+		if err != nil {
+			return "error tag"
+		}
+		return tag.Name
 	})
 	status.multiCriterion("Performers", filter.Performers, func(id string) string {
-		return cache.performers[id].Name
+		performer, err := srv.GetPerformer(id)
+		if err != nil {
+			return "error performer"
+		}
+		return performer.Name
 	})
 	status.intCriterion("Performer #", filter.PerformerCount)
 	status.boolCriterion(filter.PerformerFavourite, "Favourite", "Non-favourite")

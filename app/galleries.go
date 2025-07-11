@@ -15,8 +15,13 @@ import (
 	"github.com/drakenstar/stash-cli/ui"
 )
 
+type GalleryService interface {
+	Galleries(context.Context, stash.FindFilter, stash.GalleryFilter) ([]stash.Gallery, int, error)
+}
+
 type GalleriesModel struct {
-	Stash  stashCache
+	GalleryService
+	StashLookup
 	Opener config.Opener
 
 	paginator
@@ -32,10 +37,11 @@ type GalleriesModel struct {
 	screen Size
 }
 
-func NewGalleriesModel(stash stash.Stash, opener config.Opener) *GalleriesModel {
+func NewGalleriesModel(galleryService GalleryService, lookup StashLookup, opener config.Opener) *GalleriesModel {
 	s := &GalleriesModel{
-		Stash:  newStashCache(stash),
-		Opener: opener,
+		GalleryService: galleryService,
+		StashLookup:    lookup,
+		Opener:         opener,
 	}
 
 	s.spinner = spinner.New(spinner.WithSpinner(spinner.Globe))
@@ -264,7 +270,7 @@ func (s GalleriesModel) View() string {
 			sort(s.sort, s.sortDirection),
 		}
 	}
-	rightStatus := galleryFilterStatus(s.galleryFilter, &s.Stash)
+	rightStatus := galleryFilterStatus(s.galleryFilter, s.StashLookup)
 	if s.query != "" {
 		rightStatus = append(rightStatus, "\""+s.query+"\"")
 	}
@@ -292,7 +298,7 @@ func (s *GalleriesModel) doUpdateCmd() tea.Cmd {
 			Direction: s.sortDirection,
 		}
 		var g galleriesMessage
-		g.galleries, g.total, g.err = s.Stash.Galleries(context.Background(), f, s.galleryFilter)
+		g.galleries, g.total, g.err = s.Galleries(context.Background(), f, s.galleryFilter)
 		return g
 	}
 }
