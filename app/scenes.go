@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"path"
@@ -25,8 +24,8 @@ type filterState struct {
 }
 
 type SceneService interface {
-	Scenes(context.Context, stash.FindFilter, stash.SceneFilter) ([]stash.Scene, int, error)
-	DeleteScene(context.Context, string) (bool, error)
+	Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd
+	DeleteScene(string) tea.Cmd
 }
 
 type ScenesModel struct {
@@ -71,7 +70,7 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 	s.screen = size
 
 	return tea.Batch(
-		s.doUpdateCmd(),
+		s.updateCmd(),
 		s.spinner.Tick,
 	)
 }
@@ -94,7 +93,7 @@ func (s *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cm
 	})
 	mutate(s)
 	s.paginator.Reset()
-	return s, s.doUpdateCmd()
+	return s, s.updateCmd()
 }
 
 // Pop sets the current state to the previous state from the history stack.  If the history stack is empty this is a
@@ -115,7 +114,7 @@ func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
 	s.sceneFilter = state.sceneFilter
 	s.scenes = []stash.Scene{}
 
-	return s, s.doUpdateCmd()
+	return s, s.updateCmd()
 }
 
 func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
@@ -125,17 +124,17 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case tea.KeyUp:
 			if s.Skip(-1) {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 		case tea.KeyDown:
 			if s.Skip(1) {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 		case tea.KeyEnter, tea.KeySpace:
 			if s.Next() {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 			s.Opener(s.Current())
 			return &s, nil
@@ -172,7 +171,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case "":
 			if s.Next() {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 			s.Opener(s.Current())
 
@@ -277,7 +276,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.Init(s.screen)
 
 		case "refresh":
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "organised", "organized":
 			organised := true
@@ -339,10 +338,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.doDeleteConfirmCmd()
 		}
 
-	case scenesMessage:
-		if msg.err != nil {
-			return &s, NewErrorCmd(msg.err)
-		}
+	case scenesMsg:
 		s.scenes, s.total = msg.scenes, msg.total
 
 	case spinner.TickMsg:
@@ -351,7 +347,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		return &s, cmd
 
 	case DeleteMsg:
-		return &s, s.doDeleteCmd(msg)
+		return &s, s.deleteCmd(msg.Scene.ID)
 	}
 
 	return &s, nil
@@ -397,27 +393,15 @@ func (s ScenesModel) View() string {
 	)
 }
 
-type scenesMessage struct {
-	scenes []stash.Scene
-	total  int
-	err    error
-}
-
-// doUpdateCmd sets initial loading state then returns a tea.Cmd to execute loading of scenes.
-func (s *ScenesModel) doUpdateCmd() tea.Cmd {
-	sf := s.sceneFilter
-	f := stash.FindFilter{
-		Query:     s.query,
-		Page:      s.page,
-		PerPage:   s.perPage,
-		Sort:      s.sort,
-		Direction: s.sortDirection,
-	}
-	return func() tea.Msg {
-		var m scenesMessage
-		m.scenes, m.total, m.err = s.Scenes(context.Background(), f, sf)
-		return m
-	}
+// updateCmd sets initial loading state then returns a tea.Cmd to execute loading of scenes.
+func (m *ScenesModel) updateCmd() tea.Cmd {
+	return m.SceneService.Scenes(stash.FindFilter{
+		Query:     m.query,
+		Page:      m.page,
+		PerPage:   m.perPage,
+		Sort:      m.sort,
+		Direction: m.sortDirection,
+	}, m.sceneFilter)
 }
 
 // doDeleteConfirmCmd returns a command to display a confirmation message about the current content.
@@ -445,14 +429,8 @@ type DeleteMsg struct {
 
 // doDeleteCmd takes a DeleteMessage and attempts to delete the provided scene.  After successful deletion the current
 // scenes data is refreshed.
-func (s *ScenesModel) doDeleteCmd(d DeleteMsg) tea.Cmd {
-	return func() tea.Msg {
-		_, err := s.DeleteScene(context.Background(), d.Scene.ID)
-		if err != nil {
-			return ErrorMsg{err}
-		}
-		return s.doUpdateCmd()()
-	}
+func (m *ScenesModel) deleteCmd(id string) tea.Cmd {
+	return m.SceneService.DeleteScene(id)
 }
 
 var (

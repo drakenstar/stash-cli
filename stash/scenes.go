@@ -59,11 +59,11 @@ func (s *stash) RecordPlay(ctx context.Context, sceneID string) error {
 
 func (s *stash) DeleteScene(ctx context.Context, sceneID string) (bool, error) {
 	var m struct {
-		SceneIncrementPlayCount bool `graphql:"sceneDestroy(input: {id: $id, delete_file: true, delete_generated: true})"`
+		Result bool `graphql:"sceneDestroy(input: {id: $id, delete_file: true, delete_generated: true})"`
 	}
 	variables := map[string]any{
 		"id": graphql.ID(sceneID),
 	}
 	err := s.client.Mutate(ctx, &m, variables)
-	return m.SceneIncrementPlayCount, err
+	return m.Result, err
 }

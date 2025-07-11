@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"path"
 	"strings"
@@ -16,7 +15,7 @@ import (
 )
 
 type GalleryService interface {
-	Galleries(context.Context, stash.FindFilter, stash.GalleryFilter) ([]stash.Gallery, int, error)
+	Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd
 }
 
 type GalleriesModel struct {
@@ -65,7 +64,7 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 	s.screen = size
 
 	return tea.Batch(
-		s.doUpdateCmd(),
+		s.updateCmd(),
 		s.spinner.Tick,
 	)
 }
@@ -81,17 +80,17 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case tea.KeyUp:
 			if s.Skip(-1) {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 		case tea.KeyDown:
 			if s.Skip(1) {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 		case tea.KeyEnter, tea.KeySpace:
 			if s.Next() {
 				s.Clear()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 			s.Opener(s.Current())
 			return &s, nil
@@ -104,7 +103,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case "r":
 			s.sort = stash.RandomSort()
 			s.Reset()
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 		case "/":
 			return &s, NewModeCommandCmd("/", "filter ")
 		}
@@ -124,12 +123,12 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case "filter":
 			s.query = msg.ArgString()
 			s.Reset()
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "random":
 			s.sort = stash.RandomSort()
 			s.Reset()
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "sort":
 			args := msg.Args()
@@ -162,7 +161,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				}
 
 				s.Reset()
-				return &s, s.doUpdateCmd()
+				return &s, s.updateCmd()
 			}
 
 		case "today":
@@ -171,7 +170,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
 			s.Reset()
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "count":
 			val, err := msg.ArgInt()
@@ -183,18 +182,18 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				Modifier: stash.CriterionModifierGreaterThan,
 			}
 			s.Reset()
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "reset":
 			return &s, s.Init(s.screen)
 
 		case "refresh":
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "organised", "organized":
 			organised := true
 			s.galleryFilter.Organized = &organised
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "favourite", "favorite":
 			favourite := true
@@ -202,7 +201,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				favourite = false
 			}
 			s.galleryFilter.PerformerFavourite = &favourite
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "more":
 			var ids []string
@@ -214,16 +213,13 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				Modifier: stash.CriterionModifierIncludes,
 			}
 			s.Reset()
-			return &s, s.doUpdateCmd()
+			return &s, s.updateCmd()
 
 		case "stash":
 			s.Opener(path.Join("galleries", s.Current().ID))
 		}
 
-	case galleriesMessage:
-		if msg.err != nil {
-			return &s, NewErrorCmd(msg.err)
-		}
+	case galleriesMsg:
 		s.galleries, s.total = msg.galleries, msg.total
 
 	case spinner.TickMsg:
@@ -271,25 +267,14 @@ func (s GalleriesModel) View() string {
 	)
 }
 
-type galleriesMessage struct {
-	galleries []stash.Gallery
-	total     int
-	err       error
-}
-
-func (s *GalleriesModel) doUpdateCmd() tea.Cmd {
-	return func() tea.Msg {
-		f := stash.FindFilter{
-			Query:     s.query,
-			Page:      s.page,
-			PerPage:   s.perPage,
-			Sort:      s.sort,
-			Direction: s.sortDirection,
-		}
-		var g galleriesMessage
-		g.galleries, g.total, g.err = s.Galleries(context.Background(), f, s.galleryFilter)
-		return g
-	}
+func (m *GalleriesModel) updateCmd() tea.Cmd {
+	return m.GalleryService.Galleries(stash.FindFilter{
+		Query:     m.query,
+		Page:      m.page,
+		PerPage:   m.perPage,
+		Sort:      m.sort,
+		Direction: m.sortDirection,
+	}, m.galleryFilter)
 }
 
 var (
