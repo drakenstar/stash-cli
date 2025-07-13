@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,6 +27,17 @@ type TabModel interface {
 	Title() string
 }
 
+var tabID uint64
+
+func nextTabID() uint {
+	return uint(atomic.AddUint64(&tabID, 1))
+}
+
+type tab struct {
+	id    uint
+	model TabModel
+}
+
 const (
 	ModeNormal = iota
 	ModeCommand
@@ -39,7 +51,7 @@ type TabModelConfig struct {
 }
 
 type Model struct {
-	tabs   []TabModel
+	tabs   []tab
 	active int
 
 	tabFuncs map[string](func() TabModel)
@@ -83,7 +95,7 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 		m.keyBinds[mdl.KeyBind] = func() tea.Msg { return TabOpenMsg{mdl.NewFunc} }
 	}
 
-	m.tabs = append(m.tabs, models[0].NewFunc())
+	m.tabs = append(m.tabs, tab{uint(nextTabID()), models[0].NewFunc()})
 
 	m.commandInput = ui.NewCommandInput()
 
@@ -97,7 +109,7 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.commandInput.Init(),
 		m.footer.Init(),
-		m.tabs[m.active].Init(m.screen),
+		m.tabs[m.active].model.Init(m.screen),
 	)
 }
 
@@ -194,7 +206,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// If the message was not handled somewhere above, then it may be a message for the current TabView to handle.
-	m.tabs[m.active], cmd = m.tabs[m.active].Update(msg)
+	m.tabs[m.active].model, cmd = m.tabs[m.active].model.Update(msg)
 	if cmd != nil {
 		cmds = append(cmds, cmd)
 	}
@@ -220,21 +232,21 @@ func (m Model) View() string {
 
 	titles := make([]string, len(m.tabs))
 	for i, tab := range m.tabs {
-		titles[i] = tab.Title()
+		titles[i] = fmt.Sprintf("%d %s", i+1, tab.model.Title())
 	}
 
 	return lipgloss.JoinVertical(0,
 		tabBar.Render(m.screen.Width, titles, m.active),
-		viewportStyle.Render(m.tabs[m.active].View()),
+		viewportStyle.Render(m.tabs[m.active].model.View()),
 		bottom,
 	)
 }
 
 // TabOpen creates a new tab with the given TabModel and sets it as active.
 func (a *Model) TabOpen(m TabModel) (tea.Model, tea.Cmd) {
-	a.tabs = append(a.tabs, m)
+	a.tabs = append(a.tabs, tab{nextTabID(), m})
 	a.active = len(a.tabs) - 1
-	return a, a.tabs[a.active].Init(a.screen)
+	return a, a.tabs[a.active].model.Init(a.screen)
 }
 
 // TabSet navigates to a specific Tab.  This is a noop if the tab does not exist.
