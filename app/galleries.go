@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/config"
@@ -24,7 +23,6 @@ type GalleriesModel struct {
 	Opener config.Opener
 
 	paginator
-	spinner   spinner.Model
 	galleries []stash.Gallery
 
 	query         string
@@ -41,8 +39,6 @@ func NewGalleriesModel(galleryService GalleryService, lookup StashLookup, opener
 		StashLookup:    lookup,
 		Opener:         opener,
 	}
-
-	s.spinner = spinner.New(spinner.WithSpinner(spinner.Globe))
 
 	return s
 }
@@ -63,10 +59,7 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 
 	s.screen = size
 
-	return tea.Batch(
-		s.updateCmd(),
-		s.spinner.Tick,
-	)
+	return s.updateCmd()
 }
 
 func (s *GalleriesModel) Title() string {
@@ -221,11 +214,6 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 
 	case galleriesMsg:
 		s.galleries, s.total = msg.galleries, msg.total
-
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		s.spinner, cmd = s.spinner.Update(msg)
-		return &s, cmd
 	}
 
 	return &s, nil

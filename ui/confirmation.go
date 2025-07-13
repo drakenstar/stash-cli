@@ -21,7 +21,7 @@ var (
 	ConfirmationOptionStyle = lipgloss.NewStyle().
 				PaddingRight(1)
 
-	ConfirmationSelectedStyle = ConfirmationOptionStyle.Copy().
+	ConfirmationSelectedStyle = ConfirmationOptionStyle.
 					Bold(true).
 					Foreground(lipgloss.Color("#FFFFFF"))
 )

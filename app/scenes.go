@@ -6,7 +6,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drakenstar/stash-cli/config"
@@ -34,8 +33,7 @@ type ScenesModel struct {
 	Opener config.Opener
 
 	paginator
-	spinner spinner.Model
-	scenes  []stash.Scene
+	scenes []stash.Scene
 
 	query         string
 	sort          string
@@ -54,8 +52,6 @@ func NewScenesModel(sceneService SceneService, lookup StashLookup, opener config
 		Opener:       opener,
 	}
 
-	s.spinner = spinner.New(spinner.WithSpinner(spinner.Globe))
-
 	return s
 }
 
@@ -69,10 +65,7 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 
 	s.screen = size
 
-	return tea.Batch(
-		s.updateCmd(),
-		s.spinner.Tick,
-	)
+	return s.updateCmd()
 }
 
 func (s *ScenesModel) Title() string {
@@ -340,11 +333,6 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 
 	case scenesMsg:
 		s.scenes, s.total = msg.scenes, msg.total
-
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		s.spinner, cmd = s.spinner.Update(msg)
-		return &s, cmd
 
 	case DeleteMsg:
 		return &s, s.deleteCmd(msg.Scene.ID)

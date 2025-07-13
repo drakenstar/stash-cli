@@ -67,6 +67,10 @@ func NewCommandInput() CommandInput {
 	return m
 }
 
+func (m *CommandInput) Init() tea.Cmd {
+	return textinput.Blink
+}
+
 func (m *CommandInput) Focus(prompt, prefix string) tea.Cmd {
 	m.text.Prompt = prompt
 	m.prefix = prefix

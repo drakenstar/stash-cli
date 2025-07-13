@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/drakenstar/stash-cli/stash"
@@ -11,10 +12,42 @@ import (
 // to call to the service while handling some app level concerns like loading state.
 type cmdService struct {
 	stash.Stash
+
+	mu           sync.RWMutex
+	loadingCount uint
+}
+
+func (s *cmdService) loadBegin() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.loadingCount += 1
+}
+
+func (s *cmdService) loadEnd() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.loadingCount > 0 {
+		s.loadingCount -= 1
+	}
+}
+
+func (s *cmdService) withLoadingCount(cmd tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		s.loadBegin()
+		defer s.loadEnd()
+		return cmd()
+	}
+}
+
+// AnyLoading returns true if there are any in-flight calls to a stash service.
+func (s *cmdService) AnyLoading() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.loadingCount > 0
 }
 
 func (s *cmdService) Scenes(f stash.FindFilter, sf stash.SceneFilter) tea.Cmd {
-	return func() tea.Msg {
+	return s.withLoadingCount(func() tea.Msg {
 		scenes, total, err := s.Stash.Scenes(context.Background(), f, sf)
 		if err != nil {
 			return ErrorMsg{err}
@@ -23,21 +56,21 @@ func (s *cmdService) Scenes(f stash.FindFilter, sf stash.SceneFilter) tea.Cmd {
 			scenes: scenes,
 			total:  total,
 		}
-	}
+	})
 }
 
 func (s *cmdService) DeleteScene(id string) tea.Cmd {
-	return func() tea.Msg {
+	return s.withLoadingCount(func() tea.Msg {
 		_, err := s.Stash.DeleteScene(context.Background(), id)
 		if err != nil {
 			return ErrorMsg{err}
 		}
 		return sceneDeletedMsg{id}
-	}
+	})
 }
 
 func (s *cmdService) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {
-	return func() tea.Msg {
+	return s.withLoadingCount(func() tea.Msg {
 		galleries, total, err := s.Stash.Galleries(context.Background(), f, gf)
 		if err != nil {
 			return ErrorMsg{err}
@@ -46,7 +79,7 @@ func (s *cmdService) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.C
 			galleries: galleries,
 			total:     total,
 		}
-	}
+	})
 }
 
 type galleriesMsg struct {

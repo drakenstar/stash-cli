@@ -50,11 +50,15 @@ type Model struct {
 	mode         int
 	commandInput ui.CommandInput
 	err          error
+
+	footer ui.Footer
+
+	cmdService *cmdService
 }
 
 func New(stash stash.Stash, opener config.Opener) *Model {
 	lookup := newCacheLookup()
-	s := &cmdService{&cachingStash{stash, lookup}}
+	s := &cmdService{Stash: &cachingStash{stash, lookup}}
 
 	models := []TabModelConfig{
 		{
@@ -69,135 +73,159 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 		},
 	}
 
-	a := new(Model)
+	m := new(Model)
+	m.cmdService = s
 
-	a.tabFuncs = make(map[string](func() TabModel))
-	a.keyBinds = make(map[string]tea.Cmd)
-	for _, m := range models {
-		a.tabFuncs[m.Name] = m.NewFunc
-		a.keyBinds[m.KeyBind] = func() tea.Msg { return TabOpenMsg{m.NewFunc} }
+	m.tabFuncs = make(map[string](func() TabModel))
+	m.keyBinds = make(map[string]tea.Cmd)
+	for _, mdl := range models {
+		m.tabFuncs[mdl.Name] = mdl.NewFunc
+		m.keyBinds[mdl.KeyBind] = func() tea.Msg { return TabOpenMsg{mdl.NewFunc} }
 	}
 
-	a.tabs = append(a.tabs, models[0].NewFunc())
+	m.tabs = append(m.tabs, models[0].NewFunc())
 
-	a.commandInput = ui.NewCommandInput()
+	m.commandInput = ui.NewCommandInput()
 
-	return a
+	m.footer = ui.NewFooter()
+	m.footer.Background = ColorBlack
+
+	return m
 }
 
-func (a Model) Init() tea.Cmd {
-	return a.tabs[a.active].Init(a.screen)
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(
+		m.commandInput.Init(),
+		m.footer.Init(),
+		m.tabs[m.active].Init(m.screen),
+	)
 }
 
-func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
+	m.commandInput, cmd = m.commandInput.Update(msg)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
+	m.footer, cmd = m.footer.Update(msg)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
-			return a, tea.Quit
+			return m, tea.Quit
 
 		case tea.KeyCtrlW:
-			a.TabClose(a.active)
-			return a, nil
+			m.TabClose(m.active)
+			return m, nil
 		}
 
-		if a.mode == ModeCommand {
-			newInput, cmd := a.commandInput.Update(msg)
-			a.commandInput = newInput
-			return a, cmd
+		if m.mode == ModeCommand {
+			newInput, cmd := m.commandInput.Update(msg)
+			m.commandInput = newInput
+			return m, cmd
 		} else {
 			switch msg.String() {
 			case "1", "2", "3", "4", "5":
 				i, _ := strconv.Atoi(msg.String())
-				a.TabSet(i - 1)
-				return a, nil
+				m.TabSet(i - 1)
+				return m, nil
 
 			case ":":
-				return a, NewModeCommandCmd(":", "")
+				return m, NewModeCommandCmd(":", "")
 			}
 
-			if bind, ok := a.keyBinds[msg.String()]; ok {
-				return a, bind
+			if bind, ok := m.keyBinds[msg.String()]; ok {
+				return m, bind
 			}
 		}
 
 	case ui.CommandExecuteMsg:
-		a.mode = ModeNormal
+		m.mode = ModeNormal
 
 		cmd := msg.Name()
 		if cmd == "tab" {
 			args := msg.Args()
 			if len(args) == 2 && args[0] == "new" {
-				tabFunc, ok := a.tabFuncs[args[1]]
+				tabFunc, ok := m.tabFuncs[args[1]]
 				if !ok {
-					return a, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", args[1]))
+					return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", args[1]))
 				}
-				return a, func() tea.Msg { return TabOpenMsg{tabFunc} }
+				return m, func() tea.Msg { return TabOpenMsg{tabFunc} }
 			}
 		}
 
 		if cmd == "exit" {
-			return a, tea.Quit
+			return m, tea.Quit
 		}
 
 	case ui.CommandExitMsg:
-		a.mode = ModeNormal
-		a.commandInput.Blur()
-		return a, nil
+		m.mode = ModeNormal
+		m.commandInput.Blur()
+		return m, nil
 
 	case tea.WindowSizeMsg:
-		a.screen = Size{
+		m.screen = Size{
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
 
 	case ErrorMsg:
-		a.err = msg.error
-		if a.err != nil {
-			return a, func() tea.Msg {
+		m.err = msg.error
+		if m.err != nil {
+			return m, func() tea.Msg {
 				time.Sleep(5 * time.Second)
 				return ErrorMsg{}
 			}
 		}
 
 	case ModeCommandMsg:
-		a.mode = ModeCommand
-		return a, a.commandInput.Focus(msg.prompt, msg.prefix)
+		m.mode = ModeCommand
+		return m, m.commandInput.Focus(msg.prompt, msg.prefix)
 
 	case TabOpenMsg:
-		return a.TabOpen(msg.tabFunc())
+		return m.TabOpen(msg.tabFunc())
 	}
 
 	// If the message was not handled somewhere above, then it may be a message for the current TabView to handle.
-	next, cmd := a.tabs[a.active].Update(msg)
-	a.tabs[a.active] = next
-	return a, cmd
+	m.tabs[m.active], cmd = m.tabs[m.active].Update(msg)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
-func (a Model) View() string {
+func (m Model) View() string {
 	viewportStyle := lipgloss.NewStyle().
-		Width(a.screen.Width).
-		Height(a.screen.Height - 3)
+		Width(m.screen.Width).
+		Height(m.screen.Height - 3)
 	var bottom string
 
-	if a.err != nil {
-		bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(a.err.Error())
+	if m.err != nil {
+		bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(m.err.Error())
 	}
 
-	if a.mode == ModeCommand {
-		bottom += "\n" + a.commandInput.View()
+	if m.mode == ModeCommand {
+		bottom += "\n" + m.commandInput.View()
 	} else {
-		bottom += "\n"
+		bottom += "\n" + m.footer.Render(m.screen.Width, m.cmdService.AnyLoading())
 	}
 
-	titles := make([]string, len(a.tabs))
-	for i, tab := range a.tabs {
+	titles := make([]string, len(m.tabs))
+	for i, tab := range m.tabs {
 		titles[i] = tab.Title()
 	}
 
 	return lipgloss.JoinVertical(0,
-		tabBar.Render(a.screen.Width, titles, a.active),
-		viewportStyle.Render(a.tabs[a.active].View()),
+		tabBar.Render(m.screen.Width, titles, m.active),
+		viewportStyle.Render(m.tabs[m.active].View()),
 		bottom,
 	)
 }
@@ -210,20 +238,20 @@ func (a *Model) TabOpen(m TabModel) (tea.Model, tea.Cmd) {
 }
 
 // TabSet navigates to a specific Tab.  This is a noop if the tab does not exist.
-func (a *Model) TabSet(i int) {
-	if len(a.tabs) > i {
-		a.active = i
+func (m *Model) TabSet(i int) {
+	if len(m.tabs) > i {
+		m.active = i
 	}
 }
 
 // TabClose closes a tab at the specified index.  Is a noop if tab does not exist.  The final tab cannot be closed.
 // If the current tab is active, then the previous tab will be set as active.
-func (a *Model) TabClose(i int) {
-	if len(a.tabs) > i && len(a.tabs) > 1 {
-		if i >= a.active {
-			a.active = max(a.active-1, 0)
+func (m *Model) TabClose(i int) {
+	if len(m.tabs) > i && len(m.tabs) > 1 {
+		if i >= m.active {
+			m.active = max(m.active-1, 0)
 		}
-		a.tabs = append(a.tabs[:i], a.tabs[i+1:]...)
+		m.tabs = append(m.tabs[:i], m.tabs[i+1:]...)
 	}
 }
 
