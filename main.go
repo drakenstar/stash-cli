@@ -25,14 +25,20 @@ func main() {
 		fmt.Printf("Connecting to stash instance %s\n", cfg.GraphURL())
 	}
 
-	httpClient := &client{
-		Client: http.DefaultClient,
-		APIKey: cfg.APIKey,
-		Debug:  cfg.Debug,
+	var s stash.Stash
+
+	if cfg.StashInstance.Scheme == "file" {
+		s = stash.NewLocalStash(cfg.StashInstance.Path)
+	} else {
+		httpClient := &client{
+			Client: http.DefaultClient,
+			APIKey: cfg.APIKey,
+			Debug:  cfg.Debug,
+		}
+		client := graphql.NewClient(cfg.GraphURL().String(), httpClient)
+		s = stash.New(client)
 	}
 
-	client := graphql.NewClient(cfg.GraphURL().String(), httpClient)
-	stash := stash.New(client)
 	opener := cfg.Opener(func(name string, args ...string) error {
 		if cfg.Debug {
 			fmt.Fprintln(os.Stderr, name, strings.Join(args, " "))
@@ -40,7 +46,7 @@ func main() {
 		return exec.Command(name, args...).Run()
 	})
 
-	app := app.New(stash, opener)
+	app := app.New(s, opener)
 
 	p := tea.NewProgram(
 		app,
@@ -81,6 +87,7 @@ func loadConfig() *config.Config {
 		config.FromFile(&c, f)
 	}
 	config.FromArgs(&c, os.Args[1:])
+
 	if c.StashInstance == nil {
 		usage()
 	}
