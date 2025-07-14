@@ -20,6 +20,7 @@ var (
 	ColorYellow      = lipgloss.Color("#FAD689")
 	ColorPurple      = lipgloss.Color("#B39DDC")
 	ColorGrey        = lipgloss.Color("#D3D3D3")
+	ColorWhite       = lipgloss.Color("#FFFFFF")
 	ColorOffWhite    = lipgloss.Color("#FAF0E6")
 	ColorSalmon      = lipgloss.Color("#FF9C8A")
 	ColorBlue        = lipgloss.Color("#A2D2FF")
@@ -38,8 +39,9 @@ var (
 		Render()
 
 	tabBar = ui.Tabs{
+		NumberForeground: ColorWhite,
+		TitleForeground:  ColorOffWhite,
 		Background:       ColorBlack,
-		CellBackground:   ColorStatusBar,
 		ActiveBackground: ColorStatusCell,
 	}
 

@@ -138,11 +138,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if m.mode == ModeCommand {
-			newInput, cmd := m.commandInput.Update(msg)
-			m.commandInput = newInput
-			return m, cmd
-		} else {
+		if m.mode != ModeCommand {
 			switch msg.String() {
 			case "1", "2", "3", "4", "5":
 				i, _ := strconv.Atoi(msg.String())
@@ -232,7 +228,7 @@ func (m Model) View() string {
 
 	titles := make([]string, len(m.tabs))
 	for i, tab := range m.tabs {
-		titles[i] = fmt.Sprintf("%d %s", i+1, tab.model.Title())
+		titles[i] = tab.model.Title()
 	}
 
 	return lipgloss.JoinVertical(0,
