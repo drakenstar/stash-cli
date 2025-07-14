@@ -117,11 +117,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 
-	m.commandInput, cmd = m.commandInput.Update(msg)
-	if cmd != nil {
-		cmds = append(cmds, cmd)
-	}
-
 	m.footer, cmd = m.footer.Update(msg)
 	if cmd != nil {
 		cmds = append(cmds, cmd)
@@ -138,7 +133,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if m.mode != ModeCommand {
+		if m.mode == ModeCommand {
+			m.commandInput, cmd = m.commandInput.Update(msg)
+			return m, cmd
+		} else {
 			switch msg.String() {
 			case "1", "2", "3", "4", "5":
 				i, _ := strconv.Atoi(msg.String())

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -51,11 +52,11 @@ func NewScenesModel(sceneService SceneService, lookup StashLookup, opener config
 		StashLookup:  lookup,
 		Opener:       opener,
 	}
-
+	s.reset()
 	return s
 }
 
-func (s *ScenesModel) Init(size Size) tea.Cmd {
+func (s *ScenesModel) reset() tea.Cmd {
 	s.paginator = NewPaginator(40)
 
 	s.query = ""
@@ -63,13 +64,28 @@ func (s *ScenesModel) Init(size Size) tea.Cmd {
 	s.sortDirection = stash.SortDirectionDesc
 	s.sceneFilter = stash.SceneFilter{}
 
-	s.screen = size
+	return s.updateCmd()
+}
 
+func (s *ScenesModel) Init(size Size) tea.Cmd {
+	s.screen = size
 	return s.updateCmd()
 }
 
 func (s *ScenesModel) Title() string {
-	return "Scenes"
+	t := "Scenes"
+	if s.query != "" {
+		t = fmt.Sprintf("\"%s\"", s.query)
+	} else if s.sceneFilter.Performers != nil {
+		var performers []string
+		for _, p := range s.sceneFilter.Performers.Value {
+			perf, _ := s.StashLookup.GetPerformer(p)
+			performers = append(performers, perf.Name)
+		}
+		t = strings.Join(performers, ", ")
+	}
+
+	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.total))
 }
 
 func (s *ScenesModel) Current() stash.Scene {
@@ -151,6 +167,23 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 					sm.sceneFilter.PerformerFavourite = nil
 				}
 			})
+		case "p":
+			var ids []string
+			for _, p := range s.Current().Performers {
+				ids = append(ids, p.ID)
+			}
+			return &s, func() tea.Msg {
+				return TabOpenMsg{
+					tabFunc: func() TabModel {
+						t := NewScenesModel(s.SceneService, s.StashLookup, s.Opener)
+						t.sceneFilter.Performers = &stash.MultiCriterion{
+							Value:    ids,
+							Modifier: stash.CriterionModifierIncludes,
+						}
+						return t
+					},
+				}
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -310,12 +343,18 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			for _, p := range s.Current().Performers {
 				ids = append(ids, p.ID)
 			}
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Performers = &stash.MultiCriterion{
-					Value:    ids,
-					Modifier: stash.CriterionModifierIncludes,
+			return &s, func() tea.Msg {
+				return TabOpenMsg{
+					tabFunc: func() TabModel {
+						t := NewScenesModel(s.SceneService, s.StashLookup, s.Opener)
+						t.sceneFilter.Performers = &stash.MultiCriterion{
+							Value:    ids,
+							Modifier: stash.CriterionModifierIncludes,
+						}
+						return t
+					},
 				}
-			})
+			}
 
 		case "rated":
 			return s.PushState(func(sm *ScenesModel) {
@@ -478,5 +517,5 @@ func rating(value int) string {
 		value = 100
 	}
 	stars := int(math.Ceil(float64(value) * 5.0 / 100.0))
-	return fmt.Sprintf("%d⭐", stars)
+	return fmt.Sprintf("%d\U000f04ce", stars)
 }

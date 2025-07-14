@@ -25,13 +25,14 @@ var (
 	ColorSalmon      = lipgloss.Color("#FF9C8A")
 	ColorBlue        = lipgloss.Color("#A2D2FF")
 	ColorRowSelected = lipgloss.Color("#28664A")
+	ColorRed         = lipgloss.Color("#FF0000")
 
 	ColorStatusBar  = lipgloss.Color("#2B2A60")
 	ColorStatusCell = lipgloss.Color("#483D8B")
 
 	check = lipgloss.NewStyle().
 		Foreground(ColorGreen).
-		SetString("✓").
+		SetString("\uf00c").
 		String()
 	circle = lipgloss.NewStyle().
 		Foreground(ColorGrey).
@@ -94,7 +95,7 @@ func performer(p stash.Performer) string {
 		name += " " + p.Country.String()
 	}
 	if p.Favorite {
-		name += " ❤️"
+		name += lipgloss.NewStyle().Foreground(ColorRed).Render(" \U000f02d1")
 	}
 	return name
 }
@@ -502,5 +503,16 @@ func (r *criterionRenderer) boolCriterion(c *bool, trueValue, falseValue string)
 		*r = append(*r, trueValue)
 	} else {
 		*r = append(*r, falseValue)
+	}
+}
+
+func humanNumber(n int) string {
+	switch {
+	case n < 1_000:
+		return fmt.Sprintf("%d", n)
+	case n < 10_000:
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%dK", n/1_000)
 	}
 }

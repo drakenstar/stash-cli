@@ -33,12 +33,12 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 	separatorStyle := cellStyle.Foreground(s.ActiveBackground)
 	inverseSeparatorStyle := activeStyle.Foreground(s.Background)
 
-	var lc bytes.Buffer
+	var out bytes.Buffer
 
 	if active == 0 {
-		lc.WriteString(separatorStyle.Render(SeparatorIntoActive))
+		out.WriteString(separatorStyle.Render(SeparatorIntoActive))
 	} else {
-		lc.WriteString(separatorStyle.Render(SeparatorNormal))
+		out.WriteString(separatorStyle.Render(SeparatorNormal))
 	}
 
 	for i, title := range tabs {
@@ -55,7 +55,7 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 		titleStyle := baseStyle.
 			Foreground(s.TitleForeground)
 
-		lc.WriteString(cellStyle.Render(lipgloss.JoinHorizontal(
+		out.WriteString(cellStyle.Render(lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			numberStyle.Render(fmt.Sprintf("%d ", i+1)),
 			titleStyle.Render(title),
@@ -63,16 +63,16 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 
 		switch i {
 		case active - 1:
-			lc.WriteString(separatorStyle.Render(SeparatorIntoActive))
+			out.WriteString(separatorStyle.Render(SeparatorIntoActive))
 		case active:
-			lc.WriteString(inverseSeparatorStyle.Render(SeparatorIntoActive))
+			out.WriteString(inverseSeparatorStyle.Render(SeparatorIntoActive))
 		default:
-			lc.WriteString(separatorStyle.Render(SeparatorNormal))
+			out.WriteString(separatorStyle.Render(SeparatorNormal))
 		}
 	}
 
 	return style.
 		Padding(0, 1).
 		Width(width).
-		Render(lc.String())
+		Render(out.String())
 }

@@ -89,17 +89,17 @@ func (g Gender) String() string {
 	case GenderNotSpecified:
 		return ""
 	case GenderMale:
-		return "♂️"
+		return "\U000f029d"
 	case GenderFemale:
-		return "♂️"
+		return "\U000f029c"
 	case GenderTransMale:
-		return "⚧️"
+		return "\U000f029f"
 	case GenderTransFemale:
-		return "⚧️"
+		return "\U000f029f"
 	case GenderIntersex:
-		return "⚧️"
+		return "\U000f029f"
 	case GenderNonBinary:
-		return "⚧️"
+		return "\U000f029f"
 	default:
 		panic("invalid Gender value")
 	}

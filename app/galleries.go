@@ -63,7 +63,12 @@ func (s *GalleriesModel) Init(size Size) tea.Cmd {
 }
 
 func (s *GalleriesModel) Title() string {
-	return "Galleries"
+	t := "Galleries"
+	if s.query != "" {
+		t = fmt.Sprintf("\"%s\"", s.query)
+	}
+
+	return fmt.Sprintf("%c %s", '\uf03e', t)
 }
 
 func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
