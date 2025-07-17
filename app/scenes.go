@@ -184,6 +184,9 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 					},
 				}
 			}
+		case "`":
+			s.Opener(path.Join("scenes", s.Current().ID))
+			return &s, nil
 		}
 
 	case tea.WindowSizeMsg:
@@ -299,7 +302,8 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			})
 
 		case "reset":
-			return &s, s.Init(s.screen)
+			s.reset()
+			return &s, s.updateCmd()
 
 		case "refresh":
 			return &s, s.updateCmd()

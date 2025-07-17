@@ -43,7 +43,7 @@ var (
 		NumberForeground: ColorWhite,
 		TitleForeground:  ColorOffWhite,
 		Background:       ColorBlack,
-		ActiveBackground: ColorStatusCell,
+		ActiveBackground: ColorStatusBar,
 	}
 
 	statusBar = ui.StatusBar{

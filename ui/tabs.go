@@ -16,8 +16,10 @@ type Tabs struct {
 }
 
 const (
-	SeparatorNormal     = "\ue0bb" // diagonal separator
-	SeparatorIntoActive = "\ue0ba" // half-filled diagonal separator
+	SeparatorLeftNormal  = "\ue0bb"
+	SeparatorRightNormal = "\ue0b9"
+	SeparatorLeftActive  = "\ue0ba"
+	SeparatorRightActive = "\ue0be"
 )
 
 func (s Tabs) Render(width int, tabs []string, active int) string {
@@ -36,9 +38,9 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 	var out bytes.Buffer
 
 	if active == 0 {
-		out.WriteString(separatorStyle.Render(SeparatorIntoActive))
+		out.WriteString(separatorStyle.Render(SeparatorLeftActive))
 	} else {
-		out.WriteString(separatorStyle.Render(SeparatorNormal))
+		out.WriteString(separatorStyle.Render(SeparatorLeftNormal))
 	}
 
 	for i, title := range tabs {
@@ -61,13 +63,14 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 			titleStyle.Render(title),
 		)))
 
-		switch i {
-		case active - 1:
-			out.WriteString(separatorStyle.Render(SeparatorIntoActive))
-		case active:
-			out.WriteString(inverseSeparatorStyle.Render(SeparatorIntoActive))
-		default:
-			out.WriteString(separatorStyle.Render(SeparatorNormal))
+		if i == active-1 {
+			out.WriteString(separatorStyle.Render(SeparatorLeftActive))
+		} else if i == active {
+			out.WriteString(inverseSeparatorStyle.Render(SeparatorRightActive))
+		} else if i < active {
+			out.WriteString(separatorStyle.Render(SeparatorLeftNormal))
+		} else {
+			out.WriteString(separatorStyle.Render(SeparatorRightNormal))
 		}
 	}
 
