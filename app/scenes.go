@@ -47,13 +47,13 @@ type ScenesModel struct {
 }
 
 func NewScenesModel(sceneService SceneService, lookup StashLookup, opener config.Opener) *ScenesModel {
-	s := &ScenesModel{
+	m := &ScenesModel{
 		SceneService: sceneService,
 		StashLookup:  lookup,
 		Opener:       opener,
 	}
-	s.reset()
-	return s
+	m.reset()
+	return m
 }
 
 func (s *ScenesModel) reset() tea.Cmd {
@@ -168,22 +168,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				}
 			})
 		case "p":
-			var ids []string
-			for _, p := range s.Current().Performers {
-				ids = append(ids, p.ID)
-			}
-			return &s, func() tea.Msg {
-				return TabOpenMsg{
-					tabFunc: func() TabModel {
-						t := NewScenesModel(s.SceneService, s.StashLookup, s.Opener)
-						t.sceneFilter.Performers = &stash.MultiCriterion{
-							Value:    ids,
-							Modifier: stash.CriterionModifierIncludes,
-						}
-						return t
-					},
-				}
-			}
+			return s.newTabPerformerCmd()
 		case "`":
 			s.Opener(path.Join("scenes", s.Current().ID))
 			return &s, nil
@@ -302,8 +287,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			})
 
 		case "reset":
-			s.reset()
-			return &s, s.updateCmd()
+			return &s, s.reset()
 
 		case "refresh":
 			return &s, s.updateCmd()
@@ -343,22 +327,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			})
 
 		case "more":
-			var ids []string
-			for _, p := range s.Current().Performers {
-				ids = append(ids, p.ID)
-			}
-			return &s, func() tea.Msg {
-				return TabOpenMsg{
-					tabFunc: func() TabModel {
-						t := NewScenesModel(s.SceneService, s.StashLookup, s.Opener)
-						t.sceneFilter.Performers = &stash.MultiCriterion{
-							Value:    ids,
-							Modifier: stash.CriterionModifierIncludes,
-						}
-						return t
-					},
-				}
-			}
+			return s.newTabPerformerCmd()
 
 		case "rated":
 			return s.PushState(func(sm *ScenesModel) {
@@ -433,6 +402,30 @@ func (m *ScenesModel) updateCmd() tea.Cmd {
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.sceneFilter)
+}
+
+// newTabPerformerCmd returns a command that opens a new tab filtered to the current set of performers
+func (m *ScenesModel) newTabPerformerCmd() (*ScenesModel, tea.Cmd) {
+	if len(m.Current().Performers) == 0 {
+		return m, nil
+	}
+
+	var ids []string
+	for _, p := range m.Current().Performers {
+		ids = append(ids, p.ID)
+	}
+	return m, func() tea.Msg {
+		return TabOpenMsg{
+			tabFunc: func() TabModel {
+				t := NewScenesModel(m.SceneService, m.StashLookup, m.Opener)
+				t.sceneFilter.Performers = &stash.MultiCriterion{
+					Value:    ids,
+					Modifier: stash.CriterionModifierIncludes,
+				}
+				return t
+			},
+		}
+	}
 }
 
 // doDeleteConfirmCmd returns a command to display a confirmation message about the current content.

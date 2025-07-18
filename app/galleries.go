@@ -34,31 +34,32 @@ type GalleriesModel struct {
 }
 
 func NewGalleriesModel(galleryService GalleryService, lookup StashLookup, opener config.Opener) *GalleriesModel {
-	s := &GalleriesModel{
+	m := &GalleriesModel{
 		GalleryService: galleryService,
 		StashLookup:    lookup,
 		Opener:         opener,
 	}
-
-	return s
+	m.reset()
+	return m
 }
 
 func (m *GalleriesModel) Current() stash.Gallery {
 	return m.galleries[m.paginator.index]
 }
 
+func (m *GalleriesModel) reset() tea.Cmd {
+	m.paginator = NewPaginator(40)
+
+	m.query = ""
+	m.sort = stash.SortPath
+	m.sortDirection = stash.SortDirectionAsc
+	m.galleryFilter = stash.GalleryFilter{}
+
+	return m.updateCmd()
+}
+
 func (s *GalleriesModel) Init(size Size) tea.Cmd {
-	s.paginator = NewPaginator(40)
-
-	s.query = ""
-	s.sort = stash.SortPath
-	s.sortDirection = stash.SortDirectionAsc
-
-	s.galleryFilter = stash.GalleryFilter{}
-	s.Reset()
-
 	s.screen = size
-
 	return s.updateCmd()
 }
 
@@ -66,9 +67,16 @@ func (s *GalleriesModel) Title() string {
 	t := "Galleries"
 	if s.query != "" {
 		t = fmt.Sprintf("\"%s\"", s.query)
+	} else if s.galleryFilter.Performers != nil {
+		var performers []string
+		for _, p := range s.galleryFilter.Performers.Value {
+			perf, _ := s.StashLookup.GetPerformer(p)
+			performers = append(performers, perf.Name)
+		}
+		t = strings.Join(performers, ", ")
 	}
 
-	return fmt.Sprintf("%c %s", '\uf03e', t)
+	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.total))
 }
 
 func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
@@ -104,6 +112,11 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.updateCmd()
 		case "/":
 			return &s, NewModeCommandCmd("/", "filter ")
+		case "p":
+			return s.newTabPerformerCmd()
+		case "`":
+			s.Opener(path.Join("scenes", s.Current().ID))
+			return &s, nil
 		}
 
 	case tea.WindowSizeMsg:
@@ -183,7 +196,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.updateCmd()
 
 		case "reset":
-			return &s, s.Init(s.screen)
+			return &s, s.reset()
 
 		case "refresh":
 			return &s, s.updateCmd()
@@ -202,16 +215,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.updateCmd()
 
 		case "more":
-			var ids []string
-			for _, p := range s.Current().Performers {
-				ids = append(ids, p.ID)
-			}
-			s.galleryFilter.Performers = &stash.MultiCriterion{
-				Value:    ids,
-				Modifier: stash.CriterionModifierIncludes,
-			}
-			s.Reset()
-			return &s, s.updateCmd()
+			return s.newTabPerformerCmd()
 
 		case "stash":
 			s.Opener(path.Join("galleries", s.Current().ID))
@@ -268,6 +272,30 @@ func (m *GalleriesModel) updateCmd() tea.Cmd {
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.galleryFilter)
+}
+
+// newTabPerformerCmd returns a command that opens a new tab filtered to the current set of performers
+func (m *GalleriesModel) newTabPerformerCmd() (*GalleriesModel, tea.Cmd) {
+	if len(m.Current().Performers) == 0 {
+		return m, nil
+	}
+
+	var ids []string
+	for _, p := range m.Current().Performers {
+		ids = append(ids, p.ID)
+	}
+	return m, func() tea.Msg {
+		return TabOpenMsg{
+			tabFunc: func() TabModel {
+				t := NewGalleriesModel(m.GalleryService, m.StashLookup, m.Opener)
+				t.galleryFilter.Performers = &stash.MultiCriterion{
+					Value:    ids,
+					Modifier: stash.CriterionModifierIncludes,
+				}
+				return t
+			},
+		}
+	}
 }
 
 var (
