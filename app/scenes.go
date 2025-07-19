@@ -13,7 +13,7 @@ import (
 	"github.com/drakenstar/stash-cli/ui"
 )
 
-type filterState struct {
+type sceneFilterState struct {
 	query         string
 	sort          string
 	sortDirection string
@@ -39,7 +39,7 @@ type ScenesModel struct {
 	sortDirection string
 	sceneFilter   stash.SceneFilter
 
-	history []filterState
+	history []sceneFilterState
 
 	screen Size
 }
@@ -90,7 +90,7 @@ func (s *ScenesModel) Current() stash.Scene {
 }
 
 func (s *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cmd) {
-	s.history = append(s.history, filterState{
+	s.history = append(s.history, sceneFilterState{
 		query:         s.query,
 		sort:          s.sort,
 		sortDirection: s.sortDirection,
@@ -159,6 +159,9 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			}
 		case "/":
 			return &s, NewModeCommandCmd("/", "filter ")
+		case "o":
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 		case "r":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sort = stash.RandomSort()
@@ -189,14 +192,6 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 
 	case ui.CommandExecuteMsg:
 		switch msg.Name() {
-		case "":
-			if s.Next() {
-				s.Clear()
-				return &s, s.updateCmd()
-			}
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
-
 		case "open":
 			msg := OpenMsg{s.Current()}
 			return &s, func() tea.Msg { return msg }
