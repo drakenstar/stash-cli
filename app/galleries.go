@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -20,7 +19,6 @@ type GalleryService interface {
 type GalleriesModel struct {
 	GalleryService
 	StashLookup
-	Opener config.Opener
 
 	paginator
 	galleries []stash.Gallery
@@ -33,11 +31,10 @@ type GalleriesModel struct {
 	screen Size
 }
 
-func NewGalleriesModel(galleryService GalleryService, lookup StashLookup, opener config.Opener) *GalleriesModel {
+func NewGalleriesModel(galleryService GalleryService, lookup StashLookup) *GalleriesModel {
 	m := &GalleriesModel{
 		GalleryService: galleryService,
 		StashLookup:    lookup,
-		Opener:         opener,
 	}
 	m.reset()
 	return m
@@ -98,14 +95,14 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.updateCmd()
 			}
-			s.Opener(s.Current())
-			return &s, nil
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 		}
 
 		switch msg.String() {
 		case "o":
-			s.Opener(s.Current())
-			return &s, nil
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 		case "r":
 			s.sort = stash.RandomSort()
 			s.Reset()
@@ -115,8 +112,8 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case "p":
 			return s.newTabPerformerCmd()
 		case "`":
-			s.Opener(path.Join("scenes", s.Current().ID))
-			return &s, nil
+			msg := OpenMsg{path.Join("galleries", s.Current().ID)}
+			return &s, func() tea.Msg { return msg }
 		}
 
 	case tea.WindowSizeMsg:
@@ -128,8 +125,8 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	case ui.CommandExecuteMsg:
 		switch msg.Name() {
 		case "open":
-			s.Opener(s.Current())
-			return &s, nil
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 
 		case "filter":
 			s.query = msg.ArgString()
@@ -218,7 +215,8 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return s.newTabPerformerCmd()
 
 		case "stash":
-			s.Opener(path.Join("galleries", s.Current().ID))
+			msg := OpenMsg{path.Join("galleries", s.Current().ID)}
+			return &s, func() tea.Msg { return msg }
 		}
 
 	case galleriesMsg:
@@ -287,7 +285,7 @@ func (m *GalleriesModel) newTabPerformerCmd() (*GalleriesModel, tea.Cmd) {
 	return m, func() tea.Msg {
 		return TabOpenMsg{
 			tabFunc: func() TabModel {
-				t := NewGalleriesModel(m.GalleryService, m.StashLookup, m.Opener)
+				t := NewGalleriesModel(m.GalleryService, m.StashLookup)
 				t.galleryFilter.Performers = &stash.MultiCriterion{
 					Value:    ids,
 					Modifier: stash.CriterionModifierIncludes,

@@ -243,7 +243,7 @@ func sceneFilterStatus(filter stash.SceneFilter, srv StashLookup) []string {
 	})
 	status.boolCriterion(filter.PerformerFavourite, "Favourite", "Non-favourite")
 	status.intCriterion("Age", filter.PerformerAge)
-	status.multiCriterion("Performers", filter.Performers, func(id string) string {
+	status.multiCriterion("\U000f15c9", filter.Performers, func(id string) string {
 		performer, err := srv.GetPerformer(id)
 		if err != nil {
 			return "error performer"
@@ -335,9 +335,9 @@ func init() {
 		"{{.FieldLabel}} less than {{.Value}}",
 		"{{.FieldLabel}} is null",
 		"{{.FieldLabel}} is not null",
-		"{{.FieldLabel}} includes all {{.Value | join}}",
-		"{{.FieldLabel}} includes {{.Value | join}}",
-		"{{.FieldLabel}} excludes {{.Value | join}}",
+		"{{.FieldLabel}} is all {{.Value | join}}",
+		"{{.FieldLabel}} in {{.Value | join}}",
+		"{{.FieldLabel}} not in {{.Value | join}}",
 		"{{.FieldLabel}} matches regex {{.Value | join}}",
 		"{{.FieldLabel}} doesn't match regex {{.Value | join}}",
 		"{{.FieldLabel}} between {{.Value}} and {{.Value2}}",

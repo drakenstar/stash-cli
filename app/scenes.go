@@ -9,7 +9,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -31,7 +30,6 @@ type SceneService interface {
 type ScenesModel struct {
 	SceneService
 	StashLookup
-	Opener config.Opener
 
 	paginator
 	scenes []stash.Scene
@@ -46,11 +44,10 @@ type ScenesModel struct {
 	screen Size
 }
 
-func NewScenesModel(sceneService SceneService, lookup StashLookup, opener config.Opener) *ScenesModel {
+func NewScenesModel(sceneService SceneService, lookup StashLookup) *ScenesModel {
 	m := &ScenesModel{
 		SceneService: sceneService,
 		StashLookup:  lookup,
-		Opener:       opener,
 	}
 	m.reset()
 	return m
@@ -145,11 +142,21 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.updateCmd()
 			}
-			s.Opener(s.Current())
-			return &s, nil
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 		}
 
 		switch msg.String() {
+		case "z":
+			if s.Skip(-1) {
+				s.Clear()
+				return &s, s.updateCmd()
+			}
+		case "x":
+			if s.Skip(1) {
+				s.Clear()
+				return &s, s.updateCmd()
+			}
 		case "/":
 			return &s, NewModeCommandCmd("/", "filter ")
 		case "r":
@@ -170,8 +177,8 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		case "p":
 			return s.newTabPerformerCmd()
 		case "`":
-			s.Opener(path.Join("scenes", s.Current().ID))
-			return &s, nil
+			msg := OpenMsg{path.Join("scenes", s.Current().ID)}
+			return &s, func() tea.Msg { return msg }
 		}
 
 	case tea.WindowSizeMsg:
@@ -187,10 +194,12 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.updateCmd()
 			}
-			s.Opener(s.Current())
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 
 		case "open":
-			s.Opener(s.Current())
+			msg := OpenMsg{s.Current()}
+			return &s, func() tea.Msg { return msg }
 
 		case "filter":
 			return s.PushState(func(sm *ScenesModel) {
@@ -337,7 +346,8 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			})
 
 		case "stash":
-			s.Opener(path.Join("scenes", s.Current().ID))
+			msg := OpenMsg{path.Join("scenes", s.Current().ID)}
+			return &s, func() tea.Msg { return msg }
 
 		case "delete":
 			return &s, s.doDeleteConfirmCmd()
@@ -417,7 +427,7 @@ func (m *ScenesModel) newTabPerformerCmd() (*ScenesModel, tea.Cmd) {
 	return m, func() tea.Msg {
 		return TabOpenMsg{
 			tabFunc: func() TabModel {
-				t := NewScenesModel(m.SceneService, m.StashLookup, m.Opener)
+				t := NewScenesModel(m.SceneService, m.StashLookup)
 				t.sceneFilter.Performers = &stash.MultiCriterion{
 					Value:    ids,
 					Modifier: stash.CriterionModifierIncludes,

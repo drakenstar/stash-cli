@@ -66,6 +66,7 @@ type Model struct {
 	footer ui.Footer
 
 	cmdService *cmdService
+	opener     config.Opener
 }
 
 func New(stash stash.Stash, opener config.Opener) *Model {
@@ -74,19 +75,21 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	models := []TabModelConfig{
 		{
-			NewFunc: func() TabModel { return NewScenesModel(s, lookup, opener) },
+			NewFunc: func() TabModel { return NewScenesModel(s, lookup) },
 			Name:    "scenes",
 			KeyBind: "s",
 		},
 		{
-			NewFunc: func() TabModel { return NewGalleriesModel(s, lookup, opener) },
+			NewFunc: func() TabModel { return NewGalleriesModel(s, lookup) },
 			Name:    "galleries",
 			KeyBind: "g",
 		},
 	}
 
-	m := new(Model)
-	m.cmdService = s
+	m := &Model{
+		cmdService: s,
+		opener:     opener,
+	}
 
 	m.tabFuncs = make(map[string](func() TabModel))
 	m.keyBinds = make(map[string]tea.Cmd)
@@ -197,6 +200,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TabOpenMsg:
 		return m.TabOpen(msg.tabFunc())
+
+	case OpenMsg:
+		return m.openCmd(msg.target)
 	}
 
 	// If the message was not handled somewhere above, then it may be a message for the current TabView to handle.
@@ -234,6 +240,17 @@ func (m Model) View() string {
 		viewportStyle.Render(m.tabs[m.active].model.View()),
 		bottom,
 	)
+}
+
+// openCmd opens the given target in the system opener asynchronously.  Errors will be displayed.
+func (m *Model) openCmd(target any) (*Model, tea.Cmd) {
+	return m, func() tea.Msg {
+		err := m.opener(target)
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return nil
+	}
 }
 
 // TabOpen creates a new tab with the given TabModel and sets it as active.
@@ -291,4 +308,8 @@ func NewModeCommandCmd(prompt, prefix string) tea.Cmd {
 
 type TabOpenMsg struct {
 	tabFunc (func() TabModel)
+}
+
+type OpenMsg struct {
+	target any
 }
