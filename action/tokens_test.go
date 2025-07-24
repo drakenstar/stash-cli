@@ -13,13 +13,14 @@ func TestTokenize(t *testing.T) {
 		tokens []Token
 		error  error
 	}{
-		{`foo bar b0_-`, []Token{{TOKEN_STRING, `foo`}, {TOKEN_WHITESPACE, ` `}, {TOKEN_STRING, `bar`}, {TOKEN_WHITESPACE, ` `}, {TOKEN_STRING, `b0_-`}}, nil},
-		{`foo bar=baz`, []Token{{TOKEN_STRING, `foo`}, {TOKEN_WHITESPACE, ` `}, {TOKEN_STRING, `bar`}, {TOKEN_ARGUMENT_SEPARATOR, `=`}, {TOKEN_STRING, `baz`}}, nil},
-		{`foo "bar =baz" 'bim bam'`, []Token{{TOKEN_STRING, `foo`}, {TOKEN_WHITESPACE, ` `}, {TOKEN_QUOTED_STRING, `"bar =baz"`}, {TOKEN_WHITESPACE, ` `}, {TOKEN_QUOTED_STRING, `'bim bam'`}}, nil},
-		{` 0oo`, nil, fmt.Errorf("unexpected character at pos 1: '0'")},
-		{` "0oo`, nil, fmt.Errorf("unterminated string literal '\"' as pos 5")},
+		{`foo bar 0b_-`, []Token{{TOKEN_IDENTIFIER, `foo`, 0}, {TOKEN_WHITESPACE, ` `, 3}, {TOKEN_IDENTIFIER, `bar`, 4}, {TOKEN_WHITESPACE, ` `, 7}, {TOKEN_STRING, `0b_-`, 8}}, nil},
+		{`foo bar=baz`, []Token{{TOKEN_IDENTIFIER, `foo`, 0}, {TOKEN_WHITESPACE, ` `, 3}, {TOKEN_IDENTIFIER, `bar`, 4}, {TOKEN_ARGUMENT_SEPARATOR, `=`, 7}, {TOKEN_IDENTIFIER, `baz`, 8}}, nil},
+		{`foo "bar =baz" 'bim bam'`, []Token{{TOKEN_IDENTIFIER, `foo`, 0}, {TOKEN_WHITESPACE, ` `, 3}, {TOKEN_QUOTED_STRING, `"bar =baz"`, 4}, {TOKEN_WHITESPACE, ` `, 14}, {TOKEN_QUOTED_STRING, `'bim bam'`, 15}}, nil},
+		{` 0oo`, []Token{{TOKEN_WHITESPACE, ` `, 0}, {TOKEN_STRING, `0oo`, 1}}, nil},
+		{`"0oo`, nil, fmt.Errorf("unterminated string literal '\"' as pos 4")},
 		{` "0oo\"`, nil, fmt.Errorf("unterminated string literal '\"' as pos 7")},
-		{`"foo \" bar"`, []Token{{TOKEN_QUOTED_STRING, `"foo \" bar"`}}, nil},
+		{`"foo \" bar"`, []Token{{TOKEN_QUOTED_STRING, `"foo \" bar"`, 0}}, nil},
+		{`🦁`, []Token{{TOKEN_STRING, `🦁`, 0}}, nil},
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
@@ -39,11 +40,11 @@ func TestTokenString(t *testing.T) {
 		token    Token
 		expected string
 	}{
-		{Token{TOKEN_STRING, `foo`}, `foo`},
-		{Token{TOKEN_WHITESPACE, " \r\n\t"}, " \r\n\t"},
-		{Token{TOKEN_ARGUMENT_SEPARATOR, `=`}, `=`},
-		{Token{TOKEN_QUOTED_STRING, `"foo"`}, `foo`},
-		{Token{TOKEN_QUOTED_STRING, `"foo \" bar"`}, `foo " bar`},
+		{Token{TOKEN_STRING, `foo`, 0}, `foo`},
+		{Token{TOKEN_WHITESPACE, " \r\n\t", 0}, " \r\n\t"},
+		{Token{TOKEN_ARGUMENT_SEPARATOR, `=`, 0}, `=`},
+		{Token{TOKEN_QUOTED_STRING, `"foo"`, 0}, `foo`},
+		{Token{TOKEN_QUOTED_STRING, `"foo \" bar"`, 0}, `foo " bar`},
 	}
 	for _, test := range tests {
 		t.Run(test.token.Literal, func(t *testing.T) {

@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -9,15 +10,38 @@ import (
 type TokenType int
 
 const (
-	TOKEN_WHITESPACE TokenType = iota
-	TOKEN_STRING
-	TOKEN_QUOTED_STRING
-	TOKEN_ARGUMENT_SEPARATOR
+	TOKEN_WHITESPACE         TokenType = iota // Matches any sort of whitespace encountered outside of another token type.
+	TOKEN_STRING                              // A string without any internal whitespace.
+	TOKEN_QUOTED_STRING                       // A quoted string, which may contain both whitespace and escaped quotes.
+	TOKEN_ARGUMENT_SEPARATOR                  // Separator between an argument name, and a value
+	TOKEN_IDENTIFIER                          // A command/argument name, which must be a letter followed by alphanumeric characters.
 )
+
+func (t TokenType) String() string {
+	switch t {
+	case TOKEN_WHITESPACE:
+		return "TOKEN_WHITESPACE"
+	case TOKEN_STRING:
+		return "TOKEN_STRING"
+	case TOKEN_QUOTED_STRING:
+		return "TOKEN_QUOTED_STRING"
+	case TOKEN_ARGUMENT_SEPARATOR:
+		return "TOKEN_ARGUMENT_SEPARATOR"
+	case TOKEN_IDENTIFIER:
+		return "TOKEN_IDENTIFIER"
+	default:
+		return ""
+	}
+}
+
+const ARGUMENT_SEPARATOR = '='
+
+var identifierRegex = regexp.MustCompile(`^[a-zA-Z]\w+$`)
 
 type Token struct {
 	Type    TokenType
 	Literal string
+	Pos     int
 }
 
 func (t Token) String() string {
@@ -40,25 +64,14 @@ func Tokenize(input string) ([]Token, error) {
 			for pos < len(input) && unicode.IsSpace(rune(input[pos])) {
 				pos++
 			}
-			tokens = append(tokens, Token{TOKEN_WHITESPACE, input[start:pos]})
-			continue
-		}
-
-		// Unquoted string
-		if isWordStart(input[pos]) {
-			start := pos
-			pos++
-			for pos < len(input) && isWordPart(input[pos]) {
-				pos++
-			}
-			tokens = append(tokens, Token{TOKEN_STRING, input[start:pos]})
+			tokens = append(tokens, Token{TOKEN_WHITESPACE, input[start:pos], start})
 			continue
 		}
 
 		// Named argument separators
-		if input[pos] == '=' {
+		if input[pos] == ARGUMENT_SEPARATOR {
+			tokens = append(tokens, Token{TOKEN_ARGUMENT_SEPARATOR, "=", pos})
 			pos++
-			tokens = append(tokens, Token{TOKEN_ARGUMENT_SEPARATOR, "="})
 			continue
 		}
 
@@ -77,23 +90,33 @@ func Tokenize(input string) ([]Token, error) {
 				return nil, fmt.Errorf("unterminated string literal '%c' as pos %d", quote, pos)
 			}
 			pos++
-			tokens = append(tokens, Token{TOKEN_QUOTED_STRING, input[start:pos]})
+			tokens = append(tokens, Token{TOKEN_QUOTED_STRING, input[start:pos], start})
 			continue
 		}
 
-		return nil, fmt.Errorf("unexpected character at pos %d: '%c'", pos, input[pos])
+		// Unquoted string
+		start := pos
+		pos++
+		for pos < len(input) && !unicode.IsSpace(rune(input[pos])) && input[pos] != ARGUMENT_SEPARATOR {
+			pos++
+		}
+		if identifierRegex.Match([]byte(input[start:pos])) {
+			tokens = append(tokens, Token{TOKEN_IDENTIFIER, input[start:pos], start})
+		} else {
+			tokens = append(tokens, Token{TOKEN_STRING, input[start:pos], start})
+		}
 	}
 
 	return tokens, nil
 }
 
-func isWordStart(c byte) bool {
-	return unicode.IsLetter(rune(c))
-}
+// func isWordStart(c byte) bool {
+// 	return unicode.IsLetter(rune(c))
+// }
 
-func isWordPart(c byte) bool {
-	return unicode.IsLetter(rune(c)) || unicode.IsDigit(rune(c)) || c == '_' || c == '-'
-}
+// func isWordPart(c byte) bool {
+// 	return unicode.IsLetter(rune(c)) || unicode.IsDigit(rune(c)) || c == '_' || c == '-'
+// }
 
 // unquote removes quotes and escape characters from a string found during tokenization. Assumes that the string is a
 // valid quoted string, so no errors will be returned.
