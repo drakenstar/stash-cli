@@ -10,12 +10,7 @@ var ErrIncompleteArgument = errors.New("incomplete argument")
 
 type Action struct {
 	Name      string
-	Arguments []ArgumentValue
-}
-
-type ArgumentValue struct {
-	Name  string
-	Value string
+	Arguments ArgumentList
 }
 
 func Parse(input string) (*Action, error) {
