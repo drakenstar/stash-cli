@@ -2,8 +2,11 @@ package action
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type ArgumentValue struct {
@@ -14,8 +17,8 @@ type ArgumentValue struct {
 type ArgumentList []ArgumentValue
 
 var (
-	ErrNonPointerStruct = errors.New("Bind destination must be a non-nil pointer to a struct value")
-	ErrUnusedArgument   = errors.New("Not all arguments were consumed")
+	ErrNonPointerStruct = errors.New("bind destination must be a non-nil pointer to a struct value")
+	ErrUnusedArgument   = errors.New("not all arguments were consumed")
 )
 
 // Bind takes a pointer to a struct value, and populates it's fields from the argument list.  Fields can be populated
@@ -78,7 +81,7 @@ func (l ArgumentList) Bind(dest any) error {
 	}
 
 	// Check whether we have any additional arguments.
-	if len(positional) > 0 {
+	if len(positional) > 0 || unused(named) {
 		return ErrUnusedArgument
 	}
 
@@ -93,8 +96,68 @@ func name(f reflect.StructField) string {
 	return name
 }
 
+// set attempts to parse a string into the provided reflect.Value. It supports a few different types, as well as
+// pointers to those types.  Error will be returned whenever an unsupported type is encountered.
 func set(f reflect.Value, s string) error {
-	v := reflect.ValueOf(s)
-	f.Set(v)
-	return nil
+	// If we have a pointer, then set it so a zero value if it's nil, and then call set on it's value.
+	if f.Kind() == reflect.Pointer {
+		if f.IsNil() {
+			f.Set(reflect.New(f.Type().Elem()))
+		}
+		return set(f.Elem(), s)
+	}
+
+	switch f.Kind() {
+	case reflect.String:
+		f.SetString(s)
+		return nil
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		intValue, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("failed to parse '%s' as integer: %v", s, err)
+		}
+		f.SetInt(int64(intValue))
+		return nil
+
+	case reflect.Float32, reflect.Float64:
+		floatValue, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse '%s' as float: %v", s, err)
+		}
+		f.SetFloat(floatValue)
+		return nil
+
+	case reflect.Bool:
+		boolValue, err := strconv.ParseBool(s)
+		if err != nil {
+			return fmt.Errorf("failed to parse '%s' as bool: %v", s, err)
+		}
+		f.SetBool(boolValue)
+		return nil
+
+	case reflect.Struct:
+		if f.Type() == reflect.TypeOf(time.Time{}) {
+			dateValue, err := time.Parse("2006-01-02", s)
+			if err != nil {
+				return fmt.Errorf("failed to parse '%s' as date: %v", s, err)
+			}
+			f.Set(reflect.ValueOf(dateValue))
+			return nil
+		}
+	}
+
+	return fmt.Errorf("unsupported type: %v", f.Kind())
+}
+
+func unused(l map[string]*struct {
+	ArgumentValue
+	bound bool
+}) bool {
+	for _, v := range l {
+		if !v.bound {
+			return true
+		}
+	}
+	return false
 }

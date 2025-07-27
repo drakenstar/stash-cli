@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-var ErrEmpty = errors.New("Empty command")
+var ErrEmpty = errors.New("empty command")
 var ErrIncompleteArgument = errors.New("incomplete argument")
 
 type Action struct {
