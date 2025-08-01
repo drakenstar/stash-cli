@@ -83,6 +83,11 @@ type SceneFilter struct {
 	Date               *DateCriterion              `json:"date,omitempty"`
 	CreatedAt          *TimestampCriterion         `json:"created_at,omitempty"`
 	UpdatedAt          *TimestampCriterion         `json:"updated_at,omitempty"`
+
+	// Filter by other filtered entities
+	//GalleriesFilter    *GalleryFilter              `json:"galleries_filter,omitempty"`
+	//PerformersFilter
+	//TagsFilter
 }
 
 func (SceneFilter) GetGraphQLType() string {

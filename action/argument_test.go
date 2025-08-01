@@ -1,6 +1,7 @@
 package action
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -15,6 +16,16 @@ type testDest struct {
 	Quzz   *bool
 	Corge  *bool
 	Grault bool
+}
+
+type binderDest string
+
+func (d *binderDest) Bind(l ArgumentList) error {
+	if len(l) == 0 {
+		return errors.New("no arguments provided")
+	}
+	*d = binderDest(l[0].Value)
+	return nil
 }
 
 func ptr[T any](t T) *T {
@@ -67,6 +78,42 @@ func TestArgumentList(t *testing.T) {
 			&struct{}{},
 			nil,
 			ErrUnusedArgument,
+		},
+		{
+			"should skip named arguments for fields with a -",
+			ArgumentList{{Name: "foo", Value: "bar"}},
+			&struct {
+				Foo string `action:"-"`
+			}{},
+			nil,
+			ErrUnusedArgument,
+		},
+		{
+			"should not skip positional arguments for fields with a -",
+			ArgumentList{{Value: "bar"}},
+			&struct {
+				Foo string `action:"-"`
+			}{},
+			&struct {
+				Foo string `action:"-"`
+			}{
+				Foo: "bar",
+			},
+			nil,
+		},
+		{
+			"should match Binder implementors and call their logic",
+			ArgumentList{{Value: "foo"}},
+			ptr(binderDest("")),
+			ptr(binderDest("foo")),
+			nil,
+		},
+		{
+			"should return errors from Binder implementors",
+			ArgumentList{},
+			ptr(binderDest("")),
+			nil,
+			errors.New("no arguments provided"),
 		},
 	}
 	for _, test := range tests {

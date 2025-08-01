@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/action"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -188,40 +188,40 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Height: msg.Height,
 		}
 
-	case ui.CommandExecuteMsg:
-		switch msg.Name() {
+	case action.Action:
+		switch msg.Name {
 		case "open":
 			msg := OpenMsg{s.Current()}
 			return &s, func() tea.Msg { return msg }
-
-		case "filter":
-			return s.PushState(func(gm *GalleriesModel) {
-				gm.query = msg.ArgString()
-			})
 
 		case "random":
 			return s.PushState(func(gm *GalleriesModel) {
 				gm.sort = stash.RandomSort()
 			})
 
-		case "today":
-			return s.PushState(func(gm *GalleriesModel) {
-				gm.galleryFilter.CreatedAt = &stash.TimestampCriterion{
-					Value:    time.Now().Add(-24 * time.Hour),
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
-
 		case "count":
-			val, err := msg.ArgInt()
-			if err != nil {
+			var dst struct {
+				Count int `action:"-"`
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
 				return &s, NewErrorCmd(err)
 			}
 			return s.PushState(func(gm *GalleriesModel) {
 				s.galleryFilter.ImageCount = &stash.IntCriterion{
-					Value:    val,
+					Value:    dst.Count,
 					Modifier: stash.CriterionModifierGreaterThan,
 				}
+			})
+
+		case "filter":
+			var dst struct {
+				Query string
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
+			}
+			return s.PushState(func(gm *GalleriesModel) {
+				gm.query = dst.Query
 			})
 
 		case "reset":
@@ -231,21 +231,35 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.updateCmd()
 
 		case "organised", "organized":
-			organised := true
-			if msg.ArgString() == "false" {
-				organised = false
+			var dst struct {
+				Organised *bool
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
 			}
 			return s.PushState(func(gm *GalleriesModel) {
-				gm.galleryFilter.Organized = &organised
+				if dst.Organised != nil {
+					gm.galleryFilter.Organized = dst.Organised
+				} else {
+					organised := true
+					gm.galleryFilter.Organized = &organised
+				}
 			})
 
 		case "favourite", "favorite":
-			favourite := true
-			if msg.ArgString() == "false" {
-				favourite = false
+			var dst struct {
+				Favourite *bool
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
 			}
 			return s.PushState(func(gm *GalleriesModel) {
-				gm.galleryFilter.PerformerFavourite = &favourite
+				if dst.Favourite != nil {
+					gm.galleryFilter.PerformerFavourite = dst.Favourite
+				} else {
+					favourite := true
+					gm.galleryFilter.PerformerFavourite = &favourite
+				}
 			})
 
 		case "more":

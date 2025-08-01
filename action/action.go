@@ -9,6 +9,7 @@ var ErrEmpty = errors.New("empty command")
 var ErrIncompleteArgument = errors.New("incomplete argument")
 
 type Action struct {
+	Input     string
 	Name      string
 	Arguments ArgumentList
 }
@@ -22,6 +23,7 @@ func Parse(input string) (*Action, error) {
 		in: input,
 		t:  tokens,
 	}
+	p.a.Input = input
 	err = p.parseCommand()
 	if err != nil {
 		return nil, err

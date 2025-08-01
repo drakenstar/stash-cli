@@ -110,14 +110,6 @@ func Tokenize(input string) ([]Token, error) {
 	return tokens, nil
 }
 
-// func isWordStart(c byte) bool {
-// 	return unicode.IsLetter(rune(c))
-// }
-
-// func isWordPart(c byte) bool {
-// 	return unicode.IsLetter(rune(c)) || unicode.IsDigit(rune(c)) || c == '_' || c == '-'
-// }
-
 // unquote removes quotes and escape characters from a string found during tokenization. Assumes that the string is a
 // valid quoted string, so no errors will be returned.
 func unquote(in string) string {

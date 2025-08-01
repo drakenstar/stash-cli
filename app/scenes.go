@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/action"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -190,40 +191,44 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Height: msg.Height,
 		}
 
-	case ui.CommandExecuteMsg:
-		switch msg.Name() {
+	case action.Action:
+		switch msg.Name {
 		case "open":
 			msg := OpenMsg{s.Current()}
 			return &s, func() tea.Msg { return msg }
 
 		case "filter":
+			var dst struct {
+				Query string
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
+			}
 			return s.PushState(func(sm *ScenesModel) {
-				sm.query = msg.ArgString()
+				sm.query = dst.Query
 			})
 
 		case "sort":
-			sort := msg.ArgString()
-			switch sort {
+			var dst struct {
+				Field string
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
+			}
+
+			switch dst.Field {
 			case "date":
 				return s.PushState(func(sm *ScenesModel) {
-					sm.sort = sort
+					sm.sort = dst.Field
 					sm.sortDirection = stash.SortDirectionAsc
 				})
 
 			case "-date":
 				return s.PushState(func(sm *ScenesModel) {
-					sm.sort = sort[1:]
+					sm.sort = dst.Field[1:]
 					sm.sortDirection = stash.SortDirectionDesc
 				})
 			}
-
-		case "studio":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
-					Value:    msg.Args(),
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			})
 
 		case "random":
 			return s.PushState(func(sm *ScenesModel) {
@@ -247,14 +252,16 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			})
 
 		case "before":
-			val, err := msg.ArgInt()
-			if err != nil {
+			var dst struct {
+				Date time.Time
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
 				return &s, NewErrorCmd(err)
 			}
-			t := time.Date(val, time.January, 1, 0, 0, 0, 0, time.UTC)
+
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sceneFilter.Date = &stash.DateCriterion{
-					Value:    t,
+					Value:    dst.Date,
 					Modifier: stash.CriterionModifierLessThan,
 				}
 			})
@@ -279,13 +286,15 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return s.Pop()
 
 		case "duration":
-			val, err := msg.ArgInt()
-			if err != nil {
+			var dst struct {
+				Seconds int
+			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
 				return &s, NewErrorCmd(err)
 			}
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sceneFilter.Duration = &stash.IntCriterion{
-					Value:    val,
+					Value:    dst.Seconds,
 					Modifier: stash.CriterionModifierGreaterThan,
 				}
 			})
@@ -297,37 +306,62 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			return &s, s.updateCmd()
 
 		case "organised", "organized":
-			organised := true
-			if msg.ArgString() == "false" {
-				organised = false
+			var dst struct {
+				Organised *bool
 			}
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
+			}
+			return s.PushState(func(gm *ScenesModel) {
+				if dst.Organised != nil {
+					gm.sceneFilter.Organized = dst.Organised
+				} else {
+					organised := true
+					gm.sceneFilter.Organized = &organised
+				}
+			})
+
+		case "studio":
+			// TODO check for unconsumed positional arguments
 			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Organized = &organised
+				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
+					Value:    msg.Arguments.Positional(),
+					Modifier: stash.CriterionModifierIncludes,
+				}
 			})
 
 		case "tags":
+			// TODO check for unconsumed positional arguments
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
-					Value:    []string{msg.ArgString()},
+					Value:    msg.Arguments.Positional(),
 					Modifier: stash.CriterionModifierIncludes,
 				}
 			})
 
 		case "pt":
+			// TODO check for unconsumed positional arguments
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
-					Value:    []string{msg.ArgString()},
+					Value:    msg.Arguments.Positional(),
 					Modifier: stash.CriterionModifierIncludes,
 				}
 			})
 
 		case "favourite", "favorite":
-			favourite := true
-			if msg.ArgString() == "false" {
-				favourite = false
+			var dst struct {
+				Favourite *bool
 			}
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.PerformerFavourite = &favourite
+			if err := msg.Arguments.Bind(&dst); err != nil {
+				return &s, NewErrorCmd(err)
+			}
+			return s.PushState(func(gm *ScenesModel) {
+				if dst.Favourite != nil {
+					gm.sceneFilter.PerformerFavourite = dst.Favourite
+				} else {
+					favourite := true
+					gm.sceneFilter.PerformerFavourite = &favourite
+				}
 			})
 
 		case "more":

@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/action"
 	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
@@ -100,7 +101,13 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	m.tabs = append(m.tabs, tab{uint(nextTabID()), models[0].NewFunc()})
 
-	m.commandInput = ui.NewCommandInput()
+	m.commandInput = ui.NewCommandInput(func(s string) tea.Msg {
+		a, err := action.Parse(s)
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return a
+	})
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
@@ -155,22 +162,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case ui.CommandExecuteMsg:
-		m.mode = ModeNormal
+	case action.Action:
+		switch msg.Name {
+		case "tab":
+			var dst struct {
+				SubAction string `action:"-"`
+				Name      string
+			}
+			err := msg.Arguments.Bind(&dst)
+			if err != nil {
+				return m, NewErrorCmd(err)
+			}
 
-		cmd := msg.Name()
-		if cmd == "tab" {
-			args := msg.Args()
-			if len(args) == 2 && args[0] == "new" {
-				tabFunc, ok := m.tabFuncs[args[1]]
+			switch dst.SubAction {
+			case "new":
+				tabFunc, ok := m.tabFuncs[dst.Name]
 				if !ok {
-					return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", args[1]))
+					return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", dst.Name))
 				}
 				return m, func() tea.Msg { return TabOpenMsg{tabFunc} }
 			}
-		}
 
-		if cmd == "exit" {
+		case "exit":
 			return m, tea.Quit
 		}
 

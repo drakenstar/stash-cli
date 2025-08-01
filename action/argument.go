@@ -16,21 +16,62 @@ type ArgumentValue struct {
 
 type ArgumentList []ArgumentValue
 
+// Positional returns only positional arguments in a list.
+func (l ArgumentList) Named() ArgumentList {
+	var a ArgumentList
+	for _, v := range l {
+		if v.Name != "" {
+			a = append(a, v)
+		}
+	}
+	return a
+}
+
+// Positional returns only positional arguments in a list as a slice of stirngs.
+func (l ArgumentList) Positional() []string {
+	var a []string
+	for _, v := range l {
+		if v.Name == "" {
+			a = append(a, v.Value)
+		}
+	}
+	return a
+}
+
+// Binder is an interface that can be implemented by destinations passed to ArgumentList.Bind.  This allows destinations
+// to define their own Bind method separately from the default matching.
+type Binder interface {
+	Bind(ArgumentList) error
+}
+
 var (
-	ErrNonPointerStruct = errors.New("bind destination must be a non-nil pointer to a struct value")
-	ErrUnusedArgument   = errors.New("not all arguments were consumed")
+	ErrNonPointerStruct   = errors.New("bind destination must be a non-nil pointer to a struct value")
+	ErrUnusedArgument     = errors.New("not all arguments were consumed")
+	ErrNonPointerReceiver = errors.New("Binder interface must be implemented on a pointer receiver")
 )
 
-// Bind takes a pointer to a struct value, and populates it's fields from the argument list.  Fields can be populated
-// by name or by position.  Names are taken from an "action" struct tag, and fallback to the lowercased field name.
-// If a named argument is not found, then a positional argument will be matched instead.
+// Bind takes a pointer destination value, and populates it from the argument list.
+//
+// By default the destination must be a struct and will have it's fields populated from the argument list.  Fields can
+// be populated by name or by position.  Names are taken from an "action" struct tag, and fallback to the lowercased
+// field name.  If a named argument is not found, then a positional argument will be matched instead.  Named argument
+// matching can be skipped by passing a dash as the action tag, e.g. `action:"-"`
 //
 // Argument lists are expected to match up with provided structs, so additional arguments will result in an error.
 // Unmatched fields in the target struct will not result in an error, as they may be optional fields.
+//
+// Destination values may also implement the Binder interface to determine their own binding logic.
 func (l ArgumentList) Bind(dest any) error {
 	v := reflect.ValueOf(dest)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return ErrNonPointerStruct
+	}
+
+	if binder, ok := dest.(Binder); ok {
+		if reflect.TypeOf(dest).Kind() != reflect.Ptr {
+			return ErrNonPointerReceiver
+		}
+		return binder.Bind(l)
 	}
 
 	v = v.Elem()
@@ -58,14 +99,16 @@ func (l ArgumentList) Bind(dest any) error {
 
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Type().Field(i)
-		// Attempt to match a name argument to this field and set it.
+		// Attempt to match a name argument to this field and set it.  Fields can opt out of name matching with `action:"-"`
 		name := name(f)
-		if arg, ok := named[name]; ok {
-			arg.bound = true
-			if err := set(v.Field(i), arg.Value); err != nil {
-				return err
+		if name != "" {
+			if arg, ok := named[name]; ok {
+				arg.bound = true
+				if err := set(v.Field(i), arg.Value); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
 		}
 
 		// Otherwise consume a positional argument and attempt to set it.
@@ -90,6 +133,10 @@ func (l ArgumentList) Bind(dest any) error {
 
 func name(f reflect.StructField) string {
 	name := f.Tag.Get("action")
+	// A single - indicates that this field should not be matched by name, i.e. positional only
+	if name == "-" {
+		return ""
+	}
 	if name == "" {
 		name = strings.ToLower(f.Name)
 	}
