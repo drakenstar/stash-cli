@@ -11,18 +11,18 @@ type CommandExitMsg struct{}
 // CommandInput is a single-line text input that allows a user to enter a command.  Upon pressing return, the command
 // is returned as a tea.Cmd from Update.
 type CommandInput struct {
-	text   textinput.Model
-	prefix string
-	f      func(string) tea.Msg
+	text textinput.Model
+	f    func(string) tea.Msg
 }
 
-// NewCommandInput returns a newly initialised CommandInput model.
-func NewCommandInput(f func(string) tea.Msg) CommandInput {
+// NewCommandInput returns a newly initialised CommandInput model.  Takes a function to run when a command is entered
+// and a prompt value to have at the start of the input.
+func NewCommandInput(f func(string) tea.Msg, prompt string) CommandInput {
 	m := CommandInput{
 		text: textinput.New(),
 		f:    f,
 	}
-	m.text.Prompt = ":"
+	m.text.Prompt = prompt
 	return m
 }
 
@@ -30,14 +30,8 @@ func (m *CommandInput) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m *CommandInput) Focus(prompt, prefix string) tea.Cmd {
-	m.text.Prompt = prompt
-	m.prefix = prefix
+func (m *CommandInput) Focus() tea.Cmd {
 	return m.text.Focus()
-}
-
-func (m *CommandInput) Blur() {
-	m.text.Blur()
 }
 
 func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
@@ -49,19 +43,19 @@ func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 
 		case tea.KeyEsc:
 			m.text.SetValue("")
-			m.prefix = ""
+			m.text.Blur()
 			return m, func() tea.Msg { return CommandExitMsg{} }
 
 		case tea.KeyBackspace:
 			if m.text.Value() == "" {
-				m.prefix = ""
+				m.text.Blur()
 				return m, func() tea.Msg { return CommandExitMsg{} }
 			}
 
 		case tea.KeyEnter:
-			command := m.prefix + m.text.Value()
+			command := m.text.Value()
 			m.text.SetValue("")
-			m.prefix = ""
+			m.text.Blur()
 			return m, func() tea.Msg {
 				return m.f(command)
 			}

@@ -155,8 +155,6 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				s.Clear()
 				return &s, s.updateCmd()
 			}
-		case "/":
-			return &s, NewModeCommandCmd("/", "filter ")
 		case "o":
 			msg := OpenMsg{s.Current()}
 			return &s, func() tea.Msg { return msg }

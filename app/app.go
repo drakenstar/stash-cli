@@ -42,6 +42,7 @@ type tab struct {
 const (
 	ModeNormal = iota
 	ModeCommand
+	ModeFind
 )
 
 // TabModelConfig maps a given TabModel to the commands that to map to it's activation.
@@ -62,6 +63,7 @@ type Model struct {
 
 	mode         int
 	commandInput ui.CommandInput
+	findInput    ui.CommandInput
 	err          error
 
 	footer ui.Footer
@@ -107,7 +109,11 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 			return ErrorMsg{err}
 		}
 		return a
-	})
+	}, ":")
+
+	m.findInput = ui.NewCommandInput(func(s string) tea.Msg {
+		return s // TODO filter message
+	}, "/")
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
@@ -118,6 +124,7 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.commandInput.Init(),
+		m.findInput.Init(),
 		m.footer.Init(),
 		m.tabs[m.active].model.Init(m.screen),
 	)
@@ -143,10 +150,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if m.mode == ModeCommand {
+		switch m.mode {
+		case ModeCommand:
 			m.commandInput, cmd = m.commandInput.Update(msg)
 			return m, cmd
-		} else {
+		case ModeFind:
+			m.findInput, cmd = m.findInput.Update(msg)
+			return m, cmd
+		default:
 			switch msg.String() {
 			case "1", "2", "3", "4", "5":
 				i, _ := strconv.Atoi(msg.String())
@@ -154,7 +165,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case ":":
-				return m, NewModeCommandCmd(":", "")
+				m.mode = ModeCommand
+				return m, m.commandInput.Focus()
+
+			case "/":
+				m.mode = ModeFind
+				return m, m.findInput.Focus()
 			}
 
 			if bind, ok := m.keyBinds[msg.String()]; ok {
@@ -189,7 +205,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ui.CommandExitMsg:
 		m.mode = ModeNormal
-		m.commandInput.Blur()
 		return m, nil
 
 	case tea.WindowSizeMsg:
@@ -206,10 +221,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return ErrorMsg{}
 			}
 		}
-
-	case ModeCommandMsg:
-		m.mode = ModeCommand
-		return m, m.commandInput.Focus(msg.prompt, msg.prefix)
 
 	case TabOpenMsg:
 		return m.TabOpen(msg.tabFunc())
@@ -237,9 +248,12 @@ func (m Model) View() string {
 		bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(m.err.Error())
 	}
 
-	if m.mode == ModeCommand {
+	switch m.mode {
+	case ModeCommand:
 		bottom += "\n" + m.commandInput.View()
-	} else {
+	case ModeFind:
+		bottom += "\n" + m.findInput.View()
+	default:
 		bottom += "\n" + m.footer.Render(m.screen.Width, m.cmdService.AnyLoading())
 	}
 
@@ -305,17 +319,6 @@ type ErrorMsg struct {
 func NewErrorCmd(err error) tea.Cmd {
 	return func() tea.Msg {
 		return ErrorMsg{err}
-	}
-}
-
-type ModeCommandMsg struct {
-	prompt string
-	prefix string
-}
-
-func NewModeCommandCmd(prompt, prefix string) tea.Cmd {
-	return func() tea.Msg {
-		return ModeCommandMsg{prompt: prompt, prefix: prefix}
 	}
 }
 
