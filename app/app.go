@@ -159,7 +159,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		default:
 			switch msg.String() {
-			case "1", "2", "3", "4", "5":
+			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 				i, _ := strconv.Atoi(msg.String())
 				m.TabSet(i - 1)
 				return m, nil
@@ -257,9 +257,16 @@ func (m Model) View() string {
 		bottom += "\n" + m.footer.Render(m.screen.Width, m.cmdService.AnyLoading())
 	}
 
-	titles := make([]string, len(m.tabs))
+	// Build our tabs, we provide keyboard shortcuts for the numbers 1-9.
+	// TODO This should probably be dynamic based on a key map.
+	titles := make([]ui.Tab, len(m.tabs))
 	for i, tab := range m.tabs {
-		titles[i] = tab.model.Title()
+		titles[i] = ui.Tab{
+			Label: tab.model.Title(),
+		}
+		if i < 9 {
+			titles[i].Prefix = strconv.Itoa(i + 1)
+		}
 	}
 
 	return lipgloss.JoinVertical(0,

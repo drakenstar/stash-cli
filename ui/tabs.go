@@ -22,7 +22,12 @@ const (
 	SeparatorRightActive = "\ue0be"
 )
 
-func (s Tabs) Render(width int, tabs []string, active int) string {
+type Tab struct {
+	Prefix string
+	Label  string
+}
+
+func (s Tabs) Render(width int, tabs []Tab, active int) string {
 	cellStyle := lipgloss.NewStyle().
 		Background(s.Background)
 
@@ -43,7 +48,7 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 		out.WriteString(separatorStyle.Render(SeparatorLeftNormal))
 	}
 
-	for i, title := range tabs {
+	for i, t := range tabs {
 		baseStyle := cellStyle
 		if i == active {
 			baseStyle = activeStyle
@@ -57,11 +62,19 @@ func (s Tabs) Render(width int, tabs []string, active int) string {
 		titleStyle := baseStyle.
 			Foreground(s.TitleForeground)
 
-		out.WriteString(cellStyle.Render(lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			numberStyle.Render(fmt.Sprintf("%d ", i+1)),
-			titleStyle.Render(title),
-		)))
+		// If a Prefix value exists, then output it first with a different style.  The intention of this is to be used
+		// as a keyboard shortcut hint.
+		if t.Prefix != "" {
+			out.WriteString(cellStyle.Render(lipgloss.JoinHorizontal(
+				lipgloss.Top,
+				numberStyle.Render(fmt.Sprintf("%d ", i+1)),
+				titleStyle.Render(t.Label),
+			)))
+		} else {
+			out.WriteString(cellStyle.Render(
+				titleStyle.Render(t.Label),
+			))
+		}
 
 		if i == active-1 {
 			out.WriteString(separatorStyle.Render(SeparatorLeftActive))
