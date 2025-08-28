@@ -103,17 +103,8 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	m.tabs = append(m.tabs, tab{uint(nextTabID()), models[0].NewFunc()})
 
-	m.commandInput = ui.NewCommandInput(func(s string) tea.Msg {
-		a, err := action.Parse(s)
-		if err != nil {
-			return ErrorMsg{err}
-		}
-		return a
-	}, ":")
-
-	m.findInput = ui.NewCommandInput(func(s string) tea.Msg {
-		return s // TODO filter message
-	}, "/")
+	m.commandInput = ui.NewCommandInput(":")
+	m.findInput = ui.NewCommandInput("/")
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
@@ -201,6 +192,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "exit":
 			return m, tea.Quit
+		}
+
+	case ui.CommandExecMsg:
+		switch m.mode {
+		case ModeCommand:
+			m.mode = ModeNormal
+			return m, func() tea.Msg {
+				a, err := action.Parse(msg.Command)
+				if err != nil {
+					return ErrorMsg{err}
+				}
+				return *a
+			}
+
+		// TODO Ok this is shit and not at all how we want to communicate this — I think I actually want to reverse course
+		// here entirely and move all the UI for each tab back into the tab model, even though it's effectively a global
+		// piece of UI.  Will think on this a bit more, but otherwise how does it know to communicate back to the tab?
+		case ModeFind:
+			m.mode = ModeNormal
+			return m, func() tea.Msg {
+				a, err := action.Parse("filter " + msg.Command)
+				if err != nil {
+					return ErrorMsg{err}
+				}
+				return *a
+			}
 		}
 
 	case ui.CommandExitMsg:
