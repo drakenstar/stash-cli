@@ -18,7 +18,7 @@ type galleryFilterState struct {
 	sortDirection string
 	galleryFilter stash.GalleryFilter
 
-	pageState paginator
+	pageState pageState
 }
 
 type GalleryService interface {
@@ -29,7 +29,7 @@ type GalleriesModel struct {
 	GalleryService
 	StashLookup
 
-	paginator
+	pageState pageState
 	galleries []stash.Gallery
 
 	query         string
@@ -47,21 +47,21 @@ func NewGalleriesModel(galleryService GalleryService, lookup StashLookup) *Galle
 		GalleryService: galleryService,
 		StashLookup:    lookup,
 	}
+	m.pageState.PerPage = 40
 	m.reset()
 	return m
 }
 
 func (m *GalleriesModel) Current() stash.Gallery {
-	return m.galleries[m.paginator.index]
+	return m.galleries[m.pageState.index]
 }
 
 func (m *GalleriesModel) reset() tea.Cmd {
-	m.paginator = NewPaginator(40)
-
 	m.query = ""
 	m.sort = stash.SortPath
 	m.sortDirection = stash.SortDirectionAsc
 	m.galleryFilter = stash.GalleryFilter{}
+	m.pageState.Reset()
 
 	return m.updateCmd()
 }
@@ -84,7 +84,7 @@ func (s *GalleriesModel) Title() string {
 		t = strings.Join(performers, ", ")
 	}
 
-	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.total))
+	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.pageState.total))
 }
 
 func (m *GalleriesModel) PushState(mutate func(*GalleriesModel)) (*GalleriesModel, tea.Cmd) {
@@ -93,10 +93,10 @@ func (m *GalleriesModel) PushState(mutate func(*GalleriesModel)) (*GalleriesMode
 		sort:          m.sort,
 		sortDirection: m.sortDirection,
 		galleryFilter: m.galleryFilter,
-		pageState:     m.paginator,
+		pageState:     m.pageState,
 	})
 	mutate(m)
-	m.paginator.Reset()
+	m.pageState.Reset()
 	return m, m.updateCmd()
 }
 
@@ -111,7 +111,7 @@ func (m *GalleriesModel) Pop() (*GalleriesModel, tea.Cmd) {
 	m.history = m.history[0 : len(m.history)-1]
 
 	// Restore previous state, including pagination
-	m.paginator = state.pageState
+	m.pageState = state.pageState
 	m.query = state.query
 	m.sort = state.sort
 	m.sortDirection = state.sortDirection
@@ -126,18 +126,15 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
-			if s.Skip(-1) {
-				s.Clear()
+			if s.pageState.Skip(-1) {
 				return &s, s.updateCmd()
 			}
 		case tea.KeyDown:
-			if s.Skip(1) {
-				s.Clear()
+			if s.pageState.Skip(1) {
 				return &s, s.updateCmd()
 			}
 		case tea.KeyEnter, tea.KeySpace:
-			if s.Next() {
-				s.Clear()
+			if s.pageState.Next() {
 				return &s, s.updateCmd()
 			}
 			msg := OpenMsg{s.Current()}
@@ -146,13 +143,11 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 
 		switch msg.String() {
 		case "z":
-			if s.Skip(-1) {
-				s.Clear()
+			if s.pageState.Skip(-1) {
 				return &s, s.updateCmd()
 			}
 		case "x":
-			if s.Skip(1) {
-				s.Clear()
+			if s.pageState.Skip(1) {
 				return &s, s.updateCmd()
 			}
 		case "o":
@@ -185,6 +180,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+		return &s, s.updateCmd()
 
 	case action.Action:
 		switch msg.Name {
@@ -276,7 +272,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 
 	case galleriesMsg:
-		s.galleries, s.total = msg.galleries, msg.total
+		s.galleries, s.pageState.total = msg.galleries, msg.total
 	}
 
 	return &s, nil
@@ -296,13 +292,13 @@ func (s GalleriesModel) View() string {
 				tagList(gallery.Tags),
 				details(gallery.Details),
 			}})
-		if s.index == i {
+		if s.pageState.index == i {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
 
 	leftStatus := []string{
-		s.paginator.String(),
+		s.pageState.String(),
 		sort(s.sort, s.sortDirection),
 	}
 
@@ -323,8 +319,8 @@ func (s GalleriesModel) View() string {
 func (m *GalleriesModel) updateCmd() tea.Cmd {
 	return m.GalleryService.Galleries(stash.FindFilter{
 		Query:     m.query,
-		Page:      m.page,
-		PerPage:   m.perPage,
+		Page:      m.pageState.page + 1,
+		PerPage:   m.pageState.PerPage,
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.galleryFilter)

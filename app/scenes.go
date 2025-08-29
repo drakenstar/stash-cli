@@ -20,7 +20,7 @@ type sceneFilterState struct {
 	sortDirection string
 	sceneFilter   stash.SceneFilter
 
-	pageState paginator
+	pageState pageState
 }
 
 type SceneService interface {
@@ -32,8 +32,8 @@ type ScenesModel struct {
 	SceneService
 	StashLookup
 
-	paginator
-	scenes []stash.Scene
+	pageState pageState
+	scenes    []stash.Scene
 
 	query         string
 	sort          string
@@ -50,19 +50,27 @@ func NewScenesModel(sceneService SceneService, lookup StashLookup) *ScenesModel 
 		SceneService: sceneService,
 		StashLookup:  lookup,
 	}
+	m.pageState.PerPage = 5
 	m.reset()
 	return m
 }
 
-func (s *ScenesModel) reset() tea.Cmd {
-	s.paginator = NewPaginator(40)
+func (m ScenesModel) RowHeight() int {
+	h := 40
+	if m.screen.Height != 0 {
+		h = m.screen.Height - 10
+	}
+	return h
+}
 
-	s.query = ""
-	s.sort = stash.SortDate
-	s.sortDirection = stash.SortDirectionDesc
-	s.sceneFilter = stash.SceneFilter{}
+func (m *ScenesModel) reset() tea.Cmd {
+	m.query = ""
+	m.sort = stash.SortDate
+	m.sortDirection = stash.SortDirectionDesc
+	m.sceneFilter = stash.SceneFilter{}
+	m.pageState.Reset()
 
-	return s.updateCmd()
+	return m.updateCmd()
 }
 
 func (s *ScenesModel) Init(size Size) tea.Cmd {
@@ -83,11 +91,11 @@ func (s *ScenesModel) Title() string {
 		t = strings.Join(performers, ", ")
 	}
 
-	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.total))
+	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.pageState.total))
 }
 
 func (s *ScenesModel) Current() stash.Scene {
-	return s.scenes[s.index]
+	return s.scenes[s.pageState.index]
 }
 
 func (s *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cmd) {
@@ -96,10 +104,10 @@ func (s *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cm
 		sort:          s.sort,
 		sortDirection: s.sortDirection,
 		sceneFilter:   s.sceneFilter,
-		pageState:     s.paginator,
+		pageState:     s.pageState,
 	})
 	mutate(s)
-	s.paginator.Reset()
+	s.pageState.Reset()
 	return s, s.updateCmd()
 }
 
@@ -114,7 +122,7 @@ func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
 	s.history = s.history[0 : len(s.history)-1]
 
 	// Restore previous state, including pagination
-	s.paginator = state.pageState
+	s.pageState = state.pageState
 	s.query = state.query
 	s.sort = state.sort
 	s.sortDirection = state.sortDirection
@@ -129,18 +137,15 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
-			if s.Skip(-1) {
-				s.Clear()
+			if s.pageState.Skip(-1) {
 				return &s, s.updateCmd()
 			}
 		case tea.KeyDown:
-			if s.Skip(1) {
-				s.Clear()
+			if s.pageState.Skip(1) {
 				return &s, s.updateCmd()
 			}
 		case tea.KeyEnter, tea.KeySpace:
-			if s.Next() {
-				s.Clear()
+			if s.pageState.Next() {
 				return &s, s.updateCmd()
 			}
 			msg := OpenMsg{s.Current()}
@@ -149,13 +154,11 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 
 		switch msg.String() {
 		case "z":
-			if s.Skip(-1) {
-				s.Clear()
+			if s.pageState.Skip(-1) {
 				return &s, s.updateCmd()
 			}
 		case "x":
-			if s.Skip(1) {
-				s.Clear()
+			if s.pageState.Skip(1) {
 				return &s, s.updateCmd()
 			}
 		case "o":
@@ -188,6 +191,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+		return &s, s.updateCmd()
 
 	case action.Action:
 		switch msg.Name {
@@ -381,7 +385,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 
 	case scenesMsg:
-		s.scenes, s.total = msg.scenes, msg.total
+		s.scenes, s.pageState.total = msg.scenes, msg.total
 
 	case DeleteMsg:
 		return &s, s.deleteCmd(msg.Scene.ID)
@@ -406,13 +410,13 @@ func (s ScenesModel) View() string {
 				details(scene.Details),
 			},
 		})
-		if s.index == i {
+		if s.pageState.index == i {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
 
 	leftStatus := []string{
-		s.paginator.String(),
+		s.pageState.String(),
 		sort(s.sort, s.sortDirection),
 	}
 
@@ -434,8 +438,8 @@ func (s ScenesModel) View() string {
 func (m *ScenesModel) updateCmd() tea.Cmd {
 	return m.SceneService.Scenes(stash.FindFilter{
 		Query:     m.query,
-		Page:      m.page,
-		PerPage:   m.perPage,
+		Page:      m.pageState.page + 1,
+		PerPage:   m.pageState.PerPage,
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.sceneFilter)
