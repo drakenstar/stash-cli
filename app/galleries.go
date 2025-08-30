@@ -66,9 +66,19 @@ func (m *GalleriesModel) reset() tea.Cmd {
 	return m.updateCmd()
 }
 
-func (s *GalleriesModel) Init(size Size) tea.Cmd {
-	s.screen = size
-	return s.updateCmd()
+// TODO probably it's the responsiblity of the parent to tell this model exactly how tall it is, so that it's not
+// doing it's own math to solve this.
+func (m *GalleriesModel) SetHeight(height int) {
+	m.pageState.PerPage = 0
+	if height >= 5 {
+		m.pageState.PerPage = height - 5
+	}
+}
+
+func (m *GalleriesModel) Init(size Size) tea.Cmd {
+	m.screen = size
+	m.SetHeight(size.Height)
+	return m.updateCmd()
 }
 
 func (s *GalleriesModel) Title() string {
@@ -180,6 +190,7 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+		s.SetHeight(msg.Height)
 		return &s, s.updateCmd()
 
 	case action.Action:

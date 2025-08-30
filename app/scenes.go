@@ -55,14 +55,6 @@ func NewScenesModel(sceneService SceneService, lookup StashLookup) *ScenesModel 
 	return m
 }
 
-func (m ScenesModel) RowHeight() int {
-	h := 40
-	if m.screen.Height != 0 {
-		h = m.screen.Height - 10
-	}
-	return h
-}
-
 func (m *ScenesModel) reset() tea.Cmd {
 	m.query = ""
 	m.sort = stash.SortDate
@@ -73,9 +65,19 @@ func (m *ScenesModel) reset() tea.Cmd {
 	return m.updateCmd()
 }
 
-func (s *ScenesModel) Init(size Size) tea.Cmd {
-	s.screen = size
-	return s.updateCmd()
+// TODO probably it's the responsiblity of the parent to tell this model exactly how tall it is, so that it's not
+// doing it's own math to solve this.
+func (m *ScenesModel) SetHeight(height int) {
+	m.pageState.PerPage = 0
+	if height >= 5 {
+		m.pageState.PerPage = height - 5
+	}
+}
+
+func (m *ScenesModel) Init(size Size) tea.Cmd {
+	m.screen = size
+	m.SetHeight(size.Height)
+	return m.updateCmd()
 }
 
 func (s *ScenesModel) Title() string {
@@ -191,6 +193,7 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+		s.SetHeight(msg.Height)
 		return &s, s.updateCmd()
 
 	case action.Action:
