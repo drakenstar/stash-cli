@@ -21,11 +21,10 @@ type CommandInput struct {
 
 // NewCommandInput returns a newly initialised CommandInput model.  Takes a function to run when a command is entered
 // and a prompt value to have at the start of the input.
-func NewCommandInput(prompt string) CommandInput {
+func NewCommandInput() CommandInput {
 	m := CommandInput{
 		text: textinput.New(),
 	}
-	m.text.Prompt = prompt
 	return m
 }
 
@@ -33,7 +32,9 @@ func (m *CommandInput) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m *CommandInput) Focus() tea.Cmd {
+// Focus focusses the element, and set's it's prompt to the given input value.
+func (m *CommandInput) Focus(prompt string) tea.Cmd {
+	m.text.Prompt = prompt
 	return m.text.Focus()
 }
 

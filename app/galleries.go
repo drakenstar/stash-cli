@@ -131,6 +131,10 @@ func (m *GalleriesModel) Pop() (*GalleriesModel, tea.Cmd) {
 	return m, m.updateCmd()
 }
 
+func (m GalleriesModel) Interpret(Command) (tea.Msg, error) {
+	return nil, nil
+}
+
 func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:

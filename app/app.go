@@ -26,6 +26,16 @@ type TabModel interface {
 	View() string
 	// Returns a string name to be used for the tab title
 	Title() string
+	// Takes a command and interprets it, returning a tea.Msg that will be dispatched to the application.  The primary
+	// use is for input commands to be convered into tea.Msg that can be executed in the TabModel (or other TabModel
+	// instances).  This command must return a tea.Msg instead of a tea.Cmd, implying that it should not do I/O
+	Interpret(Command) (tea.Msg, error)
+}
+
+// Command represets a command message that was input into the application in a specific mode.
+type Command struct {
+	Mode  Mode
+	Input string
 }
 
 var tabID uint64
@@ -39,8 +49,10 @@ type tab struct {
 	model TabModel
 }
 
+type Mode int
+
 const (
-	ModeNormal = iota
+	ModeNormal Mode = iota
 	ModeCommand
 	ModeFind
 )
@@ -61,9 +73,8 @@ type Model struct {
 
 	screen Size
 
-	mode         int
+	mode         Mode
 	commandInput ui.CommandInput
-	findInput    ui.CommandInput
 	err          error
 
 	footer ui.Footer
@@ -103,8 +114,7 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	m.tabs = append(m.tabs, tab{uint(nextTabID()), models[0].NewFunc()})
 
-	m.commandInput = ui.NewCommandInput(":")
-	m.findInput = ui.NewCommandInput("/")
+	m.commandInput = ui.NewCommandInput()
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
@@ -115,7 +125,6 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.commandInput.Init(),
-		m.findInput.Init(),
 		m.footer.Init(),
 		m.tabs[m.active].model.Init(m.screen),
 	)
@@ -142,12 +151,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch m.mode {
-		case ModeCommand:
+		case ModeCommand, ModeFind:
 			m.commandInput, cmd = m.commandInput.Update(msg)
 			return m, cmd
-		case ModeFind:
-			m.findInput, cmd = m.findInput.Update(msg)
-			return m, cmd
+
 		default:
 			switch msg.String() {
 			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
@@ -157,11 +164,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case ":":
 				m.mode = ModeCommand
-				return m, m.commandInput.Focus()
+				return m, m.commandInput.Focus(":")
 
 			case "/":
 				m.mode = ModeFind
-				return m, m.findInput.Focus()
+				return m, m.commandInput.Focus("/")
 			}
 
 			if bind, ok := m.keyBinds[msg.String()]; ok {
@@ -169,14 +176,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case action.Action:
-		switch msg.Name {
+	case ui.CommandExecMsg:
+		m.mode = ModeNormal
+		a, err := action.Parse(msg.Command)
+		if err != nil {
+			return m, NewErrorCmd(err)
+		}
+
+		switch a.Name {
 		case "tab":
 			var dst struct {
 				SubAction string `action:"-"`
 				Name      string
 			}
-			err := msg.Arguments.Bind(&dst)
+			err := a.Arguments.Bind(&dst)
 			if err != nil {
 				return m, NewErrorCmd(err)
 			}
@@ -194,31 +207,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-	case ui.CommandExecMsg:
-		switch m.mode {
-		case ModeCommand:
-			m.mode = ModeNormal
-			return m, func() tea.Msg {
-				a, err := action.Parse(msg.Command)
-				if err != nil {
-					return ErrorMsg{err}
-				}
-				return *a
-			}
-
-		// TODO Ok this is shit and not at all how we want to communicate this — I think I actually want to reverse course
-		// here entirely and move all the UI for each tab back into the tab model, even though it's effectively a global
-		// piece of UI.  Will think on this a bit more, but otherwise how does it know to communicate back to the tab?
-		case ModeFind:
-			m.mode = ModeNormal
-			return m, func() tea.Msg {
-				a, err := action.Parse("filter " + msg.Command)
-				if err != nil {
-					return ErrorMsg{err}
-				}
-				return *a
-			}
+		imsg, err := m.tabs[m.active].model.Interpret(Command{
+			Mode:  m.mode,
+			Input: msg.Command,
+		})
+		if err != nil {
+			return m, NewErrorCmd(err)
 		}
+		return m, func() tea.Msg { return imsg }
 
 	case ui.CommandExitMsg:
 		m.mode = ModeNormal
@@ -266,10 +262,8 @@ func (m Model) View() string {
 	}
 
 	switch m.mode {
-	case ModeCommand:
+	case ModeCommand, ModeFind:
 		bottom += "\n" + m.commandInput.View()
-	case ModeFind:
-		bottom += "\n" + m.findInput.View()
 	default:
 		bottom += "\n" + m.footer.Render(m.screen.Width, m.cmdService.AnyLoading())
 	}

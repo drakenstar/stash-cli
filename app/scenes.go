@@ -134,44 +134,133 @@ func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
 	return s, s.updateCmd()
 }
 
-func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyUp:
-			if s.pageState.Skip(-1) {
-				return &s, s.updateCmd()
-			}
-		case tea.KeyDown:
-			if s.pageState.Skip(1) {
-				return &s, s.updateCmd()
-			}
-		case tea.KeyEnter, tea.KeySpace:
-			if s.pageState.Next() {
-				return &s, s.updateCmd()
-			}
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
+// Keymap allows mapping a keyboard shortcut to a command.  Commands are interpretted in command mode and do not take
+// additional parameters.
+var ScenesModelDefaultKeymap = map[string]string{
+	"up":    "skip -1",
+	"down":  "skip 1",
+	"enter": "open skip=1",
+	" ":     "open skip=1", // space
+	"z":     "skip -1",
+	"x":     "skip 1",
+	"o":     "open",
+	"r":     "sort random",
+	"u":     "undo", // state pop?  Maybe some sort of generic state management command
+	"f":     "filter favourite",
+	"p":     "tab new scenes performer", // TODO need to think a bit more about how this command might work.
+	"`":     "open-url stash",
+}
+
+// Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
+// additional inputs can be given after the alias.
+var ScenesModelDefaultCommandAlias = map[string]string{
+	"recent": "filter createdAt>=-24h",
+	"year":   "filter date>=-1y",
+}
+
+func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
+	switch c.Mode {
+	case ModeFind:
+		return ScenesModelFilterMsg{
+			Query: c.Input,
+		}, nil
+
+	default:
+		a, err := action.Parse(c.Input)
+		if err != nil {
+			return nil, err
 		}
 
-		switch msg.String() {
-		case "z":
-			if s.pageState.Skip(-1) {
-				return &s, s.updateCmd()
+		switch a.Name {
+		case "open":
+			var msg ScenesModelOpenMsg
+			err := a.Arguments.Bind(&msg)
+			if err != nil {
+				return nil, err
 			}
-		case "x":
-			if s.pageState.Skip(1) {
-				return &s, s.updateCmd()
+			return msg, nil
+
+		case "sort":
+			var msg ScenesModelSortMsg
+			err := a.Arguments.Bind(&msg)
+			if err != nil {
+				return nil, err
 			}
-		case "o":
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
-		case "r":
+			return msg, nil
+
+		case "skip":
+			var msg ScenesModelSkipMsg
+			err := a.Arguments.Bind(&msg)
+			if err != nil {
+				return nil, err
+			}
+			return msg, nil
+
+		case "undo":
+			return ScenesModelUndoMsg{}, nil
+		}
+	}
+
+	return nil, nil
+}
+
+type ScenesModelFilterMsg struct {
+	Query string
+}
+
+type ScenesModelOpenMsg struct {
+	Skip bool
+}
+
+type ScenesModelSkipMsg struct {
+	Count int
+}
+
+type ScenesModelSortMsg struct {
+	Field     string
+	Direction string
+}
+
+type ScenesModelUndoMsg struct{}
+
+func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case ScenesModelFilterMsg:
+		return s.PushState(func(sm *ScenesModel) {
+			sm.query = msg.Query
+		})
+
+	case ScenesModelOpenMsg:
+		if msg.Skip && s.pageState.Next() {
+			return &s, s.updateCmd()
+		}
+		cur := s.Current()
+		return &s, func() tea.Msg { return OpenMsg{cur} }
+
+	case ScenesModelSortMsg:
+		switch msg.Field {
+		case "random":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sort = stash.RandomSort()
 			})
-		case "u": // "Undo"
-			return s.Pop()
+		}
+
+	case ScenesModelSkipMsg:
+		if s.pageState.Skip(msg.Count) {
+			return &s, s.updateCmd()
+		}
+
+	case ScenesModelUndoMsg:
+		return s.Pop()
+
+	case tea.KeyMsg:
+		// TODO this is probably not where this ends up, instead we probably have some additional part of the TabModel
+		// interface that exposes keymaps (maybe).  I'll slot this in here now and it can return an execute command.
+		if cmd, ok := ScenesModelDefaultKeymap[msg.String()]; ok {
+			return &s, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
+		}
+
+		switch msg.String() {
 		case "f":
 			return s.PushState(func(sm *ScenesModel) {
 				if sm.sceneFilter.PerformerFavourite == nil {

@@ -1,4 +1,5 @@
 # Features
+
 ✅ connect to a running stash instance and list content
 ✅ open a piece of content locally
     ✅ giving an open command opens the latest piece of content
@@ -30,12 +31,12 @@
 ✅ opening commands are configurable
 ✅ configuration loading from file
 - ability to confirm actions taken with a multiple choice prompt
-- there should be modal controls between inputting commands and navigating the list
+✅ there should be modal controls between inputting commands and navigating the list
 - error handling and output for actions (openers, remote actions)
     - timeouts for remote actions
-- all input blocking while loading
+- better handling of inputs while in a loading state
 ✅ better recording of "has opened" state while list navigating
-- output names of filtered entities instead of just ids or generically "performers"
+✅ output names of filtered entities instead of just ids or generically "performers"
 ✅ filter history
 - saved filters
     - the default filtering should respect the configured default filters for that type
@@ -49,10 +50,8 @@
 ✅ Refactor resetting of content state
 ✅ Refactor app command setup
 ✅ Table lines with emoji have incorrect width (generally -1 per emoji)
-- Should not exit on open error
-- Status line can likely have a wrapper to cater for both scenes and galleries
+✅ Should not exit on open error
 ✅ Empty paginator text should read something like "no results"
-- Output should be restricted to single line
-- Switching pages skips the first entry on next page
-- Switching pages doesn't open first item
-- StashCache needs to be improved
+✅ Switching pages skips the first entry on next page
+✅ Switching pages doesn't open first item
+- loading items should be routed to the correct tab — currently a loaded items message will always be sent to the current tab.
