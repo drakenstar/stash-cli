@@ -146,23 +146,23 @@ var ScenesModelDefaultKeymap = map[string]string{
 	"o":     "open",
 	"r":     "sort random",
 	"u":     "undo", // state pop?  Maybe some sort of generic state management command
-	"f":     "filter favourite",
-	"p":     "tab new scenes performer", // TODO need to think a bit more about how this command might work.
-	"`":     "open-url stash",
+	"f":     "filter favourite=1",
+	"p":     "filter performer=current",
+	"`":     "openurl stash",
 }
 
 // Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
 // additional inputs can be given after the alias.
 var ScenesModelDefaultCommandAlias = map[string]string{
-	"recent": "filter createdAt>=-24h",
-	"year":   "filter date>=-1y",
+	"recent": "filter createdAt=>-24h",
+	"year":   "filter date=>-1y",
 }
 
 func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 	switch c.Mode {
 	case ModeFind:
 		return ScenesModelFilterMsg{
-			Query: c.Input,
+			Query: &c.Input,
 		}, nil
 
 	default:
@@ -172,8 +172,24 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 		}
 
 		switch a.Name {
+		case "filter":
+			var msg ScenesModelFilterMsg
+			err := a.Arguments.Bind(&msg)
+			if err != nil {
+				return nil, err
+			}
+			return msg, nil
+
 		case "open":
 			var msg ScenesModelOpenMsg
+			err := a.Arguments.Bind(&msg)
+			if err != nil {
+				return nil, err
+			}
+			return msg, nil
+
+		case "openurl":
+			var msg ScenesModelOpenURLMsg
 			err := a.Arguments.Bind(&msg)
 			if err != nil {
 				return nil, err
@@ -204,12 +220,22 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 	return nil, nil
 }
 
+// ScenesModelFilterMsg controls the filtering of various fields on the model. Currently this has a bit of a limitation
+// in that although pointers can be used to determine if the user intended to set a field or not, there is no way
+// currently to reset a filter.  I'm not sure the best method for this yet, possibly we need some sort of wrapper type
+// that implements action.Binder
 type ScenesModelFilterMsg struct {
-	Query string
+	Query     *string
+	Favourite *bool
+	Performer *string
 }
 
 type ScenesModelOpenMsg struct {
 	Skip bool
+}
+
+type ScenesModelOpenURLMsg struct {
+	Source string
 }
 
 type ScenesModelSkipMsg struct {
@@ -227,7 +253,29 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ScenesModelFilterMsg:
 		return s.PushState(func(sm *ScenesModel) {
-			sm.query = msg.Query
+			if msg.Query != nil {
+				sm.query = *msg.Query
+			}
+			if msg.Favourite != nil {
+				sm.sceneFilter.PerformerFavourite = msg.Favourite
+			}
+			if msg.Performer != nil {
+				if *msg.Performer == "current" {
+					var ids []string
+					for _, p := range sm.Current().Performers {
+						ids = append(ids, p.ID)
+					}
+					sm.sceneFilter.Performers = &stash.MultiCriterion{
+						Value:    ids,
+						Modifier: stash.CriterionModifierIncludes,
+					}
+				} else {
+					sm.sceneFilter.Performers = &stash.MultiCriterion{
+						Value:    []string{*msg.Performer},
+						Modifier: stash.CriterionModifierIncludes,
+					}
+				}
+			}
 		})
 
 	case ScenesModelOpenMsg:
@@ -236,6 +284,15 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 		cur := s.Current()
 		return &s, func() tea.Msg { return OpenMsg{cur} }
+
+	case ScenesModelOpenURLMsg:
+		cur := s.Current()
+		var src string
+		switch msg.Source {
+		default:
+			src = path.Join("scenes", cur.ID)
+		}
+		return &s, func() tea.Msg { return OpenMsg{src} }
 
 	case ScenesModelSortMsg:
 		switch msg.Field {
@@ -258,23 +315,6 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		// interface that exposes keymaps (maybe).  I'll slot this in here now and it can return an execute command.
 		if cmd, ok := ScenesModelDefaultKeymap[msg.String()]; ok {
 			return &s, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
-		}
-
-		switch msg.String() {
-		case "f":
-			return s.PushState(func(sm *ScenesModel) {
-				if sm.sceneFilter.PerformerFavourite == nil {
-					favourite := true
-					sm.sceneFilter.PerformerFavourite = &favourite
-				} else {
-					sm.sceneFilter.PerformerFavourite = nil
-				}
-			})
-		case "p":
-			return s.newTabPerformerCmd()
-		case "`":
-			msg := OpenMsg{path.Join("scenes", s.Current().ID)}
-			return &s, func() tea.Msg { return msg }
 		}
 
 	case tea.WindowSizeMsg:
@@ -458,9 +498,6 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 				}
 			})
 
-		case "more":
-			return s.newTabPerformerCmd()
-
 		case "rated":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sceneFilter.Rating100 = &stash.IntCriterion{
@@ -535,30 +572,6 @@ func (m *ScenesModel) updateCmd() tea.Cmd {
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.sceneFilter)
-}
-
-// newTabPerformerCmd returns a command that opens a new tab filtered to the current set of performers
-func (m *ScenesModel) newTabPerformerCmd() (*ScenesModel, tea.Cmd) {
-	if len(m.Current().Performers) == 0 {
-		return m, nil
-	}
-
-	var ids []string
-	for _, p := range m.Current().Performers {
-		ids = append(ids, p.ID)
-	}
-	return m, func() tea.Msg {
-		return TabOpenMsg{
-			tabFunc: func() TabModel {
-				t := NewScenesModel(m.SceneService, m.StashLookup)
-				t.sceneFilter.Performers = &stash.MultiCriterion{
-					Value:    ids,
-					Modifier: stash.CriterionModifierIncludes,
-				}
-				return t
-			},
-		}
-	}
 }
 
 // doDeleteConfirmCmd returns a command to display a confirmation message about the current content.
