@@ -5,7 +5,6 @@ import (
 	"math"
 	"path"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -196,6 +195,9 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 			}
 			return msg, nil
 
+		case "reset":
+			return ScenesModelResetMsg{}, nil
+
 		case "sort":
 			var msg ScenesModelSortMsg
 			err := a.Arguments.Bind(&msg)
@@ -225,9 +227,15 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 // currently to reset a filter.  I'm not sure the best method for this yet, possibly we need some sort of wrapper type
 // that implements action.Binder
 type ScenesModelFilterMsg struct {
-	Query     *string
-	Favourite *bool
-	Performer *string
+	Query        *string
+	Favourite    *bool
+	Organised    *bool
+	Rating       *int
+	Performer    *string
+	Duration     *int
+	PerformerTag *string
+	Tag          *string
+	Studio       *string
 }
 
 type ScenesModelOpenMsg struct {
@@ -237,6 +245,8 @@ type ScenesModelOpenMsg struct {
 type ScenesModelOpenURLMsg struct {
 	Source string
 }
+
+type ScenesModelResetMsg struct{}
 
 type ScenesModelSkipMsg struct {
 	Count int
@@ -259,6 +269,15 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 			if msg.Favourite != nil {
 				sm.sceneFilter.PerformerFavourite = msg.Favourite
 			}
+			if msg.Organised != nil {
+				sm.sceneFilter.Organized = msg.Organised
+			}
+			if msg.Rating != nil {
+				sm.sceneFilter.Rating100 = &stash.IntCriterion{
+					Modifier: stash.CriterionModifierEquals,
+					Value:    *msg.Rating,
+				}
+			}
 			if msg.Performer != nil {
 				if *msg.Performer == "current" {
 					var ids []string
@@ -274,6 +293,30 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 						Value:    []string{*msg.Performer},
 						Modifier: stash.CriterionModifierIncludes,
 					}
+				}
+			}
+			if msg.Studio != nil {
+				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
+					Value:    []string{*msg.Studio},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			if msg.Tag != nil {
+				sm.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
+					Value:    []string{*msg.Tag},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			if msg.PerformerTag != nil {
+				sm.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
+					Value:    []string{*msg.PerformerTag},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			if msg.Duration != nil {
+				sm.sceneFilter.Duration = &stash.IntCriterion{
+					Value:    *msg.Duration,
+					Modifier: stash.CriterionModifierGreaterThan, // TODO modiifiers
 				}
 			}
 		})
@@ -294,11 +337,26 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 		return &s, func() tea.Msg { return OpenMsg{src} }
 
+	case ScenesModelResetMsg:
+		return &s, s.reset()
+
 	case ScenesModelSortMsg:
 		switch msg.Field {
 		case "random":
 			return s.PushState(func(sm *ScenesModel) {
 				sm.sort = stash.RandomSort()
+			})
+		case "date":
+			return s.PushState(func(sm *ScenesModel) {
+				sm.sort = "date"
+				sm.sortDirection = stash.SortDirectionAsc
+			})
+		// TODO it's probably the case that we want to parse this in the Interpret step rather than here.  We can just
+		// enumerate fields we're interested in for the time being.
+		case "-date":
+			return s.PushState(func(sm *ScenesModel) {
+				sm.sort = "date"
+				sm.sortDirection = stash.SortDirectionDesc
 			})
 		}
 
@@ -325,199 +383,8 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		s.SetHeight(msg.Height)
 		return &s, s.updateCmd()
 
-	case action.Action:
-		switch msg.Name {
-		case "open":
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
-
-		case "filter":
-			var dst struct {
-				Query string
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(sm *ScenesModel) {
-				sm.query = dst.Query
-			})
-
-		case "sort":
-			var dst struct {
-				Field string
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-
-			switch dst.Field {
-			case "date":
-				return s.PushState(func(sm *ScenesModel) {
-					sm.sort = dst.Field
-					sm.sortDirection = stash.SortDirectionAsc
-				})
-
-			case "-date":
-				return s.PushState(func(sm *ScenesModel) {
-					sm.sort = dst.Field[1:]
-					sm.sortDirection = stash.SortDirectionDesc
-				})
-			}
-
-		case "random":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sort = stash.RandomSort()
-			})
-
-		case "recent":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.CreatedAt = &stash.TimestampCriterion{
-					Value:    time.Now().Add(-24 * time.Hour * 7),
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
-
-		case "year":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Date = &stash.DateCriterion{
-					Value:    time.Now().Add(-24 * time.Hour * 365),
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
-
-		case "before":
-			var dst struct {
-				Date time.Time
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Date = &stash.DateCriterion{
-					Value:    dst.Date,
-					Modifier: stash.CriterionModifierLessThan,
-				}
-			})
-
-		case "6mo":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.CreatedAt = &stash.TimestampCriterion{
-					Value:    time.Now().Add(-24 * time.Hour * 182),
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
-
-		case "1mo":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.CreatedAt = &stash.TimestampCriterion{
-					Value:    time.Now().Add(-24 * time.Hour * 30),
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
-
-		case "pop":
-			return s.Pop()
-
-		case "duration":
-			var dst struct {
-				Seconds int
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Duration = &stash.IntCriterion{
-					Value:    dst.Seconds,
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
-
-		case "reset":
-			return &s, s.reset()
-
-		case "refresh":
-			return &s, s.updateCmd()
-
-		case "organised", "organized":
-			var dst struct {
-				Organised *bool
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(gm *ScenesModel) {
-				if dst.Organised != nil {
-					gm.sceneFilter.Organized = dst.Organised
-				} else {
-					organised := true
-					gm.sceneFilter.Organized = &organised
-				}
-			})
-
-		case "studio":
-			// TODO check for unconsumed positional arguments
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
-					Value:    msg.Arguments.Positional(),
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			})
-
-		case "tags":
-			// TODO check for unconsumed positional arguments
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
-					Value:    msg.Arguments.Positional(),
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			})
-
-		case "pt":
-			// TODO check for unconsumed positional arguments
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
-					Value:    msg.Arguments.Positional(),
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			})
-
-		case "favourite", "favorite":
-			var dst struct {
-				Favourite *bool
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(gm *ScenesModel) {
-				if dst.Favourite != nil {
-					gm.sceneFilter.PerformerFavourite = dst.Favourite
-				} else {
-					favourite := true
-					gm.sceneFilter.PerformerFavourite = &favourite
-				}
-			})
-
-		case "rated":
-			return s.PushState(func(sm *ScenesModel) {
-				sm.sceneFilter.Rating100 = &stash.IntCriterion{
-					Modifier: stash.CriterionModifierNotNull,
-				}
-			})
-
-		case "stash":
-			msg := OpenMsg{path.Join("scenes", s.Current().ID)}
-			return &s, func() tea.Msg { return msg }
-
-		case "delete":
-			return &s, s.doDeleteConfirmCmd()
-		}
-
 	case scenesMsg:
 		s.scenes, s.pageState.total = msg.scenes, msg.total
-
-	case DeleteMsg:
-		return &s, s.deleteCmd(msg.Scene.ID)
 	}
 
 	return &s, nil
@@ -575,33 +442,33 @@ func (m *ScenesModel) updateCmd() tea.Cmd {
 }
 
 // doDeleteConfirmCmd returns a command to display a confirmation message about the current content.
-func (s *ScenesModel) doDeleteConfirmCmd() tea.Cmd {
-	return nil
-	// TODO reimplement deletion once app modal confirmation is in a better state
-	// return func() tea.Msg {
-	// 	s := s.Current()
-	// 	titleStyle := lipgloss.NewStyle().
-	// 		Foreground(ColorOffWhite)
-	// 	return ConfirmationMsg{
-	// 		Message:       fmt.Sprintf("Are you sure you want to delete %s?", titleStyle.Render(sceneTitle(s))),
-	// 		ConfirmOption: "Delete",
-	// 		CancelOption:  "Cancel",
-	// 		Cmd: func() tea.Msg {
-	// 			return DeleteMsg{Scene: s}
-	// 		},
-	// 	}
-	// }
-}
+// func (s *ScenesModel) doDeleteConfirmCmd() tea.Cmd {
+// 	return nil
+// TODO reimplement deletion once app modal confirmation is in a better state
+// return func() tea.Msg {
+// 	s := s.Current()
+// 	titleStyle := lipgloss.NewStyle().
+// 		Foreground(ColorOffWhite)
+// 	return ConfirmationMsg{
+// 		Message:       fmt.Sprintf("Are you sure you want to delete %s?", titleStyle.Render(sceneTitle(s))),
+// 		ConfirmOption: "Delete",
+// 		CancelOption:  "Cancel",
+// 		Cmd: func() tea.Msg {
+// 			return DeleteMsg{Scene: s}
+// 		},
+// 	}
+// }
+// }
 
-type DeleteMsg struct {
-	Scene stash.Scene
-}
+// type DeleteMsg struct {
+// 	Scene stash.Scene
+// }
 
 // doDeleteCmd takes a DeleteMessage and attempts to delete the provided scene.  After successful deletion the current
 // scenes data is refreshed.
-func (m *ScenesModel) deleteCmd(id string) tea.Cmd {
-	return m.SceneService.DeleteScene(id)
-}
+// func (m *ScenesModel) deleteCmd(id string) tea.Cmd {
+// 	return m.SceneService.DeleteScene(id)
+// }
 
 var (
 	sceneTable = &ui.Table{
