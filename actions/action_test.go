@@ -8,20 +8,36 @@ import (
 )
 
 func TestAction(t *testing.T) {
-	a := New("command \ttest bar\t")
-
-	token, err := a.Next()
-	require.NoError(t, err)
-	require.Equal(t, "command", token.Label)
-
-	token, err = a.Next()
-	require.NoError(t, err)
-	require.Equal(t, "test", token.Label)
-
-	token, err = a.Next()
-	require.NoError(t, err)
-	require.Equal(t, "bar", token.Label)
-
-	token, err = a.Next()
-	require.Equal(t, io.EOF, err)
+	tests := []struct {
+		title    string
+		input    string
+		expected []any
+	}{
+		{
+			"simple",
+			"command \ttest bar\t\"quoted input\t\"",
+			[]any{
+				Token{Label: "command", Value: "command"},
+				Token{Label: "test", Value: "test"},
+				Token{Label: "bar", Value: "bar"},
+				Token{Label: "quoted input\t", Value: "quoted input\t"},
+				io.EOF,
+			},
+		},
+		{},
+	}
+	for _, test := range tests {
+		t.Run(test.title, func(t *testing.T) {
+			a := New(test.input)
+			for _, next := range test.expected {
+				tok, err := a.Next()
+				if _, ok := next.(Token); ok {
+					require.NoError(t, err)
+					require.Equal(t, next, tok)
+				} else {
+					require.Equal(t, next, err)
+				}
+			}
+		})
+	}
 }

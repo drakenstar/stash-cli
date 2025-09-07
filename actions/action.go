@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"unicode"
@@ -21,16 +22,19 @@ type Action struct {
 	pos int
 }
 
+var (
+	// TODO this is probably not going to be enough context on it's own, a position for the start of the quoted string
+	// is probably a useful aid.
+	ErrorUnterminatedQuote = errors.New("unterminated quote")
+)
+
 // New returns a pointer to a new instance of Action.  Input is provided as a string value.  io.Reader is not used
 // since inputs are expected to be small single lines of text.
 func New(input string) *Action {
 	return &Action{input: input}
 }
 
-type TokenType int
-
 type Token struct {
-	Type  TokenType
 	Label string
 	Value string
 }
@@ -44,21 +48,39 @@ func (a *Action) Next() (Token, error) {
 		}
 		a.pos += size
 	}
+
 	// If we're reached the end of our input, we want to return an io.EOF to indicate there are no more tokens.
 	if a.pos >= len(a.input) {
 		return Token{}, io.EOF
 	}
-	next := strings.IndexFunc(a.input[a.pos:], unicode.IsSpace)
+
 	var value string
-	if next == -1 {
-		value = a.input[a.pos:]
-		a.pos = len(a.input)
+
+	if a.input[a.pos] == '"' {
+		a.pos += 1
+		// TODO need an additional bounds check here in case the quote ends the string
+
+		next := strings.Index(a.input[a.pos:], "\"")
+		if next == -1 {
+			return Token{}, ErrorUnterminatedQuote
+		} else {
+			value = a.input[a.pos : a.pos+next]
+			a.pos = a.pos + next + 1 // + 1 to consume the closing quote
+		}
 	} else {
-		value = a.input[a.pos : a.pos+next]
-		a.pos = a.pos + next
+		next := strings.IndexFunc(a.input[a.pos:], unicode.IsSpace)
+		if next == -1 {
+			value = a.input[a.pos:]
+			a.pos = len(a.input)
+		} else {
+			value = a.input[a.pos : a.pos+next]
+			a.pos = a.pos + next
+		}
 	}
+
 	return Token{
 		Label: value,
+		Value: value,
 	}, nil
 }
 
