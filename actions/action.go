@@ -56,17 +56,25 @@ func (a *Action) Next() (Token, error) {
 
 	var value string
 
-	if a.input[a.pos] == '"' {
+	// Quoted string, either double or single quoted.
+	if a.input[a.pos] == '"' || a.input[a.pos] == '\'' {
+		quote := a.input[a.pos]
+		start := a.pos
 		a.pos += 1
-		// TODO need an additional bounds check here in case the quote ends the string
 
-		next := strings.Index(a.input[a.pos:], "\"")
-		if next == -1 {
-			return Token{}, ErrorUnterminatedQuote
-		} else {
-			value = a.input[a.pos : a.pos+next]
-			a.pos = a.pos + next + 1 // + 1 to consume the closing quote
+		for a.pos < len(a.input) {
+			if a.input[a.pos] == quote && a.input[a.pos-1] != '\\' {
+				break
+			}
+			a.pos += 1
 		}
+
+		if a.pos >= len(a.input) {
+			return Token{}, ErrorUnterminatedQuote
+		}
+
+		a.pos += 1
+		value = unquote(a.input[start:a.pos])
 	} else {
 		next := strings.IndexFunc(a.input[a.pos:], unicode.IsSpace)
 		if next == -1 {
@@ -86,4 +94,20 @@ func (a *Action) Next() (Token, error) {
 
 func (*Action) Bind(dest any) error {
 	return nil
+}
+
+// unquote removes quotes and escape characters from a string found during tokenization. Assumes that the string is a
+// valid quoted string, so no errors will be returned.
+func unquote(in string) string {
+	quote := in[0]
+	var sb strings.Builder
+	for i := 1; i < len(in)-1; i++ {
+		if in[i] == '\\' && i+1 < len(in) && (in[i+1] == quote || in[i+1] == '\'') {
+			sb.WriteByte(in[i+1])
+			i++
+		} else {
+			sb.WriteByte(in[i])
+		}
+	}
+	return sb.String()
 }
