@@ -1,7 +1,7 @@
 package actions
 
 import (
-	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"unicode"
@@ -13,6 +13,8 @@ import (
 // This package provides parsing and binding capabilities around a small command DSL.  The DSL is optimised for typing
 // and succinctness.
 
+const LabelSeparator = '='
+
 // Action is a stateful representation of the parsing of a line of command input.  This struct can have Next() called
 // any number of times (input allowing), before a caller decides to Bind().  Any call after Bind() will error with
 // ErrorEOF and the Action should be discarded.
@@ -22,12 +24,6 @@ type Action struct {
 	pos int
 }
 
-var (
-	// TODO this is probably not going to be enough context on it's own, a position for the start of the quoted string
-	// is probably a useful aid.
-	ErrorUnterminatedQuote = errors.New("unterminated quote")
-)
-
 // New returns a pointer to a new instance of Action.  Input is provided as a string value.  io.Reader is not used
 // since inputs are expected to be small single lines of text.
 func New(input string) *Action {
@@ -35,10 +31,12 @@ func New(input string) *Action {
 }
 
 type Token struct {
+	Raw   string
 	Label string
 	Value string
 }
 
+// Next returns the next token
 func (a *Action) Next() (Token, error) {
 	// Consume all unicode whitespace
 	for a.pos < len(a.input) {
@@ -54,46 +52,94 @@ func (a *Action) Next() (Token, error) {
 		return Token{}, io.EOF
 	}
 
-	var value string
+	rawStart := a.pos
 
-	// Quoted string, either double or single quoted.
-	if a.input[a.pos] == '"' || a.input[a.pos] == '\'' {
-		quote := a.input[a.pos]
-		start := a.pos
-		a.pos += 1
-
-		for a.pos < len(a.input) {
-			if a.input[a.pos] == quote && a.input[a.pos-1] != '\\' {
-				break
-			}
-			a.pos += 1
-		}
-
-		if a.pos >= len(a.input) {
-			return Token{}, ErrorUnterminatedQuote
-		}
-
-		a.pos += 1
-		value = unquote(a.input[start:a.pos])
-	} else {
-		next := strings.IndexFunc(a.input[a.pos:], unicode.IsSpace)
-		if next == -1 {
-			value = a.input[a.pos:]
-			a.pos = len(a.input)
-		} else {
-			value = a.input[a.pos : a.pos+next]
-			a.pos = a.pos + next
-		}
+	value, parsedLabel, err := a.parseValue()
+	if err != nil {
+		return Token{}, err
 	}
 
-	return Token{
-		Label: value,
-		Value: value,
-	}, nil
+	var t Token
+	if parsedLabel {
+		t.Label = value
+		value, parsedLabel, err := a.parseValue()
+		if parsedLabel {
+			return Token{}, fmt.Errorf("argument contains multiple label separators = as position %d", a.pos)
+		}
+		if err != nil {
+			return Token{}, err
+		}
+		t.Value = value
+	} else {
+		t.Value = value
+	}
+
+	t.Raw = a.input[rawStart:a.pos]
+
+	return t, nil
 }
 
 func (*Action) Bind(dest any) error {
 	return nil
+}
+
+func (a *Action) parseValue() (string, bool, error) {
+	// Quoted string, either double or single quoted.
+	if a.input[a.pos] == '"' || a.input[a.pos] == '\'' {
+		value, err := a.parseQuotedString()
+		if err != nil {
+			return "", false, err
+		}
+		return unquote(value), false, nil
+	}
+
+	// Semantically it's unclear what an argument starting with a label separator would mean so exit early.
+	if a.input[a.pos] == LabelSeparator {
+		return "", false, fmt.Errorf("arguments may not start with the label separator = at position %d", a.pos)
+	}
+
+	start := a.pos
+	parsedLabel := false
+	for a.pos < len(a.input) {
+		r, size := utf8.DecodeRuneInString(a.input[a.pos:])
+		if unicode.IsSpace(r) {
+			break
+		}
+		if r == LabelSeparator {
+			parsedLabel = true
+			break
+		}
+		a.pos += size
+	}
+
+	end := a.pos
+	// If we found a label, we want to advance the position to the start of the value.
+	if parsedLabel {
+		a.pos += 1
+	}
+
+	return a.input[start:end], parsedLabel, nil
+}
+
+// parseQuotedString takes a string of input, that starts with a quote
+func (a *Action) parseQuotedString() (string, error) {
+	quote := a.input[a.pos]
+	start := a.pos
+	a.pos += 1
+
+	for a.pos < len(a.input) {
+		if a.input[a.pos] == quote && a.input[a.pos-1] != '\\' {
+			break
+		}
+		a.pos += 1
+	}
+
+	if a.pos >= len(a.input) {
+		return "", fmt.Errorf("unterminated quote as position %d", a.pos)
+	}
+
+	a.pos += 1
+	return a.input[start:a.pos], nil
 }
 
 // unquote removes quotes and escape characters from a string found during tokenization. Assumes that the string is a

@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"io"
 	"testing"
 
@@ -15,13 +16,14 @@ func TestAction(t *testing.T) {
 	}{
 		{
 			"simple",
-			"command \ttest bar\t\"quoted\\\" input\t\" foo",
+			"command \ttest bar\t\"quoted\\\" input\t\" foo=bar foo=\"quoted bar\"",
 			[]any{
-				Token{Label: "command", Value: "command"},
-				Token{Label: "test", Value: "test"},
-				Token{Label: "bar", Value: "bar"},
-				Token{Label: "quoted\" input\t", Value: "quoted\" input\t"},
-				Token{Label: "foo", Value: "foo"},
+				Token{Raw: `command`, Label: "", Value: "command"},
+				Token{Raw: `test`, Label: "", Value: "test"},
+				Token{Raw: `bar`, Label: "", Value: "bar"},
+				Token{Raw: `"quoted\" input	"`, Label: "", Value: "quoted\" input\t"},
+				Token{Raw: `foo=bar`, Label: "foo", Value: "bar"},
+				Token{Raw: `foo="quoted bar"`, Label: "foo", Value: "quoted bar"},
 				io.EOF,
 			},
 		},
@@ -29,8 +31,8 @@ func TestAction(t *testing.T) {
 			"quoted edges",
 			`"\"foo" "bar\""`,
 			[]any{
-				Token{Label: `"foo`, Value: `"foo`},
-				Token{Label: `bar"`, Value: `bar"`},
+				Token{Raw: `"\"foo"`, Label: "", Value: `"foo`},
+				Token{Raw: `"bar\""`, Label: "", Value: `bar"`},
 				io.EOF,
 			},
 		},
@@ -38,8 +40,15 @@ func TestAction(t *testing.T) {
 			"unterminated quote",
 			`foo "bar`,
 			[]any{
-				Token{Label: `foo`, Value: `foo`},
-				ErrorUnterminatedQuote,
+				Token{Raw: `foo`, Label: "", Value: `foo`},
+				errors.New("unterminated quote as position 8"),
+			},
+		},
+		{
+			"separator in value",
+			`foo=bar=`,
+			[]any{
+				errors.New("argument contains multiple label separators = as position 8"),
 			},
 		},
 	}
