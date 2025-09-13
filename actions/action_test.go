@@ -18,12 +18,12 @@ func TestAction(t *testing.T) {
 			"simple",
 			"command \ttest bar\t\"quoted\\\" input\t\" foo=bar foo=\"quoted bar\"",
 			[]any{
-				Token{Raw: `command`, Label: "", Value: "command"},
-				Token{Raw: `test`, Label: "", Value: "test"},
-				Token{Raw: `bar`, Label: "", Value: "bar"},
-				Token{Raw: `"quoted\" input	"`, Label: "", Value: "quoted\" input\t"},
-				Token{Raw: `foo=bar`, Label: "foo", Value: "bar"},
-				Token{Raw: `foo="quoted bar"`, Label: "foo", Value: "quoted bar"},
+				Argument{Raw: `command`, Label: "", Value: "command"},
+				Argument{Raw: `test`, Label: "", Value: "test"},
+				Argument{Raw: `bar`, Label: "", Value: "bar"},
+				Argument{Raw: `"quoted\" input	"`, Label: "", Value: "quoted\" input\t"},
+				Argument{Raw: `foo=bar`, Label: "foo", Value: "bar"},
+				Argument{Raw: `foo="quoted bar"`, Label: "foo", Value: "quoted bar"},
 				io.EOF,
 			},
 		},
@@ -31,8 +31,8 @@ func TestAction(t *testing.T) {
 			"quoted edges",
 			`"\"foo" "bar\""`,
 			[]any{
-				Token{Raw: `"\"foo"`, Label: "", Value: `"foo`},
-				Token{Raw: `"bar\""`, Label: "", Value: `bar"`},
+				Argument{Raw: `"\"foo"`, Label: "", Value: `"foo`},
+				Argument{Raw: `"bar\""`, Label: "", Value: `bar"`},
 				io.EOF,
 			},
 		},
@@ -40,15 +40,16 @@ func TestAction(t *testing.T) {
 			"unterminated quote",
 			`foo "bar`,
 			[]any{
-				Token{Raw: `foo`, Label: "", Value: `foo`},
+				Argument{Raw: `foo`, Label: "", Value: `foo`},
 				errors.New("unterminated quote as position 8"),
 			},
 		},
 		{
 			"separator in value",
-			`foo=bar=`,
+			`foo="bar=" foo=bar=`,
 			[]any{
-				errors.New("argument contains multiple label separators = as position 8"),
+				Argument{Raw: `foo="bar="`, Label: "foo", Value: `bar=`},
+				errors.New("argument contains multiple label separators = as position 19"),
 			},
 		},
 	}
@@ -56,10 +57,10 @@ func TestAction(t *testing.T) {
 		t.Run(test.title, func(t *testing.T) {
 			a := New(test.input)
 			for _, next := range test.expected {
-				tok, err := a.Next()
-				if _, ok := next.(Token); ok {
+				arg, err := a.Next()
+				if _, ok := next.(Argument); ok {
 					require.NoError(t, err)
-					require.Equal(t, next, tok)
+					require.Equal(t, next, arg)
 				} else {
 					require.Equal(t, next, err)
 				}

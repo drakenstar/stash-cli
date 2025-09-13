@@ -15,10 +15,10 @@ import (
 
 const LabelSeparator = '='
 
-// Action is a stateful representation of the parsing of a line of command input.  This struct can have Next() called
+// parser is a stateful representation of the parsing of a line of command input.  This struct can have Next() called
 // any number of times (input allowing), before a caller decides to Bind().  Any call after Bind() will error with
-// ErrorEOF and the Action should be discarded.
-type Action struct {
+// ErrorEOF and the parser should be discarded.
+type parser struct {
 	input string
 
 	pos int
@@ -26,18 +26,18 @@ type Action struct {
 
 // New returns a pointer to a new instance of Action.  Input is provided as a string value.  io.Reader is not used
 // since inputs are expected to be small single lines of text.
-func New(input string) *Action {
-	return &Action{input: input}
+func New(input string) *parser {
+	return &parser{input: input}
 }
 
-type Token struct {
+type Argument struct {
 	Raw   string
 	Label string
 	Value string
 }
 
 // Next returns the next token
-func (a *Action) Next() (Token, error) {
+func (a *parser) Next() (Argument, error) {
 	// Consume all unicode whitespace
 	for a.pos < len(a.input) {
 		r, size := utf8.DecodeRuneInString(a.input[a.pos:])
@@ -49,25 +49,25 @@ func (a *Action) Next() (Token, error) {
 
 	// If we're reached the end of our input, we want to return an io.EOF to indicate there are no more tokens.
 	if a.pos >= len(a.input) {
-		return Token{}, io.EOF
+		return Argument{}, io.EOF
 	}
 
 	rawStart := a.pos
 
 	value, parsedLabel, err := a.parseValue()
 	if err != nil {
-		return Token{}, err
+		return Argument{}, err
 	}
 
-	var t Token
+	var t Argument
 	if parsedLabel {
 		t.Label = value
 		value, parsedLabel, err := a.parseValue()
 		if parsedLabel {
-			return Token{}, fmt.Errorf("argument contains multiple label separators = as position %d", a.pos)
+			return Argument{}, fmt.Errorf("argument contains multiple label separators = as position %d", a.pos)
 		}
 		if err != nil {
-			return Token{}, err
+			return Argument{}, err
 		}
 		t.Value = value
 	} else {
@@ -79,11 +79,7 @@ func (a *Action) Next() (Token, error) {
 	return t, nil
 }
 
-func (*Action) Bind(dest any) error {
-	return nil
-}
-
-func (a *Action) parseValue() (string, bool, error) {
+func (a *parser) parseValue() (string, bool, error) {
 	// Quoted string, either double or single quoted.
 	if a.input[a.pos] == '"' || a.input[a.pos] == '\'' {
 		value, err := a.parseQuotedString()
@@ -122,7 +118,7 @@ func (a *Action) parseValue() (string, bool, error) {
 }
 
 // parseQuotedString takes a string of input, that starts with a quote
-func (a *Action) parseQuotedString() (string, error) {
+func (a *parser) parseQuotedString() (string, error) {
 	quote := a.input[a.pos]
 	start := a.pos
 	a.pos += 1
