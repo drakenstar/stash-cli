@@ -7,7 +7,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/action"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -197,94 +196,94 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		s.SetHeight(msg.Height)
 		return &s, s.updateCmd()
 
-	case action.Action:
-		switch msg.Name {
-		case "open":
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
+	// case action.Action:
+	// 	switch msg.Name {
+	// 	case "open":
+	// 		msg := OpenMsg{s.Current()}
+	// 		return &s, func() tea.Msg { return msg }
 
-		case "random":
-			return s.PushState(func(gm *GalleriesModel) {
-				gm.sort = stash.RandomSort()
-			})
+	// 	case "random":
+	// 		return s.PushState(func(gm *GalleriesModel) {
+	// 			gm.sort = stash.RandomSort()
+	// 		})
 
-		case "count":
-			var dst struct {
-				Count int `action:"-"`
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(gm *GalleriesModel) {
-				s.galleryFilter.ImageCount = &stash.IntCriterion{
-					Value:    dst.Count,
-					Modifier: stash.CriterionModifierGreaterThan,
-				}
-			})
+	// 	case "count":
+	// 		var dst struct {
+	// 			Count int `action:"-"`
+	// 		}
+	// 		if err := msg.Arguments.Bind(&dst); err != nil {
+	// 			return &s, NewErrorCmd(err)
+	// 		}
+	// 		return s.PushState(func(gm *GalleriesModel) {
+	// 			s.galleryFilter.ImageCount = &stash.IntCriterion{
+	// 				Value:    dst.Count,
+	// 				Modifier: stash.CriterionModifierGreaterThan,
+	// 			}
+	// 		})
 
-		case "filter":
-			var dst struct {
-				Query string
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(gm *GalleriesModel) {
-				gm.query = dst.Query
-			})
+	// 	case "filter":
+	// 		var dst struct {
+	// 			Query string
+	// 		}
+	// 		if err := msg.Arguments.Bind(&dst); err != nil {
+	// 			return &s, NewErrorCmd(err)
+	// 		}
+	// 		return s.PushState(func(gm *GalleriesModel) {
+	// 			gm.query = dst.Query
+	// 		})
 
-		case "reset":
-			return &s, s.reset()
+	// 	case "reset":
+	// 		return &s, s.reset()
 
-		case "refresh":
-			return &s, s.updateCmd()
+	// 	case "refresh":
+	// 		return &s, s.updateCmd()
 
-		case "organised", "organized":
-			var dst struct {
-				Organised *bool
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(gm *GalleriesModel) {
-				if dst.Organised != nil {
-					gm.galleryFilter.Organized = dst.Organised
-				} else {
-					organised := true
-					gm.galleryFilter.Organized = &organised
-				}
-			})
+	// 	case "organised", "organized":
+	// 		var dst struct {
+	// 			Organised *bool
+	// 		}
+	// 		if err := msg.Arguments.Bind(&dst); err != nil {
+	// 			return &s, NewErrorCmd(err)
+	// 		}
+	// 		return s.PushState(func(gm *GalleriesModel) {
+	// 			if dst.Organised != nil {
+	// 				gm.galleryFilter.Organized = dst.Organised
+	// 			} else {
+	// 				organised := true
+	// 				gm.galleryFilter.Organized = &organised
+	// 			}
+	// 		})
 
-		case "favourite", "favorite":
-			var dst struct {
-				Favourite *bool
-			}
-			if err := msg.Arguments.Bind(&dst); err != nil {
-				return &s, NewErrorCmd(err)
-			}
-			return s.PushState(func(gm *GalleriesModel) {
-				if dst.Favourite != nil {
-					gm.galleryFilter.PerformerFavourite = dst.Favourite
-				} else {
-					favourite := true
-					gm.galleryFilter.PerformerFavourite = &favourite
-				}
-			})
+	// 	case "favourite", "favorite":
+	// 		var dst struct {
+	// 			Favourite *bool
+	// 		}
+	// 		if err := msg.Arguments.Bind(&dst); err != nil {
+	// 			return &s, NewErrorCmd(err)
+	// 		}
+	// 		return s.PushState(func(gm *GalleriesModel) {
+	// 			if dst.Favourite != nil {
+	// 				gm.galleryFilter.PerformerFavourite = dst.Favourite
+	// 			} else {
+	// 				favourite := true
+	// 				gm.galleryFilter.PerformerFavourite = &favourite
+	// 			}
+	// 		})
 
-		case "more":
-			return s.newTabPerformerCmd()
+	// 	case "more":
+	// 		return s.newTabPerformerCmd()
 
-		case "rated":
-			return s.PushState(func(gm *GalleriesModel) {
-				gm.galleryFilter.Rating100 = &stash.IntCriterion{
-					Modifier: stash.CriterionModifierNotNull,
-				}
-			})
+	// 	case "rated":
+	// 		return s.PushState(func(gm *GalleriesModel) {
+	// 			gm.galleryFilter.Rating100 = &stash.IntCriterion{
+	// 				Modifier: stash.CriterionModifierNotNull,
+	// 			}
+	// 		})
 
-		case "stash":
-			msg := OpenMsg{path.Join("galleries", s.Current().ID)}
-			return &s, func() tea.Msg { return msg }
-		}
+	// 	case "stash":
+	// 		msg := OpenMsg{path.Join("galleries", s.Current().ID)}
+	// 		return &s, func() tea.Msg { return msg }
+	// 	}
 
 	case galleriesMsg:
 		s.galleries, s.pageState.total = msg.galleries, msg.total

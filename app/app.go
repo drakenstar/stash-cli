@@ -2,13 +2,14 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/action"
+	"github.com/drakenstar/stash-cli/actions"
 	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
@@ -178,24 +179,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ui.CommandExecMsg:
 		m.mode = ModeNormal
-		a, err := action.Parse(msg.Command)
+		a := actions.New(msg.Command)
+		arg, err := a.Next()
 		if err != nil {
 			return m, NewErrorCmd(err)
 		}
 
-		switch a.Name {
+		switch arg.Value {
 		case "tab":
-			var dst struct {
-				SubAction string `action:"-"`
-				Name      string
+			arg, err = a.Next()
+			if err == io.EOF {
+				return m, nil
 			}
-			err := a.Arguments.Bind(&dst)
 			if err != nil {
 				return m, NewErrorCmd(err)
 			}
-
-			switch dst.SubAction {
+			switch arg.Label {
 			case "new":
+				var dst struct {
+					Name string `actions:",positional"`
+				}
+				if err := actions.Bind(a, &dst); err != nil {
+					return m, NewErrorCmd(err)
+				}
+
 				tabFunc, ok := m.tabFuncs[dst.Name]
 				if !ok {
 					return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", dst.Name))
@@ -211,7 +218,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Mode:  m.mode,
 			Input: msg.Command,
 		})
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return m, NewErrorCmd(err)
 		}
 		return m, func() tea.Msg { return imsg }
@@ -335,6 +342,10 @@ type ErrorMsg struct {
 
 // NewErrorCmd is a way to generate a tea.Cmd that returns an ErrorMsg.
 func NewErrorCmd(err error) tea.Cmd {
+	// Ignore EOF inputs, likely coming from end of argument input.
+	if err == io.EOF {
+		return nil
+	}
 	return func() tea.Msg {
 		return ErrorMsg{err}
 	}

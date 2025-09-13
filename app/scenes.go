@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/action"
+	"github.com/drakenstar/stash-cli/actions"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -138,8 +138,8 @@ func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
 var ScenesModelDefaultKeymap = map[string]string{
 	"up":    "skip -1",
 	"down":  "skip 1",
-	"enter": "open skip=1",
-	" ":     "open skip=1", // space
+	"enter": "open skip",
+	" ":     "open skip", // space
 	"z":     "skip -1",
 	"x":     "skip 1",
 	"o":     "open",
@@ -165,54 +165,40 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 		}, nil
 
 	default:
-		a, err := action.Parse(c.Input)
+		a := actions.New(c.Input)
+		arg, err := a.Next()
 		if err != nil {
 			return nil, err
 		}
 
-		switch a.Name {
+		switch arg.Value {
 		case "filter":
 			var msg ScenesModelFilterMsg
-			err := a.Arguments.Bind(&msg)
-			if err != nil {
-				return nil, err
-			}
-			return msg, nil
+			err := actions.Bind(a, &msg)
+			return msg, err
 
 		case "open":
 			var msg ScenesModelOpenMsg
-			err := a.Arguments.Bind(&msg)
-			if err != nil {
-				return nil, err
-			}
-			return msg, nil
+			err := actions.Bind(a, &msg)
+			return msg, err
 
 		case "openurl":
 			var msg ScenesModelOpenURLMsg
-			err := a.Arguments.Bind(&msg)
-			if err != nil {
-				return nil, err
-			}
-			return msg, nil
+			err := actions.Bind(a, &msg)
+			return msg, err
 
 		case "reset":
 			return ScenesModelResetMsg{}, nil
 
 		case "sort":
 			var msg ScenesModelSortMsg
-			err := a.Arguments.Bind(&msg)
-			if err != nil {
-				return nil, err
-			}
-			return msg, nil
+			err := actions.Bind(a, &msg)
+			return msg, err
 
 		case "skip":
 			var msg ScenesModelSkipMsg
-			err := a.Arguments.Bind(&msg)
-			if err != nil {
-				return nil, err
-			}
-			return msg, nil
+			err := actions.Bind(a, &msg)
+			return msg, err
 
 		case "undo":
 			return ScenesModelUndoMsg{}, nil
@@ -239,7 +225,7 @@ type ScenesModelFilterMsg struct {
 }
 
 type ScenesModelOpenMsg struct {
-	Skip bool
+	Skip bool `actions:",positional"`
 }
 
 type ScenesModelOpenURLMsg struct {
@@ -249,11 +235,11 @@ type ScenesModelOpenURLMsg struct {
 type ScenesModelResetMsg struct{}
 
 type ScenesModelSkipMsg struct {
-	Count int
+	Count int `actions:",positional"`
 }
 
 type ScenesModelSortMsg struct {
-	Field     string
+	Field     string `actions:",positional"`
 	Direction string
 }
 
