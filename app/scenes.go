@@ -8,8 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/args"
-	"github.com/drakenstar/stash-cli/bind"
+	"github.com/drakenstar/stash-cli/command"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -166,7 +165,7 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 		}, nil
 
 	default:
-		a := args.Parser(c.Input)
+		a := command.Parser(c.Input)
 		arg, err := a.Next()
 		if err != nil {
 			return nil, err
@@ -175,17 +174,17 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 		switch arg.Value {
 		case "filter":
 			var msg ScenesModelFilterMsg
-			err := bind.Bind(a, &msg)
+			err := command.Bind(a, &msg)
 			return msg, err
 
 		case "open":
 			var msg ScenesModelOpenMsg
-			err := bind.Bind(a, &msg)
+			err := command.Bind(a, &msg)
 			return msg, err
 
 		case "openurl":
 			var msg ScenesModelOpenURLMsg
-			err := bind.Bind(a, &msg)
+			err := command.Bind(a, &msg)
 			return msg, err
 
 		case "reset":
@@ -193,12 +192,12 @@ func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
 
 		case "sort":
 			var msg ScenesModelSortMsg
-			err := bind.Bind(a, &msg)
+			err := command.Bind(a, &msg)
 			return msg, err
 
 		case "skip":
 			var msg ScenesModelSkipMsg
-			err := bind.Bind(a, &msg)
+			err := command.Bind(a, &msg)
 			return msg, err
 
 		case "undo":

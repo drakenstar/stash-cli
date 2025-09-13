@@ -1,4 +1,4 @@
-package bind
+package command
 
 import (
 	"errors"
@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/drakenstar/stash-cli/args"
 )
 
 // Setter is an interface to allow fields in a destination struct to define their own logic for parsing strings into
@@ -25,7 +23,7 @@ var (
 	ErrNonPointerStruct = errors.New("bind destination must be a non-nil pointer to a struct value")
 )
 
-// Bind consumes all arguments from the given args.Iteraor until Next returns io.EOF and applies them to dest, which
+// Bind consumes all arguments from the given Iterator until Next returns io.EOF and applies them to dest, which
 // must be a pointer to a struct.
 //
 // Each argument is matched to a struct field by name or position and used to mutate dest. Most scalar types and some
@@ -40,7 +38,7 @@ var (
 // appear in the struct; reorder fields to change positional order. If the final positional field is a slice, any extra
 // arguments are appended to that slice.
 
-func Bind(a args.Iterator, dst any) error {
+func Bind(a Iterator, dst any) error {
 	v := reflect.ValueOf(dst)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return ErrNonPointerStruct

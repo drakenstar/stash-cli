@@ -1,11 +1,10 @@
-package bind
+package command
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/drakenstar/stash-cli/args"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,13 +38,13 @@ func ptr[T any](t T) *T {
 func TestBind(t *testing.T) {
 	t.Run("should error non-pointer", func(t *testing.T) {
 		dst := "string"
-		a := args.Parser("")
+		a := Parser("")
 		err := Bind(a, &dst)
 		require.Equal(t, ErrNonPointerStruct, err)
 	})
 	t.Run("should error non-nil", func(t *testing.T) {
 		var dst *testDest
-		a := args.Parser("")
+		a := Parser("")
 		err := Bind(a, dst)
 		require.Equal(t, ErrNonPointerStruct, err)
 	})
@@ -53,7 +52,7 @@ func TestBind(t *testing.T) {
 		var dst struct {
 			Foo string `actions:",positional"`
 		}
-		a := args.Parser("foo bar")
+		a := Parser("foo bar")
 		err := Bind(a, &dst)
 		require.Equal(t, "foo", dst.Foo) // Validate that we did actually write the first argument.
 		require.EqualError(t, err, "additional positional arguments given 'bar'")
@@ -62,14 +61,14 @@ func TestBind(t *testing.T) {
 		var dst struct {
 			Foo string
 		}
-		a := args.Parser("foo=foo bar=bar")
+		a := Parser("foo=foo bar=bar")
 		err := Bind(a, &dst)
 		require.Equal(t, "foo", dst.Foo) // Validate that we did actually write the first argument.
 		require.EqualError(t, err, "argument 'bar' does not map to bind destination")
 	})
 	t.Run("kitchen sink", func(t *testing.T) {
 		var dst testDest
-		a := args.Parser(`foo=bar baz=foo qux=99 quux=2025-09-12 corge grault=false "garply value" waldo=foo waldo=bar fred plugh=custom remaining1 remaining2`)
+		a := Parser(`foo=bar baz=foo qux=99 quux=2025-09-12 corge grault=false "garply value" waldo=foo waldo=bar fred plugh=custom remaining1 remaining2`)
 		err := Bind(a, &dst)
 		require.NoError(t, err)
 

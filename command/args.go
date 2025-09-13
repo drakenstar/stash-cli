@@ -1,4 +1,4 @@
-package args
+package command
 
 import (
 	"fmt"
@@ -8,17 +8,18 @@ import (
 	"unicode/utf8"
 )
 
-// args package
-//
-// This package provides parsing and binding capabilities around a small command DSL.  The DSL is optimised for typing
-// and succinctness.
-
-// An argument is a unit of command input.  An argument always has a Value, but can optionally also have a Name
-// prefixed by NameSeparator
+// Argument is a unit of command input.  An argument always has a Value, but can optionally also have a Name prefixed
+// by NameSeparator.  Argument inputs can be quoted if they contain spaces or name separators.
 type Argument struct {
 	Raw   string
 	Name  string
 	Value string
+}
+
+// IsName returns a boolean indicating if this is possibly a "name" argument, that is an argument that is defined
+// without an explicit name, and is not a quoted value.
+func (a Argument) IsName() bool {
+	return a.Name == "" && len(a.Raw) > 0 && a.Raw[0] != '"' && a.Raw[0] != '\''
 }
 
 // Iterator is an interface that yields successive arguments for each call to Next.  It is assumed to be stateful,

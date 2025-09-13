@@ -9,8 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drakenstar/stash-cli/args"
-	"github.com/drakenstar/stash-cli/bind"
+	"github.com/drakenstar/stash-cli/command"
 	"github.com/drakenstar/stash-cli/config"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
@@ -180,7 +179,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ui.CommandExecMsg:
 		m.mode = ModeNormal
-		a := args.Parser(msg.Command)
+		a := command.Parser(msg.Command)
 		arg, err := a.Next()
 		if err != nil {
 			return m, NewErrorCmd(err)
@@ -200,7 +199,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var dst struct {
 					Name string `actions:",positional"`
 				}
-				if err := bind.Bind(a, &dst); err != nil {
+				if err := command.Bind(a, &dst); err != nil {
 					return m, NewErrorCmd(err)
 				}
 
