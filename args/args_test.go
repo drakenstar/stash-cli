@@ -1,4 +1,4 @@
-package actions
+package args
 
 import (
 	"errors"
@@ -18,12 +18,12 @@ func TestAction(t *testing.T) {
 			"simple",
 			"command \ttest bar\t\"quoted\\\" input\t\" foo=bar foo=\"quoted bar\"",
 			[]any{
-				Argument{Raw: `command`, Label: "", Value: "command"},
-				Argument{Raw: `test`, Label: "", Value: "test"},
-				Argument{Raw: `bar`, Label: "", Value: "bar"},
-				Argument{Raw: `"quoted\" input	"`, Label: "", Value: "quoted\" input\t"},
-				Argument{Raw: `foo=bar`, Label: "foo", Value: "bar"},
-				Argument{Raw: `foo="quoted bar"`, Label: "foo", Value: "quoted bar"},
+				Argument{Raw: `command`, Name: "", Value: "command"},
+				Argument{Raw: `test`, Name: "", Value: "test"},
+				Argument{Raw: `bar`, Name: "", Value: "bar"},
+				Argument{Raw: `"quoted\" input	"`, Name: "", Value: "quoted\" input\t"},
+				Argument{Raw: `foo=bar`, Name: "foo", Value: "bar"},
+				Argument{Raw: `foo="quoted bar"`, Name: "foo", Value: "quoted bar"},
 				io.EOF,
 			},
 		},
@@ -31,8 +31,8 @@ func TestAction(t *testing.T) {
 			"quoted edges",
 			`"\"foo" "bar\""`,
 			[]any{
-				Argument{Raw: `"\"foo"`, Label: "", Value: `"foo`},
-				Argument{Raw: `"bar\""`, Label: "", Value: `bar"`},
+				Argument{Raw: `"\"foo"`, Name: "", Value: `"foo`},
+				Argument{Raw: `"bar\""`, Name: "", Value: `bar"`},
 				io.EOF,
 			},
 		},
@@ -40,7 +40,7 @@ func TestAction(t *testing.T) {
 			"unterminated quote",
 			`foo "bar`,
 			[]any{
-				Argument{Raw: `foo`, Label: "", Value: `foo`},
+				Argument{Raw: `foo`, Name: "", Value: `foo`},
 				errors.New("unterminated quote as position 8"),
 			},
 		},
@@ -48,14 +48,14 @@ func TestAction(t *testing.T) {
 			"separator in value",
 			`foo="bar=" foo=bar=`,
 			[]any{
-				Argument{Raw: `foo="bar="`, Label: "foo", Value: `bar=`},
-				errors.New("argument contains multiple label separators = as position 19"),
+				Argument{Raw: `foo="bar="`, Name: "foo", Value: `bar=`},
+				errors.New("argument contains multiple name separators = as position 19"),
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.title, func(t *testing.T) {
-			a := New(test.input)
+			a := Parser(test.input)
 			for _, next := range test.expected {
 				arg, err := a.Next()
 				if _, ok := next.(Argument); ok {

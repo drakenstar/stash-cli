@@ -1,4 +1,4 @@
-package actions
+package args
 
 import (
 	"fmt"
@@ -8,12 +8,27 @@ import (
 	"unicode/utf8"
 )
 
-// action package
+// args package
 //
 // This package provides parsing and binding capabilities around a small command DSL.  The DSL is optimised for typing
 // and succinctness.
 
-const LabelSeparator = '='
+// An argument is a unit of command input.  An argument always has a Value, but can optionally also have a Name
+// prefixed by NameSeparator
+type Argument struct {
+	Raw   string
+	Name  string
+	Value string
+}
+
+// Iterator is an interface that yields successive arguments for each call to Next.  It is assumed to be stateful,
+// such that once exhausted there is no mechanism for rewinding arguments.  An io.EOF should be returned to indicate
+// that no more arguments are available.
+type Iterator interface {
+	Next() (Argument, error)
+}
+
+const NameSeparator = '='
 
 // parser is a stateful representation of the parsing of a line of command input.  This struct can have Next() called
 // any number of times (input allowing), before a caller decides to Bind().  Any call after Bind() will error with
@@ -24,16 +39,10 @@ type parser struct {
 	pos int
 }
 
-// New returns a pointer to a new instance of Action.  Input is provided as a string value.  io.Reader is not used
+// Parser returns a pointer to a new instance of Action.  Input is provided as a string value.  io.Reader is not used
 // since inputs are expected to be small single lines of text.
-func New(input string) *parser {
+func Parser(input string) *parser {
 	return &parser{input: input}
-}
-
-type Argument struct {
-	Raw   string
-	Label string
-	Value string
 }
 
 // Next returns the next token
@@ -54,17 +63,17 @@ func (a *parser) Next() (Argument, error) {
 
 	rawStart := a.pos
 
-	value, parsedLabel, err := a.parseValue()
+	value, parsedName, err := a.parseValue()
 	if err != nil {
 		return Argument{}, err
 	}
 
 	var t Argument
-	if parsedLabel {
-		t.Label = value
-		value, parsedLabel, err := a.parseValue()
-		if parsedLabel {
-			return Argument{}, fmt.Errorf("argument contains multiple label separators = as position %d", a.pos)
+	if parsedName {
+		t.Name = value
+		value, parsedName, err := a.parseValue()
+		if parsedName {
+			return Argument{}, fmt.Errorf("argument contains multiple name separators = as position %d", a.pos)
 		}
 		if err != nil {
 			return Argument{}, err
@@ -89,32 +98,32 @@ func (a *parser) parseValue() (string, bool, error) {
 		return unquote(value), false, nil
 	}
 
-	// Semantically it's unclear what an argument starting with a label separator would mean so exit early.
-	if a.input[a.pos] == LabelSeparator {
-		return "", false, fmt.Errorf("arguments may not start with the label separator = at position %d", a.pos)
+	// Semantically it's unclear what an argument starting with a name separator would mean so exit early.
+	if a.input[a.pos] == NameSeparator {
+		return "", false, fmt.Errorf("arguments may not start with the name separator = at position %d", a.pos)
 	}
 
 	start := a.pos
-	parsedLabel := false
+	parsedName := false
 	for a.pos < len(a.input) {
 		r, size := utf8.DecodeRuneInString(a.input[a.pos:])
 		if unicode.IsSpace(r) {
 			break
 		}
-		if r == LabelSeparator {
-			parsedLabel = true
+		if r == NameSeparator {
+			parsedName = true
 			break
 		}
 		a.pos += size
 	}
 
 	end := a.pos
-	// If we found a label, we want to advance the position to the start of the value.
-	if parsedLabel {
+	// If we found a name, we want to advance the position to the start of the value.
+	if parsedName {
 		a.pos += 1
 	}
 
-	return a.input[start:end], parsedLabel, nil
+	return a.input[start:end], parsedName, nil
 }
 
 // parseQuotedString takes a string of input, that starts with a quote

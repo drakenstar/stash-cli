@@ -1,4 +1,4 @@
-package actions
+package bind
 
 import (
 	"errors"
@@ -8,13 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
 
-// ArgParser is an iterator style interface, where Next should return arguments until exhausted, at which point io.EOF
-// should be returned.
-type ArgParser interface {
-	Next() (Argument, error)
-}
+	"github.com/drakenstar/stash-cli/args"
+)
 
 // Setter is an interface to allow fields in a destination struct to define their own logic for parsing strings into
 // values.
@@ -29,22 +25,22 @@ var (
 	ErrNonPointerStruct = errors.New("bind destination must be a non-nil pointer to a struct value")
 )
 
-// Bind consumes all arguments from the given ArgParser until Next returns io.EOF and applies them to dest, which must
-// be a pointer to a struct.
+// Bind consumes all arguments from the given args.Iteraor until Next returns io.EOF and applies them to dest, which
+// must be a pointer to a struct.
 //
-// Each argument is matched to a struct field by label or position and used to mutate dest. Most scalar types and some
+// Each argument is matched to a struct field by name or position and used to mutate dest. Most scalar types and some
 // well-known stdlib types are supported.  Pointer fields are initialized to a zero value before being set. Boolean
 // fields may be specified by name alone to imply true. Slice fields accept repeated arguments and each value is
 // appended.
 //
-// By default, arguments are matched by label to the lower-case field name.  If a custom name is required it can be
-// defined by struct label, e.g. `actions="custom-label"`.  This style of matching cannot be opted out of.
+// By default, arguments are matched by name to the lower-case field name.  If a custom name is required it can be
+// defined by struct name, e.g. `actions="custom-name"`.  This style of matching cannot be opted out of.
 //
 // Positional matching can be enabled by adding ",positional" to the field tag. They are bound in the order fields
 // appear in the struct; reorder fields to change positional order. If the final positional field is a slice, any extra
 // arguments are appended to that slice.
 
-func Bind(a ArgParser, dst any) error {
+func Bind(a args.Iterator, dst any) error {
 	v := reflect.ValueOf(dst)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return ErrNonPointerStruct
@@ -87,7 +83,7 @@ func Bind(a ArgParser, dst any) error {
 		}
 
 		// This is a positional argument, so attempt to write to the next positional input.
-		if arg.Label == "" {
+		if arg.Name == "" {
 			// Special case: if an argument value has the name of a boolean field in the destination, then we treat
 			// this as an implicit arg=true.  This is a convenience to allow having actions like "open no-skip"
 			if f, ok := named[arg.Value]; ok && isBool(f) {
@@ -108,9 +104,9 @@ func Bind(a ArgParser, dst any) error {
 		}
 
 		// Otherwise we have a named value, so all we need to do here is write.
-		f, ok := named[arg.Label]
+		f, ok := named[arg.Name]
 		if !ok {
-			return fmt.Errorf("argument '%s' does not map to bind destination", arg.Label)
+			return fmt.Errorf("argument '%s' does not map to bind destination", arg.Name)
 		}
 		set(f, arg.Value)
 	}
