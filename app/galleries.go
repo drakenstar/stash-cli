@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drakenstar/stash-cli/command"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/drakenstar/stash-cli/ui"
 )
@@ -130,8 +131,12 @@ func (m *GalleriesModel) Pop() (*GalleriesModel, tea.Cmd) {
 	return m, m.updateCmd()
 }
 
-func (m GalleriesModel) Interpret(Command) (tea.Msg, error) {
-	return nil, nil
+func (m GalleriesModel) CommandConfig() command.Config {
+	return nil
+}
+
+func (m GalleriesModel) Search(query string) tea.Msg {
+	return nil
 }
 
 func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {

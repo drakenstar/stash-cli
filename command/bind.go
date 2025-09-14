@@ -20,7 +20,8 @@ type Setter interface {
 const TagKey = "actions"
 
 var (
-	ErrNonPointerStruct = errors.New("bind destination must be a non-nil pointer to a struct value")
+	ErrUnrecognisedArgument = errors.New("unrecognised argument")
+	ErrNonPointerStruct     = errors.New("bind destination must be a non-nil pointer to a struct value")
 )
 
 // Bind consumes all arguments from the given Iterator until Next returns io.EOF and applies them to dest, which
@@ -90,7 +91,7 @@ func Bind(a Iterator, dst any) error {
 			}
 
 			if len(positional) <= pos {
-				return fmt.Errorf("additional positional arguments given '%s'", arg.Raw)
+				return fmt.Errorf("%w: '%s'", ErrUnrecognisedArgument, arg.Raw)
 			}
 			set(positional[pos], arg.Value)
 			// If the final positional value is a slice, that means we can continue to append to it for any additional
@@ -104,7 +105,7 @@ func Bind(a Iterator, dst any) error {
 		// Otherwise we have a named value, so all we need to do here is write.
 		f, ok := named[arg.Name]
 		if !ok {
-			return fmt.Errorf("argument '%s' does not map to bind destination", arg.Name)
+			return fmt.Errorf("%w: %s", ErrUnrecognisedArgument, arg.Name)
 		}
 		set(f, arg.Value)
 	}

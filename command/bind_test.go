@@ -55,7 +55,8 @@ func TestBind(t *testing.T) {
 		a := Parser("foo bar")
 		err := Bind(a, &dst)
 		require.Equal(t, "foo", dst.Foo) // Validate that we did actually write the first argument.
-		require.EqualError(t, err, "additional positional arguments given 'bar'")
+		require.EqualError(t, err, "unrecognised argument: 'bar'")
+		require.ErrorIs(t, err, ErrUnrecognisedArgument)
 	})
 	t.Run("should error when unable to map argument", func(t *testing.T) {
 		var dst struct {
@@ -64,7 +65,8 @@ func TestBind(t *testing.T) {
 		a := Parser("foo=foo bar=bar")
 		err := Bind(a, &dst)
 		require.Equal(t, "foo", dst.Foo) // Validate that we did actually write the first argument.
-		require.EqualError(t, err, "argument 'bar' does not map to bind destination")
+		require.EqualError(t, err, "unrecognised argument: bar")
+		require.ErrorIs(t, err, ErrUnrecognisedArgument)
 	})
 	t.Run("kitchen sink", func(t *testing.T) {
 		var dst testDest

@@ -147,7 +147,7 @@ var ScenesModelDefaultKeymap = map[string]string{
 	"u":     "undo", // state pop?  Maybe some sort of generic state management command
 	"f":     "filter favourite=1",
 	"p":     "filter performer=current",
-	"`":     "openurl stash",
+	"`":     "open-url stash",
 }
 
 // Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
@@ -157,61 +157,29 @@ var ScenesModelDefaultCommandAlias = map[string]string{
 	"year":   "filter date=>-1y",
 }
 
-func (m ScenesModel) Interpret(c Command) (tea.Msg, error) {
-	switch c.Mode {
-	case ModeFind:
-		return ScenesModelFilterMsg{
-			Query: &c.Input,
-		}, nil
+var ScenesModelCommandConfig command.Config = command.Config{
+	"filter":   binder[ScenesModelFilterMsg](),
+	"open":     binder[ScenesModelOpenMsg](),
+	"open-url": binder[ScenesModelOpenURLMsg](),
+	"reset":    binder[ScenesModelResetMsg](),
+	"sort":     binder[ScenesModelSortMsg](),
+	"skip":     binder[ScenesModelSkipMsg](),
+	"undo":     binder[ScenesModelUndoMsg](),
+}
 
-	default:
-		a := command.Parser(c.Input)
-		arg, err := a.Next()
-		if err != nil {
-			return nil, err
-		}
+func (m ScenesModel) CommandConfig() command.Config {
+	return ScenesModelCommandConfig
+}
 
-		switch arg.Value {
-		case "filter":
-			var msg ScenesModelFilterMsg
-			err := command.Bind(a, &msg)
-			return msg, err
-
-		case "open":
-			var msg ScenesModelOpenMsg
-			err := command.Bind(a, &msg)
-			return msg, err
-
-		case "openurl":
-			var msg ScenesModelOpenURLMsg
-			err := command.Bind(a, &msg)
-			return msg, err
-
-		case "reset":
-			return ScenesModelResetMsg{}, nil
-
-		case "sort":
-			var msg ScenesModelSortMsg
-			err := command.Bind(a, &msg)
-			return msg, err
-
-		case "skip":
-			var msg ScenesModelSkipMsg
-			err := command.Bind(a, &msg)
-			return msg, err
-
-		case "undo":
-			return ScenesModelUndoMsg{}, nil
-		}
+func (m ScenesModel) Search(query string) tea.Msg {
+	return ScenesModelFilterMsg{
+		Query: &query,
 	}
-
-	return nil, nil
 }
 
 // ScenesModelFilterMsg controls the filtering of various fields on the model. Currently this has a bit of a limitation
 // in that although pointers can be used to determine if the user intended to set a field or not, there is no way
-// currently to reset a filter.  I'm not sure the best method for this yet, possibly we need some sort of wrapper type
-// that implements action.Binder
+// currently to reset a filter.
 type ScenesModelFilterMsg struct {
 	Query        *string
 	Favourite    *bool

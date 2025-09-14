@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -27,10 +28,10 @@ type TabModel interface {
 	View() string
 	// Returns a string name to be used for the tab title
 	Title() string
-	// Takes a command and interprets it, returning a tea.Msg that will be dispatched to the application.  The primary
-	// use is for input commands to be convered into tea.Msg that can be executed in the TabModel (or other TabModel
-	// instances).  This command must return a tea.Msg instead of a tea.Cmd, implying that it should not do I/O
-	Interpret(Command) (tea.Msg, error)
+	// CommandConfig returns a Config for all commands the TabModel supports.
+	CommandConfig() command.Config
+	// Search should return a message to support searching.
+	Search(string) tea.Msg
 }
 
 // Command represets a command message that was input into the application in a specific mode.
@@ -131,6 +132,24 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
+var ModelCommandConfig = command.Config{
+	"exit": static(tea.QuitMsg{}),
+	"tab": {
+		SubCommands: command.Config{
+			"new":    binder[ModelTabNewMsg](),
+			"switch": binder[ModelTabSwitchMsg](),
+		},
+	},
+}
+
+type ModelTabNewMsg struct {
+	Name string
+}
+
+type ModelTabSwitchMsg struct {
+	Index int
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
@@ -177,51 +196,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case ModelTabNewMsg:
+		tabFunc, ok := m.tabFuncs[msg.Name]
+		if !ok {
+			return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", msg.Name))
+		}
+		return m, func() tea.Msg { return TabOpenMsg{tabFunc} }
+
+	case ModelTabSwitchMsg:
+
 	case ui.CommandExecMsg:
 		m.mode = ModeNormal
-		a := command.Parser(msg.Command)
-		arg, err := a.Next()
+
+		// First attempt to resolve to a Model command, since these take precedence.
+		ret, err := ModelCommandConfig.Resolve(command.Parser(msg.Command))
+		if err != nil {
+			if !errors.As(err, &command.UnmatchedCommandError{}) {
+				return m, NewErrorCmd(err)
+			}
+		} else {
+			return m, func() tea.Msg { return ret }
+		}
+
+		// We're still here, means that the command wasn't matched.  So let's attempt to match a TabModel command.
+		ret, err = m.tabs[m.active].model.CommandConfig().Resolve(command.Parser(msg.Command))
 		if err != nil {
 			return m, NewErrorCmd(err)
 		}
-
-		switch arg.Value {
-		case "tab":
-			arg, err = a.Next()
-			if err == io.EOF {
-				return m, nil
-			}
-			if err != nil {
-				return m, NewErrorCmd(err)
-			}
-			switch arg.Value {
-			case "new":
-				var dst struct {
-					Name string `actions:",positional"`
-				}
-				if err := command.Bind(a, &dst); err != nil {
-					return m, NewErrorCmd(err)
-				}
-
-				tabFunc, ok := m.tabFuncs[dst.Name]
-				if !ok {
-					return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", dst.Name))
-				}
-				return m, func() tea.Msg { return TabOpenMsg{tabFunc} }
-			}
-
-		case "exit":
-			return m, tea.Quit
-		}
-
-		imsg, err := m.tabs[m.active].model.Interpret(Command{
-			Mode:  m.mode,
-			Input: msg.Command,
-		})
-		if err != nil && err != io.EOF {
-			return m, NewErrorCmd(err)
-		}
-		return m, func() tea.Msg { return imsg }
+		return m, func() tea.Msg { return ret }
 
 	case ui.CommandExitMsg:
 		m.mode = ModeNormal
@@ -242,6 +244,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	// TODO consolidate with ModelTabNewMsg above
 	case TabOpenMsg:
 		return m.TabOpen(msg.tabFunc())
 

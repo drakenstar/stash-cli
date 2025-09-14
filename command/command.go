@@ -9,7 +9,9 @@ import (
 // Config is a map of command names to configurations.  Each entry in this map defines a command that can be resolved
 // by passing an Iterator to Resolve().  Each Command can also have sub-commands, or a Resolve func that will be called
 // once it's determined that the input command is matched with this config.
-type Config map[string]struct {
+type Config map[string]Command
+
+type Command struct {
 	Resolve     func(Iterator) (any, error)
 	SubCommands Config
 }
@@ -18,9 +20,18 @@ type Config map[string]struct {
 // users because it's their input that is directly leading to them, and they can take action to rectify.
 var (
 	ErrNoInput    = errors.New("no arguments returned")
-	ErrNoCommand  = errors.New("no matched command")
 	ErrNoResolver = errors.New("no resolver configured")
 )
+
+// UnmatchedCommandError is an error type to allow callers to Resolve to implement control flow, fall-backs etc. in
+// cases where a command was not matched in the root configuration.
+type UnmatchedCommandError struct {
+	command Argument
+}
+
+func (err UnmatchedCommandError) Error() string {
+	return fmt.Sprintf("no match for command %s", err.command.Raw)
+}
 
 // Resolve takes an Iterator and calls Next until it can match a Command.  Once a match is made, it will call the
 // command Resolve function and pass it the remaining arguments.
@@ -42,9 +53,10 @@ func (s Config) Resolve(it Iterator) (any, error) {
 	}
 	node, ok := s[arg.Raw]
 	if !ok {
-		return nil, ErrNoCommand
+		return nil, UnmatchedCommandError{arg}
 	}
 
+	cmd := arg.Raw
 	for len(node.SubCommands) > 0 {
 		nx, err := p.Peek()
 		if err == io.EOF {
@@ -62,13 +74,18 @@ func (s Config) Resolve(it Iterator) (any, error) {
 		}
 		p.Commit()
 		node = child
+		cmd = nx.Raw
 	}
 
 	if node.Resolve == nil {
 		return nil, ErrNoResolver
 	}
 
-	return node.Resolve(p)
+	msg, err := node.Resolve(p)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", cmd, err)
+	}
+	return msg, nil
 }
 
 type peekIter struct {
