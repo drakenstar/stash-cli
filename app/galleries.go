@@ -131,66 +131,200 @@ func (m *GalleriesModel) Pop() (*GalleriesModel, tea.Cmd) {
 	return m, m.updateCmd()
 }
 
+// Keymap allows mapping a keyboard shortcut to a command.  Commands are interpretted in command mode and do not take
+// additional parameters.
+var GalleriesModelDefaultKeymap = map[string]string{
+	"up":    "skip -1",
+	"down":  "skip 1",
+	"enter": "open skip",
+	" ":     "open skip", // space
+	"z":     "skip -1",
+	"x":     "skip 1",
+	"o":     "open",
+	"r":     "sort random",
+	"u":     "undo", // state pop?  Maybe some sort of generic state management command
+	"f":     "filter favourite=1",
+	"p":     "filter performer=current",
+	"`":     "open-url stash",
+}
+
+// Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
+// additional inputs can be given after the alias.
+var GalleriesModelDefaultCommandAlias = map[string]string{
+	"recent": "filter createdAt=>-24h",
+	"year":   "filter date=>-1y",
+}
+
+var GalleriesModelCommandConfig command.Config = command.Config{
+	"filter":   binder[GalleriesModelFilterMsg](),
+	"open":     binder[GalleriesModelOpenMsg](),
+	"open-url": binder[GalleriesModelOpenURLMsg](),
+	"reset":    binder[GalleriesModelResetMsg](),
+	"sort":     binder[GalleriesModelSortMsg](),
+	"skip":     binder[GalleriesModelSkipMsg](),
+	"undo":     binder[GalleriesModelUndoMsg](),
+}
+
+// GalleriesModelFilterMsg controls the filtering of various fields on the model. Currently this has a bit of a limitation
+// in that although pointers can be used to determine if the user intended to set a field or not, there is no way
+// currently to reset a filter.
+type GalleriesModelFilterMsg struct {
+	Query        *string
+	Favourite    *bool
+	Organised    *bool
+	Rating       *int
+	Performer    *string
+	Count        *int
+	PerformerTag *string
+	Tag          *string
+	Studio       *string
+}
+
+type GalleriesModelOpenMsg struct {
+	Skip bool `actions:",positional"`
+}
+
+type GalleriesModelOpenURLMsg struct {
+	Source string
+}
+
+type GalleriesModelResetMsg struct{}
+
+type GalleriesModelSkipMsg struct {
+	Count int `actions:",positional"`
+}
+
+type GalleriesModelSortMsg struct {
+	Field     string `actions:",positional"`
+	Direction string
+}
+
+type GalleriesModelUndoMsg struct{}
+
 func (m GalleriesModel) CommandConfig() command.Config {
-	return nil
+	return GalleriesModelCommandConfig
 }
 
 func (m GalleriesModel) Search(query string) tea.Msg {
-	return nil
+	return GalleriesModelFilterMsg{
+		Query: &query,
+	}
 }
 
 func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyUp:
-			if s.pageState.Skip(-1) {
-				return &s, s.updateCmd()
+	case GalleriesModelFilterMsg:
+		return s.PushState(func(gm *GalleriesModel) {
+			if msg.Query != nil {
+				gm.query = *msg.Query
 			}
-		case tea.KeyDown:
-			if s.pageState.Skip(1) {
-				return &s, s.updateCmd()
+			if msg.Favourite != nil {
+				gm.galleryFilter.PerformerFavourite = msg.Favourite
 			}
-		case tea.KeyEnter, tea.KeySpace:
-			if s.pageState.Next() {
-				return &s, s.updateCmd()
+			if msg.Organised != nil {
+				gm.galleryFilter.Organized = msg.Organised
 			}
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
+			if msg.Rating != nil {
+				gm.galleryFilter.Rating100 = &stash.IntCriterion{
+					Modifier: stash.CriterionModifierEquals,
+					Value:    *msg.Rating,
+				}
+			}
+			if msg.Performer != nil {
+				if *msg.Performer == "current" {
+					var ids []string
+					for _, p := range gm.Current().Performers {
+						ids = append(ids, p.ID)
+					}
+					gm.galleryFilter.Performers = &stash.MultiCriterion{
+						Value:    ids,
+						Modifier: stash.CriterionModifierIncludes,
+					}
+				} else {
+					gm.galleryFilter.Performers = &stash.MultiCriterion{
+						Value:    []string{*msg.Performer},
+						Modifier: stash.CriterionModifierIncludes,
+					}
+				}
+			}
+			if msg.Studio != nil {
+				gm.galleryFilter.Studios = &stash.HierarchicalMultiCriterion{
+					Value:    []string{*msg.Studio},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			if msg.Tag != nil {
+				gm.galleryFilter.Tags = &stash.HierarchicalMultiCriterion{
+					Value:    []string{*msg.Tag},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			if msg.PerformerTag != nil {
+				gm.galleryFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
+					Value:    []string{*msg.PerformerTag},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+			if msg.Count != nil {
+				gm.galleryFilter.FileCount = &stash.IntCriterion{
+					Value:    *msg.Count,
+					Modifier: stash.CriterionModifierGreaterThan, // TODO modiifiers
+				}
+			}
+		})
+
+	case GalleriesModelOpenMsg:
+		if msg.Skip && s.pageState.Next() {
+			return &s, s.updateCmd()
+		}
+		cur := s.Current()
+		return &s, func() tea.Msg { return OpenMsg{cur} }
+
+	case GalleriesModelOpenURLMsg:
+		cur := s.Current()
+		var src string
+		switch msg.Source {
+		default:
+			src = path.Join("scenes", cur.ID)
+		}
+		return &s, func() tea.Msg { return OpenMsg{src} }
+
+	case GalleriesModelResetMsg:
+		return &s, s.reset()
+
+	case GalleriesModelSortMsg:
+		switch msg.Field {
+		case "random":
+			return s.PushState(func(sm *GalleriesModel) {
+				sm.sort = stash.RandomSort()
+			})
+		case "date":
+			return s.PushState(func(sm *GalleriesModel) {
+				sm.sort = "date"
+				sm.sortDirection = stash.SortDirectionAsc
+			})
+		// TODO it's probably the case that we want to parse this in the Interpret step rather than here.  We can just
+		// enumerate fields we're interested in for the time being.
+		case "-date":
+			return s.PushState(func(sm *GalleriesModel) {
+				sm.sort = "date"
+				sm.sortDirection = stash.SortDirectionDesc
+			})
 		}
 
-		switch msg.String() {
-		case "z":
-			if s.pageState.Skip(-1) {
-				return &s, s.updateCmd()
-			}
-		case "x":
-			if s.pageState.Skip(1) {
-				return &s, s.updateCmd()
-			}
-		case "o":
-			msg := OpenMsg{s.Current()}
-			return &s, func() tea.Msg { return msg }
-		case "r":
-			return s.PushState(func(gm *GalleriesModel) {
-				gm.sort = stash.RandomSort()
-			})
-		case "u": // "Undo"
-			return s.Pop()
-		case "f":
-			return s.PushState(func(gm *GalleriesModel) {
-				if gm.galleryFilter.PerformerFavourite == nil {
-					favourite := true
-					gm.galleryFilter.PerformerFavourite = &favourite
-				} else {
-					gm.galleryFilter.PerformerFavourite = nil
-				}
-			})
-		case "p":
-			return s.newTabPerformerCmd()
-		case "`":
-			msg := OpenMsg{path.Join("galleries", s.Current().ID)}
-			return &s, func() tea.Msg { return msg }
+	case GalleriesModelSkipMsg:
+		if s.pageState.Skip(msg.Count) {
+			return &s, s.updateCmd()
+		}
+
+	case GalleriesModelUndoMsg:
+		return s.Pop()
+
+	case tea.KeyMsg:
+		// TODO this is probably not where this ends up, instead we probably have some additional part of the TabModel
+		// interface that exposes keymaps (maybe).  I'll slot this in here now and it can return an execute command.
+		if cmd, ok := ScenesModelDefaultKeymap[msg.String()]; ok {
+			return &s, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 		}
 
 	case tea.WindowSizeMsg:
@@ -200,95 +334,6 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		}
 		s.SetHeight(msg.Height)
 		return &s, s.updateCmd()
-
-	// case action.Action:
-	// 	switch msg.Name {
-	// 	case "open":
-	// 		msg := OpenMsg{s.Current()}
-	// 		return &s, func() tea.Msg { return msg }
-
-	// 	case "random":
-	// 		return s.PushState(func(gm *GalleriesModel) {
-	// 			gm.sort = stash.RandomSort()
-	// 		})
-
-	// 	case "count":
-	// 		var dst struct {
-	// 			Count int `action:"-"`
-	// 		}
-	// 		if err := msg.Arguments.Bind(&dst); err != nil {
-	// 			return &s, NewErrorCmd(err)
-	// 		}
-	// 		return s.PushState(func(gm *GalleriesModel) {
-	// 			s.galleryFilter.ImageCount = &stash.IntCriterion{
-	// 				Value:    dst.Count,
-	// 				Modifier: stash.CriterionModifierGreaterThan,
-	// 			}
-	// 		})
-
-	// 	case "filter":
-	// 		var dst struct {
-	// 			Query string
-	// 		}
-	// 		if err := msg.Arguments.Bind(&dst); err != nil {
-	// 			return &s, NewErrorCmd(err)
-	// 		}
-	// 		return s.PushState(func(gm *GalleriesModel) {
-	// 			gm.query = dst.Query
-	// 		})
-
-	// 	case "reset":
-	// 		return &s, s.reset()
-
-	// 	case "refresh":
-	// 		return &s, s.updateCmd()
-
-	// 	case "organised", "organized":
-	// 		var dst struct {
-	// 			Organised *bool
-	// 		}
-	// 		if err := msg.Arguments.Bind(&dst); err != nil {
-	// 			return &s, NewErrorCmd(err)
-	// 		}
-	// 		return s.PushState(func(gm *GalleriesModel) {
-	// 			if dst.Organised != nil {
-	// 				gm.galleryFilter.Organized = dst.Organised
-	// 			} else {
-	// 				organised := true
-	// 				gm.galleryFilter.Organized = &organised
-	// 			}
-	// 		})
-
-	// 	case "favourite", "favorite":
-	// 		var dst struct {
-	// 			Favourite *bool
-	// 		}
-	// 		if err := msg.Arguments.Bind(&dst); err != nil {
-	// 			return &s, NewErrorCmd(err)
-	// 		}
-	// 		return s.PushState(func(gm *GalleriesModel) {
-	// 			if dst.Favourite != nil {
-	// 				gm.galleryFilter.PerformerFavourite = dst.Favourite
-	// 			} else {
-	// 				favourite := true
-	// 				gm.galleryFilter.PerformerFavourite = &favourite
-	// 			}
-	// 		})
-
-	// 	case "more":
-	// 		return s.newTabPerformerCmd()
-
-	// 	case "rated":
-	// 		return s.PushState(func(gm *GalleriesModel) {
-	// 			gm.galleryFilter.Rating100 = &stash.IntCriterion{
-	// 				Modifier: stash.CriterionModifierNotNull,
-	// 			}
-	// 		})
-
-	// 	case "stash":
-	// 		msg := OpenMsg{path.Join("galleries", s.Current().ID)}
-	// 		return &s, func() tea.Msg { return msg }
-	// 	}
 
 	case galleriesMsg:
 		s.galleries, s.pageState.total = msg.galleries, msg.total

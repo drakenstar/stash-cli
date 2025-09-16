@@ -20,8 +20,13 @@ type Setter interface {
 const TagKey = "actions"
 
 var (
+	// Runtime errors related to bind destination, likely to be logic errors.
+	ErrNonPointerStruct           = errors.New("bind destination must be a non-nil pointer to a struct value")
+	ErrUnsupportedDestinationKind = errors.New("unsupported destination kind")
+
+	// Input errors, likely to be errors user can correct.
 	ErrUnrecognisedArgument = errors.New("unrecognised argument")
-	ErrNonPointerStruct     = errors.New("bind destination must be a non-nil pointer to a struct value")
+	ErrInvalidValue         = errors.New("invalid value")
 )
 
 // Bind consumes all arguments from the given Iterator until Next returns io.EOF and applies them to dest, which
@@ -71,7 +76,7 @@ func Bind(a Iterator, dst any) error {
 		}
 	}
 
-	pos := 0 // Keep state on which positional argument we've written
+	pos := 0 // Keep state on which positional argument we should write to.
 	for {
 		arg, err := a.Next()
 		if err == io.EOF {
@@ -85,7 +90,7 @@ func Bind(a Iterator, dst any) error {
 		if arg.Name == "" {
 			// Special case: if an argument value has the name of a boolean field in the destination, then we treat
 			// this as an implicit arg=true.  This is a convenience to allow having actions like "open no-skip"
-			if f, ok := named[arg.Value]; ok && isBool(f) {
+			if f, ok := named[arg.Value]; ok && isBoolOrBoolPtr(f) {
 				set(f, "true")
 				continue
 			}
@@ -94,8 +99,8 @@ func Bind(a Iterator, dst any) error {
 				return fmt.Errorf("%w: '%s'", ErrUnrecognisedArgument, arg.Raw)
 			}
 			set(positional[pos], arg.Value)
-			// If the final positional value is a slice, that means we can continue to append to it for any additional
-			// arguments that we encounter.
+			// Special case: if the final positional value is a slice, that means we can continue to append to it for
+			// any additional arguments that we encounter.
 			if positional[pos].Kind() != reflect.Slice {
 				pos++
 			}
@@ -175,7 +180,7 @@ func set(f reflect.Value, s string) error {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		intValue, err := strconv.Atoi(s)
 		if err != nil {
-			return fmt.Errorf("failed to parse '%s' as integer: %v", s, err)
+			return fmt.Errorf("%w: failed to parse '%s' as integer: %w", ErrInvalidValue, s, err)
 		}
 		f.SetInt(int64(intValue))
 		return nil
@@ -183,7 +188,7 @@ func set(f reflect.Value, s string) error {
 	case reflect.Float32, reflect.Float64:
 		floatValue, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			return fmt.Errorf("failed to parse '%s' as float: %v", s, err)
+			return fmt.Errorf("%w: failed to parse '%s' as float: %w", ErrInvalidValue, s, err)
 		}
 		f.SetFloat(floatValue)
 		return nil
@@ -191,26 +196,26 @@ func set(f reflect.Value, s string) error {
 	case reflect.Bool:
 		boolValue, err := strconv.ParseBool(s)
 		if err != nil {
-			return fmt.Errorf("failed to parse '%s' as bool: %v", s, err)
+			return fmt.Errorf("%w: failed to parse '%s' as bool: %w", ErrInvalidValue, s, err)
 		}
 		f.SetBool(boolValue)
 		return nil
 
 	case reflect.Struct:
 		if f.Type() == reflect.TypeOf(time.Time{}) {
-			dateValue, err := time.Parse("2006-01-02", s)
+			dateValue, err := time.Parse("2006-01-02", s) // TODO currently only handles dates, not times as well.
 			if err != nil {
-				return fmt.Errorf("failed to parse '%s' as date: %v", s, err)
+				return fmt.Errorf("%w: failed to parse '%s' as date: %w", ErrInvalidValue, s, err)
 			}
 			f.Set(reflect.ValueOf(dateValue))
 			return nil
 		}
 	}
 
-	return fmt.Errorf("unsupported type: %v", f.Kind())
+	return fmt.Errorf("%w: %v", ErrUnsupportedDestinationKind, f.Kind())
 }
 
-func isBool(v reflect.Value) bool {
+func isBoolOrBoolPtr(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Bool:
 		return true

@@ -206,6 +206,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModelTabSwitchMsg:
 
 	case ui.CommandExecMsg:
+		if m.mode == ModeFind {
+			m.mode = ModeNormal
+			findMsg := m.tabs[m.active].model.Search(msg.Command)
+			return m, func() tea.Msg { return findMsg }
+		}
+
 		m.mode = ModeNormal
 
 		// First attempt to resolve to a Model command, since these take precedence.
