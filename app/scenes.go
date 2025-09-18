@@ -193,7 +193,7 @@ type ScenesModelFilterMsg struct {
 }
 
 type ScenesModelOpenMsg struct {
-	Skip bool `actions:",positional"`
+	Skip bool `command:",positional"`
 }
 
 type ScenesModelOpenURLMsg struct {
@@ -203,11 +203,11 @@ type ScenesModelOpenURLMsg struct {
 type ScenesModelResetMsg struct{}
 
 type ScenesModelSkipMsg struct {
-	Count int `actions:",positional"`
+	Count int `command:",positional"`
 }
 
 type ScenesModelSortMsg struct {
-	Field     string `actions:",positional"`
+	Field     string `command:",positional"`
 	Direction string
 }
 

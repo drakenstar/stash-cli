@@ -59,19 +59,35 @@ const (
 	ModeFind
 )
 
-// TabModelConfig maps a given TabModel to the commands that to map to it's activation.
+// TabModelConfig defines a "type" of tab that can be opened within the Model.
 type TabModelConfig struct {
-	NewFunc func() TabModel
+	NewFunc TabNewFunc
 	Name    string
-	KeyBind string
+}
+
+type TabNewFunc func(uint) TabModel
+
+var ModelDefaultKeymap = map[string]string{
+	"s":      "tab new scenes",
+	"g":      "tab new galleries",
+	"1":      "tab switch 1",
+	"2":      "tab switch 2",
+	"3":      "tab switch 3",
+	"4":      "tab switch 4",
+	"5":      "tab switch 5",
+	"6":      "tab switch 6",
+	"7":      "tab switch 7",
+	"8":      "tab switch 8",
+	"9":      "tab switch 9",
+	"ctrl+w": "tab close",
+	"ctrl+c": "exit",
 }
 
 type Model struct {
 	tabs   []tab
 	active int
 
-	tabFuncs map[string](func() TabModel)
-	keyBinds map[string]tea.Cmd
+	tabFuncs map[string](TabNewFunc)
 
 	screen Size
 
@@ -83,6 +99,8 @@ type Model struct {
 
 	cmdService *cmdService
 	opener     config.Opener
+
+	command command.Config
 }
 
 func New(stash stash.Stash, opener config.Opener) *Model {
@@ -91,14 +109,12 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	models := []TabModelConfig{
 		{
-			NewFunc: func() TabModel { return NewScenesModel(s, lookup) },
+			NewFunc: func(id uint) TabModel { return NewScenesModel(s, lookup) },
 			Name:    "scenes",
-			KeyBind: "s",
 		},
 		{
-			NewFunc: func() TabModel { return NewGalleriesModel(s, lookup) },
+			NewFunc: func(id uint) TabModel { return NewGalleriesModel(s, lookup) },
 			Name:    "galleries",
-			KeyBind: "g",
 		},
 	}
 
@@ -107,19 +123,40 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 		opener:     opener,
 	}
 
-	m.tabFuncs = make(map[string](func() TabModel))
-	m.keyBinds = make(map[string]tea.Cmd)
+	m.tabFuncs = make(map[string]TabNewFunc)
 	for _, mdl := range models {
 		m.tabFuncs[mdl.Name] = mdl.NewFunc
-		m.keyBinds[mdl.KeyBind] = func() tea.Msg { return TabOpenMsg{mdl.NewFunc} }
 	}
-
-	m.tabs = append(m.tabs, tab{uint(nextTabID()), models[0].NewFunc()})
 
 	m.commandInput = ui.NewCommandInput()
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
+
+	m.command = command.Config{
+		"exit": static(tea.QuitMsg{}),
+		"tab": {
+			SubCommands: command.Config{
+				"close": binder[ModelTabCloseMsg](),
+				"new": {
+					Resolve: func(i command.Iterator) (any, error) {
+						next, err := i.Next()
+						if err != nil {
+							return nil, err
+						}
+						tabConfig, ok := m.tabFuncs[next.Value]
+						if !ok {
+							return ErrorMsg{fmt.Errorf("unknown tab type '%s'", next.Value)}, nil
+						}
+						return ModelTabNewMsg{tabConfig}, nil
+					},
+				},
+				"switch": binder[ModelTabSwitchMsg](),
+			},
+		},
+	}
+
+	m.TabOpen(models[0].NewFunc)
 
 	return m
 }
@@ -132,23 +169,15 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-var ModelCommandConfig = command.Config{
-	"exit": static(tea.QuitMsg{}),
-	"tab": {
-		SubCommands: command.Config{
-			"new":    binder[ModelTabNewMsg](),
-			"switch": binder[ModelTabSwitchMsg](),
-		},
-	},
-}
-
 type ModelTabNewMsg struct {
-	Name string
+	NewFunc TabNewFunc
 }
 
 type ModelTabSwitchMsg struct {
-	Index int
+	Index int `command:",positional"`
 }
+
+type ModelTabCloseMsg struct{}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -161,14 +190,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
-
-		case tea.KeyCtrlW:
-			m.TabClose(m.active)
-			return m, nil
-		}
 
 		switch m.mode {
 		case ModeCommand, ModeFind:
@@ -177,11 +198,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		default:
 			switch msg.String() {
-			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-				i, _ := strconv.Atoi(msg.String())
-				m.TabSet(i - 1)
-				return m, nil
-
 			case ":":
 				m.mode = ModeCommand
 				return m, m.commandInput.Focus(":")
@@ -191,19 +207,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.commandInput.Focus("/")
 			}
 
-			if bind, ok := m.keyBinds[msg.String()]; ok {
-				return m, bind
+			if cmd, ok := ModelDefaultKeymap[msg.String()]; ok {
+				return m, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 			}
 		}
 
+	case ModelTabCloseMsg:
+		m.TabClose(m.active)
+		return m, nil
+
 	case ModelTabNewMsg:
-		tabFunc, ok := m.tabFuncs[msg.Name]
-		if !ok {
-			return m, NewErrorCmd(fmt.Errorf("invalid tab name '%s'", msg.Name))
-		}
-		return m, func() tea.Msg { return TabOpenMsg{tabFunc} }
+		return m.TabOpen(msg.NewFunc)
 
 	case ModelTabSwitchMsg:
+		m.TabSet(msg.Index - 1)
+		return m, nil
 
 	case ui.CommandExecMsg:
 		if m.mode == ModeFind {
@@ -215,7 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = ModeNormal
 
 		// First attempt to resolve to a Model command, since these take precedence.
-		ret, err := ModelCommandConfig.Resolve(command.Parser(msg.Command))
+		ret, err := m.command.Resolve(command.Parser(msg.Command))
 		if err != nil {
 			if !errors.As(err, &command.UnmatchedCommandError{}) {
 				return m, NewErrorCmd(err)
@@ -249,10 +267,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return ErrorMsg{}
 			}
 		}
-
-	// TODO consolidate with ModelTabNewMsg above
-	case TabOpenMsg:
-		return m.TabOpen(msg.tabFunc())
 
 	case OpenMsg:
 		return m.openCmd(msg.target)
@@ -315,8 +329,9 @@ func (m *Model) openCmd(target any) (*Model, tea.Cmd) {
 }
 
 // TabOpen creates a new tab with the given TabModel and sets it as active.
-func (a *Model) TabOpen(m TabModel) (tea.Model, tea.Cmd) {
-	a.tabs = append(a.tabs, tab{nextTabID(), m})
+func (a *Model) TabOpen(newFunc TabNewFunc) (tea.Model, tea.Cmd) {
+	id := nextTabID()
+	a.tabs = append(a.tabs, tab{id, newFunc(id)})
 	a.active = len(a.tabs) - 1
 	return a, a.tabs[a.active].model.Init(a.screen)
 }
@@ -358,10 +373,6 @@ func NewErrorCmd(err error) tea.Cmd {
 	return func() tea.Msg {
 		return ErrorMsg{err}
 	}
-}
-
-type TabOpenMsg struct {
-	tabFunc (func() TabModel)
 }
 
 type OpenMsg struct {

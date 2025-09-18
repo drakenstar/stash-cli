@@ -17,7 +17,7 @@ type Setter interface {
 }
 
 // TagKey is the key of the struct tag used to configure binding.
-const TagKey = "actions"
+const TagKey = "command"
 
 var (
 	// Runtime errors related to bind destination, likely to be logic errors.

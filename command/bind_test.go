@@ -11,17 +11,17 @@ import (
 type testDest struct {
 	foo       string
 	Foo       string
-	Bar       *string `actions:"baz"`
+	Bar       *string `command:"baz"`
 	Qux       int
 	Quux      time.Time
 	Quzz      *bool
 	Corge     *bool
 	Grault    bool
-	Garply    string `actions:",positional"`
+	Garply    string `command:",positional"`
 	Waldo     []string
-	Fred      string `actions:",positional"`
+	Fred      string `command:",positional"`
 	Plugh     customValue
-	Remaining []string `actions:",positional"`
+	Remaining []string `command:",positional"`
 }
 
 type customValue string
@@ -50,7 +50,7 @@ func TestBind(t *testing.T) {
 	})
 	t.Run("should error when additional positional arguments are given", func(t *testing.T) {
 		var dst struct {
-			Foo string `actions:",positional"`
+			Foo string `command:",positional"`
 		}
 		a := Parser("foo bar")
 		err := Bind(a, &dst)

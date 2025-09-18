@@ -181,7 +181,7 @@ type GalleriesModelFilterMsg struct {
 }
 
 type GalleriesModelOpenMsg struct {
-	Skip bool `actions:",positional"`
+	Skip bool `command:",positional"`
 }
 
 type GalleriesModelOpenURLMsg struct {
@@ -191,11 +191,11 @@ type GalleriesModelOpenURLMsg struct {
 type GalleriesModelResetMsg struct{}
 
 type GalleriesModelSkipMsg struct {
-	Count int `actions:",positional"`
+	Count int `command:",positional"`
 }
 
 type GalleriesModelSortMsg struct {
-	Field     string `actions:",positional"`
+	Field     string `command:",positional"`
 	Direction string
 }
 
@@ -388,30 +388,6 @@ func (m *GalleriesModel) updateCmd() tea.Cmd {
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.galleryFilter)
-}
-
-// newTabPerformerCmd returns a command that opens a new tab filtered to the current set of performers
-func (m *GalleriesModel) newTabPerformerCmd() (*GalleriesModel, tea.Cmd) {
-	if len(m.Current().Performers) == 0 {
-		return m, nil
-	}
-
-	var ids []string
-	for _, p := range m.Current().Performers {
-		ids = append(ids, p.ID)
-	}
-	return m, func() tea.Msg {
-		return TabOpenMsg{
-			tabFunc: func() TabModel {
-				t := NewGalleriesModel(m.GalleryService, m.StashLookup)
-				t.galleryFilter.Performers = &stash.MultiCriterion{
-					Value:    ids,
-					Modifier: stash.CriterionModifierIncludes,
-				}
-				return t
-			},
-		}
-	}
 }
 
 var (
