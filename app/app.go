@@ -18,20 +18,18 @@ import (
 
 // TabModel is a subview of the App application, and operates similarly to a tea.Model.
 type TabModel interface {
-	// Provided the size of the current area the TabModel is to render within. Should return any initialisation
-	// commands to execute.
-	Init(Size) tea.Cmd
-	// Handle any tea.Msg that the app.Model passes on.  Should by a immutable operation and return a new TabModel
-	// with the new state after handling the message.
-	Update(tea.Msg) (TabModel, tea.Cmd)
-	// Normal tea.Model:View method, should render the current state of the view as a string.
-	View() string
-	// Returns a string name to be used for the tab title
+	tea.Model
+
+	// Title should return a string name to be used for the tab title.
 	Title() string
 	// CommandConfig returns a Config for all commands the TabModel supports.
 	CommandConfig() command.Config
 	// Search should return a message to support searching.
 	Search(string) tea.Msg
+	// SetSize allows the app to inform a tab of the space is has for layout.  The tab can optionally return a tea.Cmd
+	// to execute in response to this.
+	// TODO probably this can just be handled by a message rather than an imperative call.
+	SetSize(Size) tea.Cmd
 }
 
 // Command represets a command message that was input into the application in a specific mode.
@@ -40,16 +38,12 @@ type Command struct {
 	Input string
 }
 
-var tabID uint64
-
-func nextTabID() uint {
-	return uint(atomic.AddUint64(&tabID, 1))
-}
-
 type tab struct {
-	id    uint
+	id    tabID
 	model TabModel
 }
+
+type tabID = uint64
 
 type Mode int
 
@@ -65,7 +59,7 @@ type TabModelConfig struct {
 	Name    string
 }
 
-type TabNewFunc func(uint) TabModel
+type TabNewFunc func(tabID) TabModel
 
 var ModelDefaultKeymap = map[string]string{
 	"s":      "tab new scenes",
@@ -84,8 +78,10 @@ var ModelDefaultKeymap = map[string]string{
 }
 
 type Model struct {
-	tabs   []tab
-	active int
+	tabs     []tab
+	tabsByID map[tabID]tab
+	active   int
+	tabID    tabID
 
 	tabFuncs map[string](TabNewFunc)
 
@@ -109,12 +105,18 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	models := []TabModelConfig{
 		{
-			NewFunc: func(id uint) TabModel { return NewScenesModel(s, lookup) },
-			Name:    "scenes",
+			NewFunc: func(id tabID) TabModel {
+				s := &cmdServiceWithID{s, id}
+				return NewScenesModel(s, lookup)
+			},
+			Name: "scenes",
 		},
 		{
-			NewFunc: func(id uint) TabModel { return NewGalleriesModel(s, lookup) },
-			Name:    "galleries",
+			NewFunc: func(id tabID) TabModel {
+				s := &cmdServiceWithID{s, id}
+				return NewGalleriesModel(s, lookup)
+			},
+			Name: "galleries",
 		},
 	}
 
@@ -156,16 +158,24 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 		},
 	}
 
-	m.TabOpen(models[0].NewFunc)
+	m.tabsByID = make(map[tabID]tab)
+
+	id := m.nextTabID()
+	m.tabs = []tab{{id, models[0].NewFunc(id)}}
+	m.tabsByID[id] = m.tabs[0]
 
 	return m
+}
+
+func (m *Model) nextTabID() tabID {
+	return tabID(atomic.AddUint64(&m.tabID, 1))
 }
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.commandInput.Init(),
 		m.footer.Init(),
-		m.tabs[m.active].model.Init(m.screen),
+		m.tabs[m.active].model.Init(),
 	)
 }
 
@@ -217,7 +227,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ModelTabNewMsg:
-		return m.TabOpen(msg.NewFunc)
+		m.TabOpen(msg.NewFunc)
+		return m, tea.Batch(
+			m.tabs[m.active].model.Init(),
+			m.tabs[m.active].model.SetSize(Size{Width: m.screen.Width, Height: m.screen.Height - 5}))
 
 	case ModelTabSwitchMsg:
 		m.TabSet(msg.Index - 1)
@@ -258,6 +271,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+		// All tabs should be notified about the change in window size, as it will cause them to refetch their results.
+		tabSize := Size{
+			Width:  msg.Width,
+			Height: msg.Height - 5,
+		}
+		cmds := make([]tea.Cmd, len(m.tabs))
+		for i := range m.tabs {
+			cmds[i] = m.tabs[i].model.SetSize(tabSize)
+		}
+		return m, tea.Batch(cmds...)
 
 	case ErrorMsg:
 		m.err = msg.error
@@ -270,10 +293,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case OpenMsg:
 		return m.openCmd(msg.target)
+
+	// loadingMsg handles routing of a return loading message to the correct tab located by ID.
+	case loadingMsg:
+		_, cmd := m.tabsByID[msg.id].model.Update(msg.payload)
+		return m, cmd
 	}
 
 	// If the message was not handled somewhere above, then it may be a message for the current TabView to handle.
-	m.tabs[m.active].model, cmd = m.tabs[m.active].model.Update(msg)
+	_, cmd = m.tabs[m.active].model.Update(msg)
 	if cmd != nil {
 		cmds = append(cmds, cmd)
 	}
@@ -329,11 +357,11 @@ func (m *Model) openCmd(target any) (*Model, tea.Cmd) {
 }
 
 // TabOpen creates a new tab with the given TabModel and sets it as active.
-func (a *Model) TabOpen(newFunc TabNewFunc) (tea.Model, tea.Cmd) {
-	id := nextTabID()
-	a.tabs = append(a.tabs, tab{id, newFunc(id)})
-	a.active = len(a.tabs) - 1
-	return a, a.tabs[a.active].model.Init(a.screen)
+func (m *Model) TabOpen(newFunc TabNewFunc) {
+	id := m.nextTabID()
+	m.tabs = append(m.tabs, tab{id, newFunc(id)})
+	m.active = len(m.tabs) - 1
+	m.tabsByID[id] = m.tabs[m.active]
 }
 
 // TabSet navigates to a specific Tab.  This is a noop if the tab does not exist.
@@ -347,6 +375,8 @@ func (m *Model) TabSet(i int) {
 // If the current tab is active, then the previous tab will be set as active.
 func (m *Model) TabClose(i int) {
 	if len(m.tabs) > i && len(m.tabs) > 1 {
+		t := m.tabs[i]
+		delete(m.tabsByID, t.id)
 		if i >= m.active {
 			m.active = max(m.active-1, 0)
 		}

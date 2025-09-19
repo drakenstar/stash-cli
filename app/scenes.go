@@ -64,73 +64,69 @@ func (m *ScenesModel) reset() tea.Cmd {
 	return m.updateCmd()
 }
 
-// TODO probably it's the responsiblity of the parent to tell this model exactly how tall it is, so that it's not
-// doing it's own math to solve this.
-func (m *ScenesModel) SetHeight(height int) {
-	m.pageState.PerPage = 0
-	if height >= 5 {
-		m.pageState.PerPage = height - 5
-	}
-}
-
-func (m *ScenesModel) Init(size Size) tea.Cmd {
-	m.screen = size
-	m.SetHeight(size.Height)
+// SetSize takes a size input that indicates the size of the tab being rendered.
+func (m *ScenesModel) SetSize(s Size) tea.Cmd {
+	m.screen = s
+	m.pageState.PerPage = (s.Height - 1) // account for status line
 	return m.updateCmd()
 }
 
-func (s *ScenesModel) Title() string {
+func (m *ScenesModel) Init() tea.Cmd {
+	return m.updateCmd()
+}
+
+func (m *ScenesModel) Title() string {
 	t := "Scenes"
-	if s.query != "" {
-		t = fmt.Sprintf("\"%s\"", s.query)
-	} else if s.sceneFilter.Performers != nil {
+	if m.query != "" {
+		t = fmt.Sprintf("\"%s\"", m.query)
+	} else if m.sceneFilter.Performers != nil {
 		var performers []string
-		for _, p := range s.sceneFilter.Performers.Value {
-			perf, _ := s.StashLookup.GetPerformer(p)
+		for _, p := range m.sceneFilter.Performers.Value {
+			perf, _ := m.StashLookup.GetPerformer(p)
 			performers = append(performers, perf.Name)
 		}
 		t = strings.Join(performers, ", ")
 	}
 
-	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.pageState.total))
+	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(m.pageState.total))
 }
 
-func (s *ScenesModel) Current() stash.Scene {
-	return s.scenes[s.pageState.index]
+func (m *ScenesModel) Current() stash.Scene {
+	return m.scenes[m.pageState.index]
 }
 
-func (s *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cmd) {
-	s.history = append(s.history, sceneFilterState{
-		query:         s.query,
-		sort:          s.sort,
-		sortDirection: s.sortDirection,
-		sceneFilter:   s.sceneFilter,
-		pageState:     s.pageState,
+func (m *ScenesModel) PushState(mutate func(*ScenesModel)) (*ScenesModel, tea.Cmd) {
+	m.history = append(m.history, sceneFilterState{
+		query:         m.query,
+		sort:          m.sort,
+		sortDirection: m.sortDirection,
+		sceneFilter:   m.sceneFilter,
+		pageState:     m.pageState,
 	})
-	mutate(s)
-	s.pageState.Reset()
-	return s, s.updateCmd()
+	mutate(m)
+	m.pageState.Reset()
+	return m, m.updateCmd()
 }
 
 // Pop sets the current state to the previous state from the history stack.  If the history stack is empty this is a
 // noop.
-func (s *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
-	if len(s.history) == 0 {
-		return s, nil
+func (m *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
+	if len(m.history) == 0 {
+		return m, nil
 	}
 
-	state := s.history[len(s.history)-1]
-	s.history = s.history[0 : len(s.history)-1]
+	state := m.history[len(m.history)-1]
+	m.history = m.history[0 : len(m.history)-1]
 
 	// Restore previous state, including pagination
-	s.pageState = state.pageState
-	s.query = state.query
-	s.sort = state.sort
-	s.sortDirection = state.sortDirection
-	s.sceneFilter = state.sceneFilter
-	s.scenes = []stash.Scene{}
+	m.pageState = state.pageState
+	m.query = state.query
+	m.sort = state.sort
+	m.sortDirection = state.sortDirection
+	m.sceneFilter = state.sceneFilter
+	m.scenes = []stash.Scene{}
 
-	return s, s.updateCmd()
+	return m, m.updateCmd()
 }
 
 // Keymap allows mapping a keyboard shortcut to a command.  Commands are interpretted in command mode and do not take
@@ -213,10 +209,10 @@ type ScenesModelSortMsg struct {
 
 type ScenesModelUndoMsg struct{}
 
-func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
+func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ScenesModelFilterMsg:
-		return s.PushState(func(sm *ScenesModel) {
+		return m.PushState(func(sm *ScenesModel) {
 			if msg.Query != nil {
 				sm.query = *msg.Query
 			}
@@ -276,77 +272,69 @@ func (s ScenesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		})
 
 	case ScenesModelOpenMsg:
-		if msg.Skip && s.pageState.Next() {
-			return &s, s.updateCmd()
+		if msg.Skip && m.pageState.Next() {
+			return m, m.updateCmd()
 		}
-		cur := s.Current()
-		return &s, func() tea.Msg { return OpenMsg{cur} }
+		cur := m.Current()
+		return m, func() tea.Msg { return OpenMsg{cur} }
 
 	case ScenesModelOpenURLMsg:
-		cur := s.Current()
+		cur := m.Current()
 		var src string
 		switch msg.Source {
 		default:
 			src = path.Join("scenes", cur.ID)
 		}
-		return &s, func() tea.Msg { return OpenMsg{src} }
+		return m, func() tea.Msg { return OpenMsg{src} }
 
 	case ScenesModelResetMsg:
-		return &s, s.reset()
+		return m, m.reset()
 
 	case ScenesModelSortMsg:
 		switch msg.Field {
 		case "random":
-			return s.PushState(func(sm *ScenesModel) {
+			return m.PushState(func(sm *ScenesModel) {
 				sm.sort = stash.RandomSort()
 			})
 		case "date":
-			return s.PushState(func(sm *ScenesModel) {
+			return m.PushState(func(sm *ScenesModel) {
 				sm.sort = "date"
 				sm.sortDirection = stash.SortDirectionAsc
 			})
 		// TODO it's probably the case that we want to parse this in the Interpret step rather than here.  We can just
 		// enumerate fields we're interested in for the time being.
 		case "-date":
-			return s.PushState(func(sm *ScenesModel) {
+			return m.PushState(func(sm *ScenesModel) {
 				sm.sort = "date"
 				sm.sortDirection = stash.SortDirectionDesc
 			})
 		}
 
 	case ScenesModelSkipMsg:
-		if s.pageState.Skip(msg.Count) {
-			return &s, s.updateCmd()
+		if m.pageState.Skip(msg.Count) {
+			return m, m.updateCmd()
 		}
 
 	case ScenesModelUndoMsg:
-		return s.Pop()
+		return m.Pop()
 
 	case tea.KeyMsg:
 		// TODO this is probably not where this ends up, instead we probably have some additional part of the TabModel
 		// interface that exposes keymaps (maybe).  I'll slot this in here now and it can return an execute command.
 		if cmd, ok := ScenesModelDefaultKeymap[msg.String()]; ok {
-			return &s, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
+			return m, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 		}
-
-	case tea.WindowSizeMsg:
-		s.screen = Size{
-			Width:  msg.Width,
-			Height: msg.Height,
-		}
-		s.SetHeight(msg.Height)
-		return &s, s.updateCmd()
 
 	case scenesMsg:
-		s.scenes, s.pageState.total = msg.scenes, msg.total
+		m.scenes, m.pageState.total = msg.scenes, msg.total
 	}
 
-	return &s, nil
+	return m, nil
 }
 
-func (s ScenesModel) View() string {
+func (m ScenesModel) View() string {
 	var rows []ui.Row
-	for i, scene := range s.scenes {
+	for i, scene := range m.scenes {
 		rows = append(rows, ui.Row{
 			Values: []string{
 				organised(scene.Organized),
@@ -360,32 +348,35 @@ func (s ScenesModel) View() string {
 				details(scene.Details),
 			},
 		})
-		if s.pageState.index == i {
+		if m.pageState.index == i {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
 
 	leftStatus := []string{
-		s.pageState.String(),
-		sort(s.sort, s.sortDirection),
+		m.pageState.String(),
+		sort(m.sort, m.sortDirection),
 	}
 
-	rightStatus := sceneFilterStatus(s.sceneFilter, s.StashLookup)
-	if s.query != "" {
-		rightStatus = append(rightStatus, "\""+s.query+"\"")
+	rightStatus := sceneFilterStatus(m.sceneFilter, m.StashLookup)
+	if m.query != "" {
+		rightStatus = append(rightStatus, "\""+m.query+"\"")
 	}
-	if len(s.history) > 0 {
-		rightStatus = append(rightStatus, fmt.Sprintf("[%d]", len(s.history)))
+	if len(m.history) > 0 {
+		rightStatus = append(rightStatus, fmt.Sprintf("[%d]", len(m.history)))
 	}
 
 	return lipgloss.JoinVertical(0,
-		statusBar.Render(s.screen.Width, leftStatus, rightStatus),
-		sceneTable.Render(s.screen.Width, rows),
+		statusBar.Render(m.screen.Width, leftStatus, rightStatus),
+		sceneTable.Render(m.screen.Width, rows),
 	)
 }
 
 // updateCmd sets initial loading state then returns a tea.Cmd to execute loading of scenes.
 func (m *ScenesModel) updateCmd() tea.Cmd {
+	if m.pageState.PerPage == 0 {
+		return nil
+	}
 	return m.SceneService.Scenes(stash.FindFilter{
 		Query:     m.query,
 		Page:      m.pageState.page + 1,

@@ -95,3 +95,36 @@ type scenesMsg struct {
 type sceneDeletedMsg struct {
 	id string
 }
+
+// cmdServiceWithID is a wrapped cmdService that annotates fetches with an ID so that they can be routed back to the
+// correct tab during Update.
+type cmdServiceWithID struct {
+	s  *cmdService
+	id tabID
+}
+
+type loadingMsg struct {
+	id      tabID
+	payload tea.Msg
+}
+
+func (s *cmdServiceWithID) withID(cmd tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		return loadingMsg{
+			id:      s.id,
+			payload: cmd(),
+		}
+	}
+}
+
+func (s *cmdServiceWithID) Scenes(f stash.FindFilter, sf stash.SceneFilter) tea.Cmd {
+	return s.withID(s.s.Scenes(f, sf))
+}
+
+func (s *cmdServiceWithID) DeleteScene(id string) tea.Cmd {
+	return s.withID(s.s.DeleteScene(id))
+}
+
+func (s *cmdServiceWithID) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {
+	return s.withID(s.s.Galleries(f, gf))
+}

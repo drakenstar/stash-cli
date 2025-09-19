@@ -66,35 +66,30 @@ func (m *GalleriesModel) reset() tea.Cmd {
 	return m.updateCmd()
 }
 
-// TODO probably it's the responsiblity of the parent to tell this model exactly how tall it is, so that it's not
-// doing it's own math to solve this.
-func (m *GalleriesModel) SetHeight(height int) {
-	m.pageState.PerPage = 0
-	if height >= 5 {
-		m.pageState.PerPage = height - 5
-	}
-}
-
-func (m *GalleriesModel) Init(size Size) tea.Cmd {
-	m.screen = size
-	m.SetHeight(size.Height)
+func (m *GalleriesModel) SetSize(s Size) tea.Cmd {
+	m.screen = s
+	m.pageState.PerPage = (s.Height - 1) // account for status line
 	return m.updateCmd()
 }
 
-func (s *GalleriesModel) Title() string {
+func (m *GalleriesModel) Init() tea.Cmd {
+	return m.updateCmd()
+}
+
+func (m *GalleriesModel) Title() string {
 	t := "Galleries"
-	if s.query != "" {
-		t = fmt.Sprintf("\"%s\"", s.query)
-	} else if s.galleryFilter.Performers != nil {
+	if m.query != "" {
+		t = fmt.Sprintf("\"%s\"", m.query)
+	} else if m.galleryFilter.Performers != nil {
 		var performers []string
-		for _, p := range s.galleryFilter.Performers.Value {
-			perf, _ := s.StashLookup.GetPerformer(p)
+		for _, p := range m.galleryFilter.Performers.Value {
+			perf, _ := m.StashLookup.GetPerformer(p)
 			performers = append(performers, perf.Name)
 		}
 		t = strings.Join(performers, ", ")
 	}
 
-	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(s.pageState.total))
+	return fmt.Sprintf("%c %s (%s)", '\U000f0fce', t, humanNumber(m.pageState.total))
 }
 
 func (m *GalleriesModel) PushState(mutate func(*GalleriesModel)) (*GalleriesModel, tea.Cmd) {
@@ -211,10 +206,10 @@ func (m GalleriesModel) Search(query string) tea.Msg {
 	}
 }
 
-func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
+func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case GalleriesModelFilterMsg:
-		return s.PushState(func(gm *GalleriesModel) {
+		return m.PushState(func(gm *GalleriesModel) {
 			if msg.Query != nil {
 				gm.query = *msg.Query
 			}
@@ -274,77 +269,69 @@ func (s GalleriesModel) Update(msg tea.Msg) (TabModel, tea.Cmd) {
 		})
 
 	case GalleriesModelOpenMsg:
-		if msg.Skip && s.pageState.Next() {
-			return &s, s.updateCmd()
+		if msg.Skip && m.pageState.Next() {
+			return m, m.updateCmd()
 		}
-		cur := s.Current()
-		return &s, func() tea.Msg { return OpenMsg{cur} }
+		cur := m.Current()
+		return m, func() tea.Msg { return OpenMsg{cur} }
 
 	case GalleriesModelOpenURLMsg:
-		cur := s.Current()
+		cur := m.Current()
 		var src string
 		switch msg.Source {
 		default:
 			src = path.Join("scenes", cur.ID)
 		}
-		return &s, func() tea.Msg { return OpenMsg{src} }
+		return m, func() tea.Msg { return OpenMsg{src} }
 
 	case GalleriesModelResetMsg:
-		return &s, s.reset()
+		return m, m.reset()
 
 	case GalleriesModelSortMsg:
 		switch msg.Field {
 		case "random":
-			return s.PushState(func(sm *GalleriesModel) {
+			return m.PushState(func(sm *GalleriesModel) {
 				sm.sort = stash.RandomSort()
 			})
 		case "date":
-			return s.PushState(func(sm *GalleriesModel) {
+			return m.PushState(func(sm *GalleriesModel) {
 				sm.sort = "date"
 				sm.sortDirection = stash.SortDirectionAsc
 			})
 		// TODO it's probably the case that we want to parse this in the Interpret step rather than here.  We can just
 		// enumerate fields we're interested in for the time being.
 		case "-date":
-			return s.PushState(func(sm *GalleriesModel) {
+			return m.PushState(func(sm *GalleriesModel) {
 				sm.sort = "date"
 				sm.sortDirection = stash.SortDirectionDesc
 			})
 		}
 
 	case GalleriesModelSkipMsg:
-		if s.pageState.Skip(msg.Count) {
-			return &s, s.updateCmd()
+		if m.pageState.Skip(msg.Count) {
+			return m, m.updateCmd()
 		}
 
 	case GalleriesModelUndoMsg:
-		return s.Pop()
+		return m.Pop()
 
 	case tea.KeyMsg:
 		// TODO this is probably not where this ends up, instead we probably have some additional part of the TabModel
 		// interface that exposes keymaps (maybe).  I'll slot this in here now and it can return an execute command.
 		if cmd, ok := ScenesModelDefaultKeymap[msg.String()]; ok {
-			return &s, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
+			return m, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 		}
-
-	case tea.WindowSizeMsg:
-		s.screen = Size{
-			Width:  msg.Width,
-			Height: msg.Height,
-		}
-		s.SetHeight(msg.Height)
-		return &s, s.updateCmd()
 
 	case galleriesMsg:
-		s.galleries, s.pageState.total = msg.galleries, msg.total
+		m.galleries, m.pageState.total = msg.galleries, msg.total
 	}
 
-	return &s, nil
+	return m, nil
 }
 
-func (s GalleriesModel) View() string {
+func (m GalleriesModel) View() string {
 	var rows []ui.Row
-	for i, gallery := range s.galleries {
+	for i, gallery := range m.galleries {
 		rows = append(rows, ui.Row{
 			Values: []string{
 				organised(gallery.Organized),
@@ -356,31 +343,34 @@ func (s GalleriesModel) View() string {
 				tagList(gallery.Tags),
 				details(gallery.Details),
 			}})
-		if s.pageState.index == i {
+		if m.pageState.index == i {
 			rows[i].Background = &ColorRowSelected
 		}
 	}
 
 	leftStatus := []string{
-		s.pageState.String(),
-		sort(s.sort, s.sortDirection),
+		m.pageState.String(),
+		sort(m.sort, m.sortDirection),
 	}
 
-	rightStatus := galleryFilterStatus(s.galleryFilter, s.StashLookup)
-	if s.query != "" {
-		rightStatus = append(rightStatus, "\""+s.query+"\"")
+	rightStatus := galleryFilterStatus(m.galleryFilter, m.StashLookup)
+	if m.query != "" {
+		rightStatus = append(rightStatus, "\""+m.query+"\"")
 	}
-	if len(s.history) > 0 {
-		rightStatus = append(rightStatus, fmt.Sprintf("[%d]", len(s.history)))
+	if len(m.history) > 0 {
+		rightStatus = append(rightStatus, fmt.Sprintf("[%d]", len(m.history)))
 	}
 
 	return lipgloss.JoinVertical(0,
-		statusBar.Render(s.screen.Width, leftStatus, rightStatus),
-		galleriesTable.Render(s.screen.Width, rows),
+		statusBar.Render(m.screen.Width, leftStatus, rightStatus),
+		galleriesTable.Render(m.screen.Width, rows),
 	)
 }
 
 func (m *GalleriesModel) updateCmd() tea.Cmd {
+	if m.pageState.PerPage == 0 {
+		return nil
+	}
 	return m.GalleryService.Galleries(stash.FindFilter{
 		Query:     m.query,
 		Page:      m.pageState.page + 1,
