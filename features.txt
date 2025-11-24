@@ -1,15 +1,13 @@
 # Next features
+- new tab supports additional commands
+- request cancelling
+- fix stash open
+- next/prev tab
+- better loading state (pause interactivity while loading?)
 - left/right should change pages
 - ability to confirm actions taken with a multiple choice prompt
-- error handling and output for actions (openers, remote actions)
-    - timeouts for remote actions
-- better handling of inputs while in a loading state
 - saved filters
     - the default filtering should respect the configured default filters for that type
 - browse performers
 - record scene playing count
 - full filter support of all fields
-
-
-# Bugs & Refactors
-- loading items should be routed to the correct tab — currently a loaded items message will always be sent to the current tab.

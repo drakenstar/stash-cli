@@ -143,7 +143,7 @@ var ScenesModelDefaultKeymap = map[string]string{
 	"u":     "undo", // state pop?  Maybe some sort of generic state management command
 	"f":     "filter favourite=1",
 	"p":     "filter performer=current",
-	"`":     "open-url stash",
+	"`":     "open-url source=stash",
 }
 
 // Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
@@ -157,6 +157,7 @@ var ScenesModelCommandConfig command.Config = command.Config{
 	"filter":   binder[ScenesModelFilterMsg](),
 	"open":     binder[ScenesModelOpenMsg](),
 	"open-url": binder[ScenesModelOpenURLMsg](),
+	"refresh": binder[ScenesModelRefresh](),
 	"reset":    binder[ScenesModelResetMsg](),
 	"sort":     binder[ScenesModelSortMsg](),
 	"skip":     binder[ScenesModelSkipMsg](),
@@ -185,7 +186,7 @@ type ScenesModelFilterMsg struct {
 	Duration     *int
 	PerformerTag *string
 	Tag          *string
-	Studio       *string
+	Studio       []string
 }
 
 type ScenesModelOpenMsg struct {
@@ -195,6 +196,8 @@ type ScenesModelOpenMsg struct {
 type ScenesModelOpenURLMsg struct {
 	Source string
 }
+
+type ScenesModelRefresh struct{}
 
 type ScenesModelResetMsg struct{}
 
@@ -245,9 +248,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-			if msg.Studio != nil {
+			if len(msg.Studio) > 0 {
 				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
-					Value:    []string{*msg.Studio},
+					Value:    msg.Studio,
 					Modifier: stash.CriterionModifierIncludes,
 				}
 			}
@@ -286,6 +289,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			src = path.Join("scenes", cur.ID)
 		}
 		return m, func() tea.Msg { return OpenMsg{src} }
+
+	case ScenesModelRefresh:
+		return m, m.updateCmd()
 
 	case ScenesModelResetMsg:
 		return m, m.reset()

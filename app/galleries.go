@@ -140,7 +140,7 @@ var GalleriesModelDefaultKeymap = map[string]string{
 	"u":     "undo", // state pop?  Maybe some sort of generic state management command
 	"f":     "filter favourite=1",
 	"p":     "filter performer=current",
-	"`":     "open-url stash",
+	"`":     "open-url source=stash",
 }
 
 // Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
@@ -154,6 +154,7 @@ var GalleriesModelCommandConfig command.Config = command.Config{
 	"filter":   binder[GalleriesModelFilterMsg](),
 	"open":     binder[GalleriesModelOpenMsg](),
 	"open-url": binder[GalleriesModelOpenURLMsg](),
+	"refresh":  binder[GalleriesModelRefresh](),
 	"reset":    binder[GalleriesModelResetMsg](),
 	"sort":     binder[GalleriesModelSortMsg](),
 	"skip":     binder[GalleriesModelSkipMsg](),
@@ -182,6 +183,8 @@ type GalleriesModelOpenMsg struct {
 type GalleriesModelOpenURLMsg struct {
 	Source string
 }
+
+type GalleriesModelRefresh struct{}
 
 type GalleriesModelResetMsg struct{}
 
@@ -280,9 +283,12 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var src string
 		switch msg.Source {
 		default:
-			src = path.Join("scenes", cur.ID)
+			src = path.Join("galleries", cur.ID)
 		}
 		return m, func() tea.Msg { return OpenMsg{src} }
+
+	case GalleriesModelRefresh:
+		return m, m.updateCmd()
 
 	case GalleriesModelResetMsg:
 		return m, m.reset()
