@@ -50,3 +50,82 @@ func TestCommandInputHistorySkipsEmptyCommands(t *testing.T) {
 
 	require.Empty(t, m.history)
 }
+
+func TestCommandInputAutocompleteAcceptsSuggestion(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"delete", "filter", "refresh", "reset", "sort"})
+	m.Focus(":")
+	m.text.SetValue("re")
+	m.rebuildSuggestions()
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "reset", m.text.Value())
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "refresh", m.text.Value())
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	require.Equal(t, "reset", m.text.Value())
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	require.Equal(t, "re", m.text.Value())
+}
+
+func TestCommandInputAutocompleteOnlyAppliesToFirstToken(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"filter", "sort"})
+	m.Focus(":")
+	m.text.SetValue("filter ta")
+
+	m.rebuildSuggestions()
+	require.False(t, m.hasSuggestions())
+}
+
+func TestCommandInputAutocompleteUpDownFallbackToHistory(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"filter"})
+	m.history = []string{"sort date"}
+	m.Focus(":")
+	m.text.SetValue("x")
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+
+	require.Equal(t, "sort date", m.text.Value())
+}
+
+func TestCommandInputAutocompleteTabDismissesWithoutChangingInput(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"refresh", "reset"})
+	m.Focus(":")
+	m.text.SetValue("re")
+	m.rebuildSuggestions()
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	require.Equal(t, "reset", m.text.Value())
+	require.False(t, m.hasSuggestions())
+}
+
+func TestCommandInputAutocompleteNeedsOneCharacter(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"refresh", "reset"})
+	m.Focus(":")
+	m.text.SetValue("")
+	m.rebuildSuggestions()
+
+	require.False(t, m.hasSuggestions())
+}
+
+func TestCommandInputAutocompleteTabAcceptsNearestSuggestionWhenNoneSelected(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"refresh", "reset"})
+	m.Focus(":")
+	m.text.SetValue("re")
+	m.rebuildSuggestions()
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	require.Equal(t, "reset", m.text.Value())
+	require.False(t, m.hasSuggestions())
+}

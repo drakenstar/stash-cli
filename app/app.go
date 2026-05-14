@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -136,6 +138,7 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 	}
 
 	m.commandInput = ui.NewCommandInput()
+	m.commandInput.SetWidth(m.screen.Width)
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
@@ -222,6 +225,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case ":":
 				m.mode = ModeCommand
+				m.commandInput.SetSuggestions(m.commandSuggestions())
 				return m, m.commandInput.Focus(":")
 
 			case "/":
@@ -312,6 +316,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Width:  msg.Width,
 			Height: msg.Height,
 		}
+		m.commandInput.SetWidth(msg.Width)
 		// All tabs should be notified about the change in window size, as it will cause them to refetch their results.
 		tabSize := Size{
 			Width:  msg.Width,
@@ -360,21 +365,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	viewportStyle := lipgloss.NewStyle().
-		Width(m.screen.Width).
-		Height(m.screen.Height - 3)
 	var bottom string
-
-	if m.err != nil {
-		bottom += lipgloss.NewStyle().Foreground(ColorSalmon).Render(m.err.Error())
-	}
-
 	switch m.mode {
 	case ModeCommand, ModeFind:
-		bottom += "\n" + m.commandInput.View()
+		bottom = m.commandInput.View()
 	default:
-		bottom += "\n" + m.footer.Render(m.screen.Width, m.cmdService.AnyLoading())
+		bottom = m.footer.Render(m.screen.Width, m.cmdService.AnyLoading())
 	}
+
+	if m.err != nil {
+		errLine := lipgloss.NewStyle().Foreground(ColorSalmon).Render(m.err.Error())
+		bottom = lipgloss.JoinVertical(0, errLine, bottom)
+	}
+
+	viewportHeight := max(m.screen.Height-1-lipgloss.Height(bottom), 0)
+	viewportStyle := lipgloss.NewStyle().
+		Width(m.screen.Width).
+		Height(viewportHeight)
 
 	// Build our tabs, we provide keyboard shortcuts for the numbers 1-9.
 	// TODO This should probably be dynamic based on a key map.
@@ -390,7 +397,7 @@ func (m Model) View() string {
 
 	view := lipgloss.JoinVertical(0,
 		tabBar.Render(m.screen.Width, titles, m.active),
-		viewportStyle.Render(m.tabs[m.active].model.View()),
+		viewportStyle.Render(truncateLines(m.tabs[m.active].model.View(), viewportHeight)),
 		bottom,
 	)
 
@@ -528,4 +535,39 @@ func (m Model) tabTitles() []ui.Tab {
 		}
 	}
 	return titles
+}
+
+func (m Model) commandSuggestions() []string {
+	seen := make(map[string]struct{})
+	var suggestions []string
+
+	for _, name := range m.command.Commands() {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		suggestions = append(suggestions, name)
+	}
+	for _, name := range m.tabs[m.active].model.CommandConfig().Commands() {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		suggestions = append(suggestions, name)
+	}
+
+	slices.Sort(suggestions)
+	return suggestions
+}
+
+func truncateLines(s string, height int) string {
+	if height <= 0 {
+		return ""
+	}
+
+	lines := strings.Split(s, "\n")
+	if len(lines) <= height {
+		return s
+	}
+	return strings.Join(lines[:height], "\n")
 }

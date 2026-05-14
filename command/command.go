@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 )
 
 // Config is a map of command names to configurations.  Each entry in this map defines a command that can be resolved
@@ -14,6 +15,19 @@ type Config map[string]Command
 type Command struct {
 	Resolve     func(Iterator) (any, error)
 	SubCommands Config
+}
+
+func (s Config) Commands() []string {
+	if s == nil {
+		return nil
+	}
+
+	commands := make([]string, 0, len(s))
+	for name := range s {
+		commands = append(commands, name)
+	}
+	slices.Sort(commands)
+	return commands
 }
 
 // TODO not many of these errors are useful in themselves - we probably want most of these errors to be displayed to
