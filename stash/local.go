@@ -105,6 +105,10 @@ func (s *LocalStash) Galleries(_ context.Context, f FindFilter, gf GalleryFilter
 	return paginate(galleries, f.Page, f.PerPage), len(s.galleries), nil
 }
 
+func (s *LocalStash) GalleryDelete(context.Context, string) (bool, error) {
+	panic("not implemented")
+}
+
 func (s *LocalStash) GalleryUpdate(context.Context, GalleryUpdate) (Gallery, error) {
 	panic("not implemented")
 }

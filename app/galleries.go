@@ -23,6 +23,7 @@ type galleryFilterState struct {
 
 type GalleryService interface {
 	Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd
+	DeleteGallery(string) tea.Cmd
 }
 
 type GalleriesModel struct {
@@ -131,6 +132,7 @@ func (m *GalleriesModel) Pop() (*GalleriesModel, tea.Cmd) {
 var GalleriesModelDefaultKeymap = map[string]string{
 	"up":    "skip -1",
 	"down":  "skip 1",
+	"D":     "delete",
 	"enter": "open skip",
 	" ":     "open skip", // space
 	"z":     "skip -1",
@@ -146,11 +148,12 @@ var GalleriesModelDefaultKeymap = map[string]string{
 // Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
 // additional inputs can be given after the alias.
 var GalleriesModelDefaultCommandAlias = map[string]string{
-	"recent": "filter createdAt=>-24h",
+	"recent": "filter created=>-24h",
 	"year":   "filter date=>-1y",
 }
 
 var GalleriesModelCommandConfig command.Config = command.Config{
+	"delete":   binder[GalleriesModelDeleteMsg](),
 	"filter":   binder[GalleriesModelFilterMsg](),
 	"open":     binder[GalleriesModelOpenMsg](),
 	"open-url": binder[GalleriesModelOpenURLMsg](),
@@ -185,6 +188,10 @@ type GalleriesModelOpenMsg struct {
 
 type GalleriesModelOpenURLMsg struct {
 	Source string
+}
+
+type GalleriesModelDeleteMsg struct {
+	Confirm bool
 }
 
 type GalleriesModelRefresh struct{}
@@ -299,6 +306,21 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, func() tea.Msg { return OpenMsg{src} }
 
+	case GalleriesModelDeleteMsg:
+		if len(m.galleries) == 0 {
+			return m, NewErrorCmd(fmt.Errorf("no gallery selected"))
+		}
+		gallery := m.Current()
+		return m, func() tea.Msg {
+			return deleteRequestMsg{
+				Entity:      "gallery",
+				Title:       galleryTitle(gallery),
+				Path:        gallery.FilePath(),
+				SkipConfirm: msg.Confirm,
+				DeleteCmd:   m.GalleryService.DeleteGallery(gallery.ID),
+			}
+		}
+
 	case GalleriesModelRefresh:
 		return m, m.updateCmd()
 
@@ -336,12 +358,16 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// TODO this is probably not where this ends up, instead we probably have some additional part of the TabModel
 		// interface that exposes keymaps (maybe).  I'll slot this in here now and it can return an execute command.
-		if cmd, ok := ScenesModelDefaultKeymap[msg.String()]; ok {
+		if cmd, ok := GalleriesModelDefaultKeymap[msg.String()]; ok {
 			return m, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 		}
 
 	case galleriesMsg:
 		m.galleries, m.pageState.total = msg.galleries, msg.total
+
+	case galleryDeletedMsg:
+		m.pageState.DeleteCurrent()
+		return m, m.updateCmd()
 	}
 
 	return m, nil

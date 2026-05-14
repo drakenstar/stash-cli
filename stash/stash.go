@@ -11,6 +11,7 @@ type Stash interface {
 	DeleteScene(context.Context, string) (bool, error)
 
 	Galleries(context.Context, FindFilter, GalleryFilter) ([]Gallery, int, error)
+	GalleryDelete(context.Context, string) (bool, error)
 	GalleryUpdate(context.Context, GalleryUpdate) (Gallery, error)
 
 	PerformersAll(context.Context) ([]PerformerSummary, error)

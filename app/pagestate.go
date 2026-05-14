@@ -91,6 +91,30 @@ func (p pageState) Position() int {
 	return p.page*p.PerPage + p.index
 }
 
+// DeleteCurrent updates page state after the current item is removed so that the next fetch targets a valid position.
+func (p *pageState) DeleteCurrent() {
+	if p.total == 0 {
+		return
+	}
+
+	position := p.Position()
+	p.total--
+	p.opened = false
+
+	if p.total <= 0 {
+		p.page = 0
+		p.index = 0
+		return
+	}
+
+	if position >= p.total {
+		position = p.total - 1
+	}
+
+	p.page = position / p.PerPage
+	p.index = position % p.PerPage
+}
+
 // String returns a human readable representation of the current page state.
 func (p pageState) String() string {
 	if p.total == 0 {

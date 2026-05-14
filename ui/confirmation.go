@@ -33,10 +33,19 @@ func (c Confirmation) Update(msg tea.Msg) (*Confirmation, tea.Cmd) {
 		case tea.KeyEnter:
 			return &c, c.Options[c.selected].Cmd
 
+		case tea.KeyEsc:
+			return &c, c.Options[0].Cmd
+
 		case tea.KeyLeft:
 			c.selected = max(0, c.selected-1)
 
 		case tea.KeyRight:
+			c.selected = min(len(c.Options)-1, c.selected+1)
+
+		case tea.KeyUp:
+			c.selected = max(0, c.selected-1)
+
+		case tea.KeyDown:
 			c.selected = min(len(c.Options)-1, c.selected+1)
 		}
 	}

@@ -87,9 +87,11 @@ type Model struct {
 
 	screen Size
 
-	mode         Mode
-	commandInput ui.CommandInput
-	err          error
+	mode          Mode
+	commandInput  ui.CommandInput
+	confirmation  *ui.Confirmation
+	pendingDelete *pendingDeleteState
+	err           error
 
 	footer ui.Footer
 
@@ -200,6 +202,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.pendingDelete != nil {
+			return m, nil
+		}
+		if m.confirmation != nil {
+			m.confirmation, cmd = m.confirmation.Update(msg)
+			return m, cmd
+		}
 
 		switch m.mode {
 		case ModeCommand, ModeFind:
@@ -234,6 +243,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ModelTabSwitchMsg:
 		m.TabSet(msg.Index - 1)
+		return m, nil
+
+	case deleteRequestMsg:
+		if msg.SkipConfirm {
+			return m.beginDelete(msg)
+		}
+		confirmation := ui.Confirmation{
+			Message: m.deleteConfirmationMessage(msg),
+			Options: []ui.ConfirmationOption{
+				{
+					Text: "Cancel",
+					Cmd:  func() tea.Msg { return dismissModalMsg{} },
+				},
+				{
+					Text: "Delete",
+					Cmd: func() tea.Msg {
+						return confirmDeleteMsg{Request: msg}
+					},
+				},
+			},
+		}
+		m.confirmation = &confirmation
+		return m, nil
+
+	case confirmDeleteMsg:
+		return m.beginDelete(msg.Request)
+
+	case dismissModalMsg:
+		m.confirmation = nil
 		return m, nil
 
 	case ui.CommandExecMsg:
@@ -283,6 +321,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case ErrorMsg:
+		if m.pendingDelete != nil {
+			m.pendingDelete = nil
+		}
 		m.err = msg.error
 		if m.err != nil {
 			return m, func() tea.Msg {
@@ -297,6 +338,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// loadingMsg handles routing of a return loading message to the correct tab located by ID.
 	case loadingMsg:
 		_, cmd := m.tabsByID[msg.id].model.Update(msg.payload)
+		if m.pendingDelete != nil && m.pendingDelete.tabID == msg.id {
+			switch msg.payload.(type) {
+			case ErrorMsg, scenesMsg, galleriesMsg:
+				m.pendingDelete = nil
+			}
+		}
 		return m, cmd
 	}
 
@@ -338,11 +385,19 @@ func (m Model) View() string {
 		}
 	}
 
-	return lipgloss.JoinVertical(0,
+	view := lipgloss.JoinVertical(0,
 		tabBar.Render(m.screen.Width, titles, m.active),
 		viewportStyle.Render(m.tabs[m.active].model.View()),
 		bottom,
 	)
+
+	if m.confirmation != nil {
+		return m.renderModal("Confirm Delete", m.confirmation.View())
+	}
+	if m.pendingDelete != nil {
+		return m.renderModal("Deleting", m.deleteProgressMessage())
+	}
+	return view
 }
 
 // openCmd opens the given target in the system opener asynchronously.  Errors will be displayed.
@@ -407,4 +462,67 @@ func NewErrorCmd(err error) tea.Cmd {
 
 type OpenMsg struct {
 	target any
+}
+
+func (m *Model) beginDelete(request deleteRequestMsg) (*Model, tea.Cmd) {
+	m.mode = ModeNormal
+	m.confirmation = nil
+	m.pendingDelete = &pendingDeleteState{
+		tabID:   m.tabs[m.active].id,
+		request: request,
+	}
+	return m, request.DeleteCmd
+}
+
+func (m Model) deleteConfirmationMessage(request deleteRequestMsg) string {
+	return fmt.Sprintf(
+		"Delete %s?\n\n%s\n%s\n\nThis will remove it from Stash and delete associated files.",
+		request.Entity,
+		request.Title,
+		request.Path,
+	)
+}
+
+func (m Model) deleteProgressMessage() string {
+	if m.pendingDelete == nil {
+		return ""
+	}
+	return fmt.Sprintf(
+		"%s Deleting %s...\n\n%s\n%s",
+		m.footer.SpinnerView(),
+		m.pendingDelete.request.Entity,
+		m.pendingDelete.request.Title,
+		m.pendingDelete.request.Path,
+	)
+}
+
+func (m Model) renderModal(title, body string) string {
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorStatusCell).
+		Padding(1, 2).
+		MaxWidth(max(m.screen.Width-8, 20)).
+		Align(lipgloss.Left).
+		Render(lipgloss.JoinVertical(1,
+			lipgloss.NewStyle().Bold(true).Foreground(ColorOffWhite).Render(title),
+			body,
+		))
+
+	return lipgloss.JoinVertical(0,
+		tabBar.Render(m.screen.Width, m.tabTitles(), m.active),
+		lipgloss.Place(m.screen.Width, max(m.screen.Height-1, 1), lipgloss.Center, lipgloss.Center, box),
+	)
+}
+
+func (m Model) tabTitles() []ui.Tab {
+	titles := make([]ui.Tab, len(m.tabs))
+	for i, tab := range m.tabs {
+		titles[i] = ui.Tab{
+			Label: tab.model.Title(),
+		}
+		if i < 9 {
+			titles[i].Prefix = strconv.Itoa(i + 1)
+		}
+	}
+	return titles
 }

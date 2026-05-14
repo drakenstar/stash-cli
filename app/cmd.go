@@ -69,6 +69,16 @@ func (s *cmdService) DeleteScene(id string) tea.Cmd {
 	})
 }
 
+func (s *cmdService) DeleteGallery(id string) tea.Cmd {
+	return s.withLoadingCount(func() tea.Msg {
+		_, err := s.Stash.GalleryDelete(context.Background(), id)
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return galleryDeletedMsg{id}
+	})
+}
+
 func (s *cmdService) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {
 	return s.withLoadingCount(func() tea.Msg {
 		galleries, total, err := s.Stash.Galleries(context.Background(), f, gf)
@@ -93,6 +103,10 @@ type scenesMsg struct {
 }
 
 type sceneDeletedMsg struct {
+	id string
+}
+
+type galleryDeletedMsg struct {
 	id string
 }
 
@@ -123,6 +137,10 @@ func (s *cmdServiceWithID) Scenes(f stash.FindFilter, sf stash.SceneFilter) tea.
 
 func (s *cmdServiceWithID) DeleteScene(id string) tea.Cmd {
 	return s.withID(s.s.DeleteScene(id))
+}
+
+func (s *cmdServiceWithID) DeleteGallery(id string) tea.Cmd {
+	return s.withID(s.s.DeleteGallery(id))
 }
 
 func (s *cmdServiceWithID) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {

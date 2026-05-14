@@ -44,6 +44,10 @@ func (f Footer) Render(width int, loading bool) string {
 		Render(l)
 }
 
+func (f Footer) SpinnerView() string {
+	return f.spinner.View()
+}
+
 type LoadingBeginMsg struct{}
 
 func LoadingBeginCmd() tea.Msg {

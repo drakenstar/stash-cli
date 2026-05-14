@@ -134,6 +134,7 @@ func (m *ScenesModel) Pop() (*ScenesModel, tea.Cmd) {
 var ScenesModelDefaultKeymap = map[string]string{
 	"up":    "skip -1",
 	"down":  "skip 1",
+	"D":     "delete",
 	"enter": "open skip",
 	" ":     "open skip", // space
 	"z":     "skip -1",
@@ -149,11 +150,12 @@ var ScenesModelDefaultKeymap = map[string]string{
 // Command aliases can be used to alias useful commands.  This will act as a prefix for a command, meaning that
 // additional inputs can be given after the alias.
 var ScenesModelDefaultCommandAlias = map[string]string{
-	"recent": "filter createdAt=>-24h",
+	"recent": "filter created=>-24h",
 	"year":   "filter date=>-1y",
 }
 
 var ScenesModelCommandConfig command.Config = command.Config{
+	"delete":   binder[ScenesModelDeleteMsg](),
 	"filter":   binder[ScenesModelFilterMsg](),
 	"open":     binder[ScenesModelOpenMsg](),
 	"open-url": binder[ScenesModelOpenURLMsg](),
@@ -198,6 +200,10 @@ type ScenesModelOpenMsg struct {
 
 type ScenesModelOpenURLMsg struct {
 	Source string
+}
+
+type ScenesModelDeleteMsg struct {
+	Confirm bool
 }
 
 type ScenesModelRefresh struct{}
@@ -302,6 +308,21 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, func() tea.Msg { return OpenMsg{src} }
 
+	case ScenesModelDeleteMsg:
+		if len(m.scenes) == 0 {
+			return m, NewErrorCmd(fmt.Errorf("no scene selected"))
+		}
+		scene := m.Current()
+		return m, func() tea.Msg {
+			return deleteRequestMsg{
+				Entity:      "scene",
+				Title:       sceneTitle(scene),
+				Path:        scene.FilePath(),
+				SkipConfirm: msg.Confirm,
+				DeleteCmd:   m.SceneService.DeleteScene(scene.ID),
+			}
+		}
+
 	case ScenesModelRefresh:
 		return m, m.updateCmd()
 
@@ -345,6 +366,10 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case scenesMsg:
 		m.scenes, m.pageState.total = msg.scenes, msg.total
+
+	case sceneDeletedMsg:
+		m.pageState.DeleteCurrent()
+		return m, m.updateCmd()
 	}
 
 	return m, nil
@@ -403,35 +428,6 @@ func (m *ScenesModel) updateCmd() tea.Cmd {
 		Direction: m.sortDirection,
 	}, m.sceneFilter)
 }
-
-// doDeleteConfirmCmd returns a command to display a confirmation message about the current content.
-// func (s *ScenesModel) doDeleteConfirmCmd() tea.Cmd {
-// 	return nil
-// TODO reimplement deletion once app modal confirmation is in a better state
-// return func() tea.Msg {
-// 	s := s.Current()
-// 	titleStyle := lipgloss.NewStyle().
-// 		Foreground(ColorOffWhite)
-// 	return ConfirmationMsg{
-// 		Message:       fmt.Sprintf("Are you sure you want to delete %s?", titleStyle.Render(sceneTitle(s))),
-// 		ConfirmOption: "Delete",
-// 		CancelOption:  "Cancel",
-// 		Cmd: func() tea.Msg {
-// 			return DeleteMsg{Scene: s}
-// 		},
-// 	}
-// }
-// }
-
-// type DeleteMsg struct {
-// 	Scene stash.Scene
-// }
-
-// doDeleteCmd takes a DeleteMessage and attempts to delete the provided scene.  After successful deletion the current
-// scenes data is refreshed.
-// func (m *ScenesModel) deleteCmd(id string) tea.Cmd {
-// 	return m.SceneService.DeleteScene(id)
-// }
 
 var (
 	sceneTable = &ui.Table{

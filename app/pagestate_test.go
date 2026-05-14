@@ -55,6 +55,40 @@ func TestPaginator(t *testing.T) {
 		p.page = 1
 		require.Equal(t, "11-15 of 15", p.String())
 	})
+
+	t.Run("delete current adjusts to previous page", func(t *testing.T) {
+		p := pageState{
+			total:   11,
+			PerPage: 10,
+			page:    1,
+			index:   0,
+			opened:  true,
+		}
+
+		p.DeleteCurrent()
+
+		require.Equal(t, 10, p.total)
+		require.Equal(t, 0, p.page)
+		require.Equal(t, 9, p.index)
+		require.False(t, p.opened)
+	})
+
+	t.Run("delete current resets empty state", func(t *testing.T) {
+		p := pageState{
+			total:   1,
+			PerPage: 10,
+			page:    0,
+			index:   0,
+			opened:  true,
+		}
+
+		p.DeleteCurrent()
+
+		require.Equal(t, 0, p.total)
+		require.Equal(t, 0, p.page)
+		require.Equal(t, 0, p.index)
+		require.False(t, p.opened)
+	})
 }
 
 func requireIndexAndPage(t *testing.T, p pageState, idx, pg int) {
