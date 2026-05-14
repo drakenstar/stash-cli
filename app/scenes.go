@@ -157,7 +157,7 @@ var ScenesModelCommandConfig command.Config = command.Config{
 	"filter":   binder[ScenesModelFilterMsg](),
 	"open":     binder[ScenesModelOpenMsg](),
 	"open-url": binder[ScenesModelOpenURLMsg](),
-	"refresh": binder[ScenesModelRefresh](),
+	"refresh":  binder[ScenesModelRefresh](),
 	"reset":    binder[ScenesModelResetMsg](),
 	"sort":     binder[ScenesModelSortMsg](),
 	"skip":     binder[ScenesModelSkipMsg](),
@@ -182,6 +182,9 @@ type ScenesModelFilterMsg struct {
 	Favourite    *bool
 	Organised    *bool
 	Rating       *int
+	Date         *dateFilterValue
+	Created      *dateFilterValue `command:"created"`
+	Updated      *dateFilterValue `command:"updated"`
 	Performer    *string
 	Duration     *int
 	PerformerTag *string
@@ -230,6 +233,15 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Modifier: stash.CriterionModifierEquals,
 					Value:    *msg.Rating,
 				}
+			}
+			if msg.Date != nil {
+				sm.sceneFilter.Date = msg.Date.DateCriterion()
+			}
+			if msg.Created != nil {
+				sm.sceneFilter.CreatedAt = msg.Created.TimestampCriterion()
+			}
+			if msg.Updated != nil {
+				sm.sceneFilter.UpdatedAt = msg.Updated.TimestampCriterion()
 			}
 			if msg.Performer != nil {
 				if *msg.Performer == "current" {

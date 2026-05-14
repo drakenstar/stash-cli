@@ -169,6 +169,9 @@ type GalleriesModelFilterMsg struct {
 	Favourite    *bool
 	Organised    *bool
 	Rating       *int
+	Date         *dateFilterValue
+	Created      *dateFilterValue `command:"created"`
+	Updated      *dateFilterValue `command:"updated"`
 	Performer    *string
 	Count        *int
 	PerformerTag *string
@@ -227,6 +230,15 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Modifier: stash.CriterionModifierEquals,
 					Value:    *msg.Rating,
 				}
+			}
+			if msg.Date != nil {
+				gm.galleryFilter.Date = msg.Date.DateCriterion()
+			}
+			if msg.Created != nil {
+				gm.galleryFilter.CreatedAt = msg.Created.TimestampCriterion()
+			}
+			if msg.Updated != nil {
+				gm.galleryFilter.UpdatedAt = msg.Updated.TimestampCriterion()
 			}
 			if msg.Performer != nil {
 				if *msg.Performer == "current" {
