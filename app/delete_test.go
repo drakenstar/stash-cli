@@ -14,6 +14,7 @@ func (deleteTestService) Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd { r
 func (deleteTestService) DeleteScene(string) tea.Cmd {
 	return func() tea.Msg { return sceneDeletedMsg{id: "scene-1"} }
 }
+func (deleteTestService) ResolveTags([]string) tea.Cmd                            { return nil }
 func (deleteTestService) Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd { return nil }
 func (deleteTestService) DeleteGallery(string) tea.Cmd {
 	return func() tea.Msg { return galleryDeletedMsg{id: "gallery-1"} }

@@ -33,6 +33,7 @@ type cacheLookup struct {
 	performers map[string]stash.Performer
 	studios    map[string]stash.Studio
 	tags       map[string]stash.Tag
+	tagNames   map[string]string
 }
 
 func newCacheLookup() *cacheLookup {
@@ -40,6 +41,7 @@ func newCacheLookup() *cacheLookup {
 		performers: make(map[string]stash.Performer),
 		studios:    make(map[string]stash.Studio),
 		tags:       make(map[string]stash.Tag),
+		tagNames:   make(map[string]string),
 	}
 	return c
 }
@@ -52,12 +54,12 @@ func (s *cacheLookup) CacheScenes(scenes []stash.Scene) {
 		for _, p := range sc.Performers {
 			s.performers[p.ID] = p
 			for _, t := range p.Tags {
-				s.tags[t.ID] = t
+				s.cacheTagLocked(t)
 			}
 		}
 
 		for _, t := range sc.Tags {
-			s.tags[t.ID] = t
+			s.cacheTagLocked(t)
 		}
 
 		s.studios[sc.Studio.ID] = sc.Studio
@@ -71,12 +73,12 @@ func (s *cacheLookup) CacheGalleries(galleries []stash.Gallery) {
 		for _, p := range g.Performers {
 			s.performers[p.ID] = p
 			for _, t := range p.Tags {
-				s.tags[t.ID] = t
+				s.cacheTagLocked(t)
 			}
 		}
 
 		for _, t := range g.Tags {
-			s.tags[t.ID] = t
+			s.cacheTagLocked(t)
 		}
 
 		s.studios[g.Studio.ID] = g.Studio
@@ -101,6 +103,34 @@ func (s *cacheLookup) GetTag(id string) (stash.Tag, error) {
 		return tag, nil
 	}
 	return stash.Tag{}, fmt.Errorf("tag not cached")
+}
+
+func (s *cacheLookup) GetTagByName(name string) (stash.Tag, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.tagNames[name]
+	if !ok {
+		return stash.Tag{}, fmt.Errorf("tag not cached")
+	}
+	tag, ok := s.tags[id]
+	if !ok {
+		return stash.Tag{}, fmt.Errorf("tag not cached")
+	}
+	return tag, nil
+}
+
+func (s *cacheLookup) CacheTag(tag stash.Tag) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cacheTagLocked(tag)
+}
+
+func (s *cacheLookup) cacheTagLocked(tag stash.Tag) {
+	s.tags[tag.ID] = tag
+	if tag.Name != "" {
+		s.tagNames[tag.Name] = tag.ID
+	}
 }
 
 func (s *cacheLookup) GetPerformer(id string) (stash.Performer, error) {

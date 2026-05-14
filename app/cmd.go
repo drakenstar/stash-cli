@@ -15,6 +15,7 @@ type cmdService struct {
 
 	mu           sync.RWMutex
 	loadingCount uint
+	cache        *cacheLookup
 }
 
 func (s *cmdService) loadBegin() {

@@ -103,7 +103,10 @@ type Model struct {
 
 func New(stash stash.Stash, opener config.Opener) *Model {
 	lookup := newCacheLookup()
-	s := &cmdService{Stash: &cachingStash{stash, lookup}}
+	s := &cmdService{
+		Stash: &cachingStash{stash, lookup},
+		cache: lookup,
+	}
 
 	models := []TabModelConfig{
 		{

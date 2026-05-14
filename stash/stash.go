@@ -19,6 +19,7 @@ type Stash interface {
 	PerformerGet(context.Context, string) (Performer, error)
 
 	TagGet(context.Context, string) (Tag, error)
+	TagFindByName(context.Context, string) (Tag, error)
 }
 
 func New(client *graphql.Client) Stash {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync/atomic"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,6 +25,7 @@ type galleryFilterState struct {
 type GalleryService interface {
 	Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd
 	DeleteGallery(string) tea.Cmd
+	ResolveTags([]string) tea.Cmd
 }
 
 type GalleriesModel struct {
@@ -41,6 +43,16 @@ type GalleriesModel struct {
 	history []galleryFilterState
 
 	screen Size
+
+	pendingFilterRequestID uint64
+	pendingFilter          *pendingGalleryFilter
+}
+
+type pendingGalleryFilter struct {
+	requestID uint64
+	msg       GalleriesModelFilterMsg
+	tagIDs    []string
+	waitingOn int
 }
 
 func NewGalleriesModel(galleryService GalleryService, lookup StashLookup) *GalleriesModel {
@@ -178,8 +190,13 @@ type GalleriesModelFilterMsg struct {
 	Performer    *string
 	Count        *int
 	PerformerTag *string
-	Tag          *string
+	Tag          []string
 	Studio       *string
+}
+
+type galleryTagsResolvedMsg struct {
+	requestID uint64
+	ids       []string
 }
 
 type GalleriesModelOpenMsg struct {
@@ -222,73 +239,24 @@ func (m GalleriesModel) Search(query string) tea.Msg {
 func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case GalleriesModelFilterMsg:
-		return m.PushState(func(gm *GalleriesModel) {
-			if msg.Query != nil {
-				gm.query = *msg.Query
-			}
-			if msg.Favourite != nil {
-				gm.galleryFilter.PerformerFavourite = msg.Favourite
-			}
-			if msg.Organised != nil {
-				gm.galleryFilter.Organized = msg.Organised
-			}
-			if msg.Rating != nil {
-				gm.galleryFilter.Rating100 = &stash.IntCriterion{
-					Modifier: stash.CriterionModifierEquals,
-					Value:    *msg.Rating,
-				}
-			}
-			if msg.Date != nil {
-				gm.galleryFilter.Date = msg.Date.DateCriterion()
-			}
-			if msg.Created != nil {
-				gm.galleryFilter.CreatedAt = msg.Created.TimestampCriterion()
-			}
-			if msg.Updated != nil {
-				gm.galleryFilter.UpdatedAt = msg.Updated.TimestampCriterion()
-			}
-			if msg.Performer != nil {
-				if *msg.Performer == "current" {
-					var ids []string
-					for _, p := range gm.Current().Performers {
-						ids = append(ids, p.ID)
-					}
-					gm.galleryFilter.Performers = &stash.MultiCriterion{
-						Value:    ids,
-						Modifier: stash.CriterionModifierIncludes,
-					}
-				} else {
-					gm.galleryFilter.Performers = &stash.MultiCriterion{
-						Value:    []string{*msg.Performer},
-						Modifier: stash.CriterionModifierIncludes,
-					}
-				}
-			}
-			if msg.Studio != nil {
-				gm.galleryFilter.Studios = &stash.HierarchicalMultiCriterion{
-					Value:    []string{*msg.Studio},
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			if msg.Tag != nil {
-				gm.galleryFilter.Tags = &stash.HierarchicalMultiCriterion{
-					Value:    []string{*msg.Tag},
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			if msg.PerformerTag != nil {
-				gm.galleryFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
-					Value:    []string{*msg.PerformerTag},
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			if msg.Count != nil {
-				gm.galleryFilter.FileCount = &stash.IntCriterion{
-					Value:    *msg.Count,
-					Modifier: stash.CriterionModifierGreaterThan, // TODO modiifiers
-				}
-			}
-		})
+		if m.filterNeedsAsyncResolution(msg) {
+			return m.beginPendingFilter(msg)
+		}
+		return m.applyFilter(msg, msg.Tag)
+
+	case galleryTagsResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.tagIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, pending.tagIDs)
 
 	case GalleriesModelOpenMsg:
 		if msg.Skip && m.pageState.Next() {
@@ -371,6 +339,110 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *GalleriesModel) filterNeedsAsyncResolution(msg GalleriesModelFilterMsg) bool {
+	return len(msg.Tag) > 0
+}
+
+func (m *GalleriesModel) beginPendingFilter(msg GalleriesModelFilterMsg) (*GalleriesModel, tea.Cmd) {
+	requestID := atomic.AddUint64(&m.pendingFilterRequestID, 1)
+	pending := &pendingGalleryFilter{
+		requestID: requestID,
+		msg:       msg,
+	}
+
+	var cmds []tea.Cmd
+	if len(msg.Tag) > 0 {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveGalleryTagsCmd(requestID, msg.Tag))
+	}
+
+	m.pendingFilter = pending
+	return m, tea.Batch(cmds...)
+}
+
+func (m *GalleriesModel) resolveGalleryTagsCmd(requestID uint64, rawTags []string) tea.Cmd {
+	tags := append([]string(nil), rawTags...)
+	return func() tea.Msg {
+		resolved := m.GalleryService.ResolveTags(tags)()
+		switch msg := resolved.(type) {
+		case resolvedTagIDsMsg:
+			return galleryTagsResolvedMsg{requestID: requestID, ids: msg.ids}
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *GalleriesModel) applyFilter(msg GalleriesModelFilterMsg, tagIDs []string) (*GalleriesModel, tea.Cmd) {
+	return m.PushState(func(gm *GalleriesModel) {
+		if msg.Query != nil {
+			gm.query = *msg.Query
+		}
+		if msg.Favourite != nil {
+			gm.galleryFilter.PerformerFavourite = msg.Favourite
+		}
+		if msg.Organised != nil {
+			gm.galleryFilter.Organized = msg.Organised
+		}
+		if msg.Rating != nil {
+			gm.galleryFilter.Rating100 = &stash.IntCriterion{
+				Modifier: stash.CriterionModifierEquals,
+				Value:    *msg.Rating,
+			}
+		}
+		if msg.Date != nil {
+			gm.galleryFilter.Date = msg.Date.DateCriterion()
+		}
+		if msg.Created != nil {
+			gm.galleryFilter.CreatedAt = msg.Created.TimestampCriterion()
+		}
+		if msg.Updated != nil {
+			gm.galleryFilter.UpdatedAt = msg.Updated.TimestampCriterion()
+		}
+		if msg.Performer != nil {
+			if *msg.Performer == "current" {
+				var ids []string
+				for _, p := range gm.Current().Performers {
+					ids = append(ids, p.ID)
+				}
+				gm.galleryFilter.Performers = &stash.MultiCriterion{
+					Value:    ids,
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			} else {
+				gm.galleryFilter.Performers = &stash.MultiCriterion{
+					Value:    []string{*msg.Performer},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+		}
+		if msg.Studio != nil {
+			gm.galleryFilter.Studios = &stash.HierarchicalMultiCriterion{
+				Value:    []string{*msg.Studio},
+				Modifier: stash.CriterionModifierIncludes,
+			}
+		}
+		if len(tagIDs) > 0 {
+			gm.galleryFilter.Tags = &stash.HierarchicalMultiCriterion{
+				Value:    tagIDs,
+				Modifier: stash.CriterionModifierIncludes,
+			}
+		}
+		if msg.PerformerTag != nil {
+			gm.galleryFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
+				Value:    []string{*msg.PerformerTag},
+				Modifier: stash.CriterionModifierIncludes,
+			}
+		}
+		if msg.Count != nil {
+			gm.galleryFilter.FileCount = &stash.IntCriterion{
+				Value:    *msg.Count,
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+		}
+	})
 }
 
 func (m GalleriesModel) View() string {

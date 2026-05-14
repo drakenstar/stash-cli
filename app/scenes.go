@@ -5,6 +5,7 @@ import (
 	"math"
 	"path"
 	"strings"
+	"sync/atomic"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -25,6 +26,7 @@ type sceneFilterState struct {
 type SceneService interface {
 	Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd
 	DeleteScene(string) tea.Cmd
+	ResolveTags([]string) tea.Cmd
 }
 
 type ScenesModel struct {
@@ -42,6 +44,16 @@ type ScenesModel struct {
 	history []sceneFilterState
 
 	screen Size
+
+	pendingFilterRequestID uint64
+	pendingFilter          *pendingSceneFilter
+}
+
+type pendingSceneFilter struct {
+	requestID uint64
+	msg       ScenesModelFilterMsg
+	tagIDs    []string
+	waitingOn int
 }
 
 func NewScenesModel(sceneService SceneService, lookup StashLookup) *ScenesModel {
@@ -190,8 +202,13 @@ type ScenesModelFilterMsg struct {
 	Performer    *string
 	Duration     *int
 	PerformerTag *string
-	Tag          *string
+	Tag          []string
 	Studio       []string
+}
+
+type sceneTagsResolvedMsg struct {
+	requestID uint64
+	ids       []string
 }
 
 type ScenesModelOpenMsg struct {
@@ -224,73 +241,24 @@ type ScenesModelUndoMsg struct{}
 func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ScenesModelFilterMsg:
-		return m.PushState(func(sm *ScenesModel) {
-			if msg.Query != nil {
-				sm.query = *msg.Query
-			}
-			if msg.Favourite != nil {
-				sm.sceneFilter.PerformerFavourite = msg.Favourite
-			}
-			if msg.Organised != nil {
-				sm.sceneFilter.Organized = msg.Organised
-			}
-			if msg.Rating != nil {
-				sm.sceneFilter.Rating100 = &stash.IntCriterion{
-					Modifier: stash.CriterionModifierEquals,
-					Value:    *msg.Rating,
-				}
-			}
-			if msg.Date != nil {
-				sm.sceneFilter.Date = msg.Date.DateCriterion()
-			}
-			if msg.Created != nil {
-				sm.sceneFilter.CreatedAt = msg.Created.TimestampCriterion()
-			}
-			if msg.Updated != nil {
-				sm.sceneFilter.UpdatedAt = msg.Updated.TimestampCriterion()
-			}
-			if msg.Performer != nil {
-				if *msg.Performer == "current" {
-					var ids []string
-					for _, p := range sm.Current().Performers {
-						ids = append(ids, p.ID)
-					}
-					sm.sceneFilter.Performers = &stash.MultiCriterion{
-						Value:    ids,
-						Modifier: stash.CriterionModifierIncludes,
-					}
-				} else {
-					sm.sceneFilter.Performers = &stash.MultiCriterion{
-						Value:    []string{*msg.Performer},
-						Modifier: stash.CriterionModifierIncludes,
-					}
-				}
-			}
-			if len(msg.Studio) > 0 {
-				sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
-					Value:    msg.Studio,
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			if msg.Tag != nil {
-				sm.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
-					Value:    []string{*msg.Tag},
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			if msg.PerformerTag != nil {
-				sm.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
-					Value:    []string{*msg.PerformerTag},
-					Modifier: stash.CriterionModifierIncludes,
-				}
-			}
-			if msg.Duration != nil {
-				sm.sceneFilter.Duration = &stash.IntCriterion{
-					Value:    *msg.Duration,
-					Modifier: stash.CriterionModifierGreaterThan, // TODO modiifiers
-				}
-			}
-		})
+		if m.filterNeedsAsyncResolution(msg) {
+			return m.beginPendingFilter(msg)
+		}
+		return m.applyFilter(msg, msg.Tag)
+
+	case sceneTagsResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.tagIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, pending.tagIDs)
 
 	case ScenesModelOpenMsg:
 		if msg.Skip && m.pageState.Next() {
@@ -373,6 +341,110 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *ScenesModel) filterNeedsAsyncResolution(msg ScenesModelFilterMsg) bool {
+	return len(msg.Tag) > 0
+}
+
+func (m *ScenesModel) beginPendingFilter(msg ScenesModelFilterMsg) (*ScenesModel, tea.Cmd) {
+	requestID := atomic.AddUint64(&m.pendingFilterRequestID, 1)
+	pending := &pendingSceneFilter{
+		requestID: requestID,
+		msg:       msg,
+	}
+
+	var cmds []tea.Cmd
+	if len(msg.Tag) > 0 {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveSceneTagsCmd(requestID, msg.Tag))
+	}
+
+	m.pendingFilter = pending
+	return m, tea.Batch(cmds...)
+}
+
+func (m *ScenesModel) resolveSceneTagsCmd(requestID uint64, rawTags []string) tea.Cmd {
+	tags := append([]string(nil), rawTags...)
+	return func() tea.Msg {
+		resolved := m.SceneService.ResolveTags(tags)()
+		switch msg := resolved.(type) {
+		case resolvedTagIDsMsg:
+			return sceneTagsResolvedMsg{requestID: requestID, ids: msg.ids}
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *ScenesModel) applyFilter(msg ScenesModelFilterMsg, tagIDs []string) (*ScenesModel, tea.Cmd) {
+	return m.PushState(func(sm *ScenesModel) {
+		if msg.Query != nil {
+			sm.query = *msg.Query
+		}
+		if msg.Favourite != nil {
+			sm.sceneFilter.PerformerFavourite = msg.Favourite
+		}
+		if msg.Organised != nil {
+			sm.sceneFilter.Organized = msg.Organised
+		}
+		if msg.Rating != nil {
+			sm.sceneFilter.Rating100 = &stash.IntCriterion{
+				Modifier: stash.CriterionModifierEquals,
+				Value:    *msg.Rating,
+			}
+		}
+		if msg.Date != nil {
+			sm.sceneFilter.Date = msg.Date.DateCriterion()
+		}
+		if msg.Created != nil {
+			sm.sceneFilter.CreatedAt = msg.Created.TimestampCriterion()
+		}
+		if msg.Updated != nil {
+			sm.sceneFilter.UpdatedAt = msg.Updated.TimestampCriterion()
+		}
+		if msg.Performer != nil {
+			if *msg.Performer == "current" {
+				var ids []string
+				for _, p := range sm.Current().Performers {
+					ids = append(ids, p.ID)
+				}
+				sm.sceneFilter.Performers = &stash.MultiCriterion{
+					Value:    ids,
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			} else {
+				sm.sceneFilter.Performers = &stash.MultiCriterion{
+					Value:    []string{*msg.Performer},
+					Modifier: stash.CriterionModifierIncludes,
+				}
+			}
+		}
+		if len(msg.Studio) > 0 {
+			sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
+				Value:    msg.Studio,
+				Modifier: stash.CriterionModifierIncludes,
+			}
+		}
+		if len(tagIDs) > 0 {
+			sm.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
+				Value:    tagIDs,
+				Modifier: stash.CriterionModifierIncludes,
+			}
+		}
+		if msg.PerformerTag != nil {
+			sm.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
+				Value:    []string{*msg.PerformerTag},
+				Modifier: stash.CriterionModifierIncludes,
+			}
+		}
+		if msg.Duration != nil {
+			sm.sceneFilter.Duration = &stash.IntCriterion{
+				Value:    *msg.Duration,
+				Modifier: stash.CriterionModifierGreaterThan,
+			}
+		}
+	})
 }
 
 func (m ScenesModel) View() string {
