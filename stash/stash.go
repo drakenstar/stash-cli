@@ -20,6 +20,7 @@ type Stash interface {
 
 	TagGet(context.Context, string) (Tag, error)
 	TagFindByName(context.Context, string) (Tag, error)
+	TagsAll(context.Context) ([]Tag, error)
 }
 
 func New(client *graphql.Client) Stash {

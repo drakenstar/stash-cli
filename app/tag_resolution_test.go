@@ -1,48 +1,73 @@
 package app
 
 import (
-	"context"
-	"errors"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/stretchr/testify/require"
 )
 
-type tagResolutionTestStash struct {
-	stash.LocalStash
-	byName map[string]stash.Tag
+type sceneTagResolveTestService struct{}
+
+func (sceneTagResolveTestService) Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd { return nil }
+func (sceneTagResolveTestService) DeleteScene(string) tea.Cmd                         { return nil }
+func (sceneTagResolveTestService) ResolveTags([]string) tea.Cmd {
+	return func() tea.Msg {
+		return loadingMsg{
+			id:      42,
+			payload: resolvedTagIDsMsg{ids: []string{"1", "2"}},
+		}
+	}
 }
 
-func (s tagResolutionTestStash) TagFindByName(_ context.Context, name string) (stash.Tag, error) {
-	tag, ok := s.byName[name]
-	if !ok {
-		return stash.Tag{}, errors.New("not found")
+type galleryTagResolveTestService struct{}
+
+func (galleryTagResolveTestService) Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd {
+	return nil
+}
+func (galleryTagResolveTestService) DeleteGallery(string) tea.Cmd { return nil }
+func (galleryTagResolveTestService) ResolveTags([]string) tea.Cmd {
+	return func() tea.Msg {
+		return loadingMsg{
+			id:      42,
+			payload: resolvedTagIDsMsg{ids: []string{"1", "2"}},
+		}
 	}
-	return tag, nil
 }
 
-func TestResolveTagInputsSupportsIDsAndNames(t *testing.T) {
-	srv := tagResolutionTestStash{
-		byName: map[string]stash.Tag{
-			"Foo":      {ID: "12", Name: "Foo"},
-			"Test Tag": {ID: "34", Name: "Test Tag"},
-		},
-	}
+type tagResolveTestLookup struct{}
 
-	ids, err := resolveTagInputs(context.Background(), &srv, []string{"12", "Foo", "Test Tag"})
-	require.NoError(t, err)
-	require.Equal(t, []string{"12", "12", "34"}, ids)
+func (tagResolveTestLookup) GetStudio(string) (stash.Studio, error)       { return stash.Studio{}, nil }
+func (tagResolveTestLookup) GetTag(string) (stash.Tag, error)             { return stash.Tag{}, nil }
+func (tagResolveTestLookup) GetPerformer(string) (stash.Performer, error) { return stash.Performer{}, nil }
+
+func TestResolveSceneTagsCmdWrapsLoadingPayload(t *testing.T) {
+	m := NewScenesModel(sceneTagResolveTestService{}, tagResolveTestLookup{})
+
+	msg := m.resolveSceneTagsCmd(7, []string{"foo"})()
+
+	routed, ok := msg.(loadingMsg)
+	require.True(t, ok)
+	require.Equal(t, tabID(42), routed.id)
+
+	resolved, ok := routed.payload.(sceneTagsResolvedMsg)
+	require.True(t, ok)
+	require.Equal(t, uint64(7), resolved.requestID)
+	require.Equal(t, []string{"1", "2"}, resolved.ids)
 }
 
-func TestResolveTagInputsTreatsQuotedNamesAsNames(t *testing.T) {
-	srv := tagResolutionTestStash{
-		byName: map[string]stash.Tag{
-			"123 tag": {ID: "77", Name: "123 tag"},
-		},
-	}
+func TestResolveGalleryTagsCmdWrapsLoadingPayload(t *testing.T) {
+	m := NewGalleriesModel(galleryTagResolveTestService{}, tagResolveTestLookup{})
 
-	ids, err := resolveTagInputs(context.Background(), &srv, []string{"123 tag"})
-	require.NoError(t, err)
-	require.Equal(t, []string{"77"}, ids)
+	msg := m.resolveGalleryTagsCmd(7, []string{"foo"})()
+
+	routed, ok := msg.(loadingMsg)
+	require.True(t, ok)
+	require.Equal(t, tabID(42), routed.id)
+
+	resolved, ok := routed.payload.(galleryTagsResolvedMsg)
+	require.True(t, ok)
+	require.Equal(t, uint64(7), resolved.requestID)
+	require.Equal(t, []string{"1", "2"}, resolved.ids)
 }

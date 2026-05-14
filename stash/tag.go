@@ -66,3 +66,18 @@ func (s stash) TagFindByName(ctx context.Context, name string) (Tag, error) {
 		return Tag{}, fmt.Errorf("multiple tags found for name: %s", name)
 	}
 }
+
+type allTagsQuery struct {
+	Tags []Tag `graphql:"allTags"`
+}
+
+func (s stash) TagsAll(ctx context.Context) ([]Tag, error) {
+	resp := allTagsQuery{
+		Tags: make([]Tag, 0),
+	}
+	err := s.client.Query(ctx, &resp, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Tags, nil
+}

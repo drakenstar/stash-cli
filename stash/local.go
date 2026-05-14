@@ -133,6 +133,10 @@ func (s *LocalStash) TagFindByName(context.Context, string) (Tag, error) {
 	panic("not implemented")
 }
 
+func (s *LocalStash) TagsAll(context.Context) ([]Tag, error) {
+	panic("not implemented")
+}
+
 func paginate[T any](items []T, page, perPage int) []T {
 	if perPage <= 0 || page <= 0 {
 		return []T{}

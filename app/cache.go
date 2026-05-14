@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/drakenstar/stash-cli/stash"
@@ -26,6 +28,14 @@ func (s *cachingStash) Galleries(ctx context.Context, f stash.FindFilter, gf sta
 	return galleries, count, err
 }
 
+func (s *cachingStash) TagsAll(ctx context.Context) ([]stash.Tag, error) {
+	tags, err := s.Stash.TagsAll(ctx)
+	if err == nil {
+		s.cache.CacheTags(tags)
+	}
+	return tags, err
+}
+
 // cacheLookup is a StashLookup implementation that caches entities by ID.
 type cacheLookup struct {
 	mu sync.RWMutex
@@ -34,6 +44,7 @@ type cacheLookup struct {
 	studios    map[string]stash.Studio
 	tags       map[string]stash.Tag
 	tagNames   map[string]string
+	tagsLoaded bool
 }
 
 func newCacheLookup() *cacheLookup {
@@ -126,11 +137,47 @@ func (s *cacheLookup) CacheTag(tag stash.Tag) {
 	s.cacheTagLocked(tag)
 }
 
+func (s *cacheLookup) CacheTags(tags []stash.Tag) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, tag := range tags {
+		s.cacheTagLocked(tag)
+	}
+	s.tagsLoaded = true
+}
+
 func (s *cacheLookup) cacheTagLocked(tag stash.Tag) {
 	s.tags[tag.ID] = tag
 	if tag.Name != "" {
 		s.tagNames[tag.Name] = tag.ID
 	}
+}
+
+func (s *cacheLookup) TagsLoaded() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tagsLoaded
+}
+
+func (s *cacheLookup) TagsByPrefix(prefix string, limit int) []stash.Tag {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	prefixLower := strings.ToLower(prefix)
+	matches := make([]stash.Tag, 0, limit)
+	for _, tag := range s.tags {
+		if strings.HasPrefix(strings.ToLower(tag.Name), prefixLower) {
+			matches = append(matches, tag)
+		}
+	}
+
+	slices.SortFunc(matches, func(a, b stash.Tag) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	if limit > 0 && len(matches) > limit {
+		matches = matches[:limit]
+	}
+	return matches
 }
 
 func (s *cacheLookup) GetPerformer(id string) (stash.Performer, error) {

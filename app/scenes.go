@@ -371,6 +371,11 @@ func (m *ScenesModel) resolveSceneTagsCmd(requestID uint64, rawTags []string) te
 		switch msg := resolved.(type) {
 		case resolvedTagIDsMsg:
 			return sceneTagsResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedTagIDsMsg); ok {
+				msg.payload = sceneTagsResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
 		default:
 			return resolved
 		}

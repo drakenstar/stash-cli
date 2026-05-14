@@ -369,6 +369,11 @@ func (m *GalleriesModel) resolveGalleryTagsCmd(requestID uint64, rawTags []strin
 		switch msg := resolved.(type) {
 		case resolvedTagIDsMsg:
 			return galleryTagsResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedTagIDsMsg); ok {
+				msg.payload = galleryTagsResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
 		default:
 			return resolved
 		}

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -93,6 +94,7 @@ type Model struct {
 	commandInput  ui.CommandInput
 	confirmation  *ui.Confirmation
 	pendingDelete *pendingDeleteState
+	tagsLoading   bool
 	err           error
 
 	footer ui.Footer
@@ -139,6 +141,7 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 
 	m.commandInput = ui.NewCommandInput()
 	m.commandInput.SetWidth(m.screen.Width)
+	m.commandInput.SetSuggestionProvider(m.commandSuggestionProvider())
 
 	m.footer = ui.NewFooter()
 	m.footer.Background = ColorBlack
@@ -208,6 +211,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
 		if m.pendingDelete != nil {
 			return m, nil
 		}
@@ -219,14 +225,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.mode {
 		case ModeCommand, ModeFind:
 			m.commandInput, cmd = m.commandInput.Update(msg)
-			return m, cmd
+			var cmds []tea.Cmd
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			if m.mode == ModeCommand {
+				if loadCmd := m.refreshCommandAutocomplete(); loadCmd != nil {
+					cmds = append(cmds, loadCmd)
+				}
+			}
+			return m, tea.Batch(cmds...)
 
 		default:
 			switch msg.String() {
 			case ":":
 				m.mode = ModeCommand
-				m.commandInput.SetSuggestions(m.commandSuggestions())
-				return m, m.commandInput.Focus(":")
+				cmds := []tea.Cmd{m.commandInput.Focus(":")}
+				if loadCmd := m.refreshCommandAutocomplete(); loadCmd != nil {
+					cmds = append(cmds, loadCmd)
+				}
+				return m, tea.Batch(cmds...)
 
 			case "/":
 				m.mode = ModeFind
@@ -309,6 +327,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ui.CommandExitMsg:
 		m.mode = ModeNormal
+		return m, nil
+
+	case tagsLoadedMsg:
+		m.tagsLoading = false
+		if m.mode == ModeCommand {
+			m.commandInput.RefreshSuggestions()
+		}
 		return m, nil
 
 	case tea.WindowSizeMsg:
@@ -558,6 +583,156 @@ func (m Model) commandSuggestions() []string {
 
 	slices.Sort(suggestions)
 	return suggestions
+}
+
+func (m *Model) commandSuggestionProvider() ui.SuggestionProvider {
+	return func(prompt, input string, cursor int) ui.SuggestionSet {
+		set, _ := m.commandSuggestionSet(prompt, input, cursor)
+		return set
+	}
+}
+
+func (m *Model) refreshCommandAutocomplete() tea.Cmd {
+	m.commandInput.RefreshSuggestions()
+	_, needsTags := m.commandSuggestionSet(":", m.commandInput.Value(), m.commandInput.CursorPosition())
+	if needsTags && !m.cmdService.cache.TagsLoaded() && !m.tagsLoading {
+		m.tagsLoading = true
+		return m.cmdService.TagsAll()
+	}
+	return nil
+}
+
+func (m Model) commandSuggestionSet(prompt, input string, cursor int) (ui.SuggestionSet, bool) {
+	if prompt != ":" {
+		return ui.SuggestionSet{}, false
+	}
+
+	token, ok := tokenAtCursor(input, cursor)
+	if !ok {
+		return ui.SuggestionSet{}, false
+	}
+
+	if token.index == 0 {
+		prefix := input[token.start:cursor]
+		if strings.TrimSpace(prefix) == "" {
+			return ui.SuggestionSet{}, false
+		}
+
+		var suggestions []ui.Suggestion
+		for _, name := range m.commandSuggestions() {
+			if strings.HasPrefix(name, prefix) {
+				suggestions = append(suggestions, ui.Suggestion{Display: name, Value: name})
+			}
+			if len(suggestions) == 6 {
+				break
+			}
+		}
+		return ui.SuggestionSet{
+			Start:       token.start,
+			End:         token.end,
+			Suggestions: suggestions,
+		}, false
+	}
+
+	if len(token.tokens) == 0 || token.tokens[0].raw != "filter" {
+		return ui.SuggestionSet{}, false
+	}
+
+	eq := strings.IndexByte(token.raw, '=')
+	if eq <= 0 || token.raw[:eq] != "tag" {
+		return ui.SuggestionSet{}, false
+	}
+
+	valueStart := token.start + eq + 1
+	if cursor < valueStart {
+		return ui.SuggestionSet{}, false
+	}
+
+	prefixRaw := input[valueStart:cursor]
+	searchPrefix := strings.TrimPrefix(prefixRaw, "\"")
+	if searchPrefix == "" || strings.ContainsRune(searchPrefix, ' ') {
+		return ui.SuggestionSet{}, false
+	}
+	if !m.cmdService.cache.TagsLoaded() {
+		return ui.SuggestionSet{}, true
+	}
+
+	tags := m.cmdService.cache.TagsByPrefix(searchPrefix, 6)
+	suggestions := make([]ui.Suggestion, 0, len(tags))
+	for _, tag := range tags {
+		value := tag.Name
+		if strings.ContainsRune(value, ' ') {
+			value = `"` + value + `"`
+		}
+		suggestions = append(suggestions, ui.Suggestion{
+			Display: tag.Name,
+			Value:   value,
+		})
+	}
+	return ui.SuggestionSet{
+		Start:       valueStart,
+		End:         token.end,
+		Suggestions: suggestions,
+	}, false
+}
+
+type commandToken struct {
+	index  int
+	start  int
+	end    int
+	raw    string
+	tokens []commandToken
+}
+
+func tokenAtCursor(input string, cursor int) (commandToken, bool) {
+	tokens := tokenizeCommandInput(input)
+	for i := range tokens {
+		tokens[i].tokens = tokens
+		tokens[i].index = i
+		if cursor >= tokens[i].start && cursor <= tokens[i].end {
+			return tokens[i], true
+		}
+	}
+	return commandToken{}, false
+}
+
+func tokenizeCommandInput(input string) []commandToken {
+	var tokens []commandToken
+	inQuote := byte(0)
+	start := -1
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
+		if start == -1 {
+			if unicode.IsSpace(rune(ch)) {
+				continue
+			}
+			start = i
+			if ch == '"' || ch == '\'' {
+				inQuote = ch
+			}
+			continue
+		}
+
+		if inQuote != 0 {
+			if ch == inQuote && input[i-1] != '\\' {
+				inQuote = 0
+			}
+			continue
+		}
+
+		if ch == '"' || ch == '\'' {
+			inQuote = ch
+			continue
+		}
+		if unicode.IsSpace(rune(ch)) {
+			tokens = append(tokens, commandToken{start: start, end: i, raw: input[start:i]})
+			start = -1
+		}
+	}
+	if start != -1 {
+		tokens = append(tokens, commandToken{start: start, end: len(input), raw: input[start:]})
+	}
+	return tokens
 }
 
 func truncateLines(s string, height int) string {

@@ -80,6 +80,16 @@ func (s *cmdService) DeleteGallery(id string) tea.Cmd {
 	})
 }
 
+func (s *cmdService) TagsAll() tea.Cmd {
+	return s.withLoadingCount(func() tea.Msg {
+		_, err := s.Stash.TagsAll(context.Background())
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return tagsLoadedMsg{}
+	})
+}
+
 func (s *cmdService) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {
 	return s.withLoadingCount(func() tea.Msg {
 		galleries, total, err := s.Stash.Galleries(context.Background(), f, gf)
@@ -110,6 +120,8 @@ type sceneDeletedMsg struct {
 type galleryDeletedMsg struct {
 	id string
 }
+
+type tagsLoadedMsg struct{}
 
 // cmdServiceWithID is a wrapped cmdService that annotates fetches with an ID so that they can be routed back to the
 // correct tab during Update.

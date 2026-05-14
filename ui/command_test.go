@@ -7,6 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func typeText(t *testing.T, m CommandInput, text string) CommandInput {
+	t.Helper()
+	for _, r := range text {
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	return m
+}
+
 func TestCommandInputHistoryRecordsCommandModeOnly(t *testing.T) {
 	m := NewCommandInput()
 
@@ -55,8 +63,7 @@ func TestCommandInputAutocompleteAcceptsSuggestion(t *testing.T) {
 	m := NewCommandInput()
 	m.SetSuggestions([]string{"delete", "filter", "refresh", "reset", "sort"})
 	m.Focus(":")
-	m.text.SetValue("re")
-	m.rebuildSuggestions()
+	m = typeText(t, m, "re")
 
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	require.Equal(t, "reset", m.text.Value())
@@ -75,9 +82,7 @@ func TestCommandInputAutocompleteOnlyAppliesToFirstToken(t *testing.T) {
 	m := NewCommandInput()
 	m.SetSuggestions([]string{"filter", "sort"})
 	m.Focus(":")
-	m.text.SetValue("filter ta")
-
-	m.rebuildSuggestions()
+	m = typeText(t, m, "filter ta")
 	require.False(t, m.hasSuggestions())
 }
 
@@ -86,19 +91,33 @@ func TestCommandInputAutocompleteUpDownFallbackToHistory(t *testing.T) {
 	m.SetSuggestions([]string{"filter"})
 	m.history = []string{"sort date"}
 	m.Focus(":")
-	m.text.SetValue("x")
+	m = typeText(t, m, "x")
 
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 	require.Equal(t, "sort date", m.text.Value())
 }
 
+func TestCommandInputAutocompleteDoesNotReopenAfterHistoryNavigation(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"sort", "studio"})
+	m.history = []string{"st"}
+	m.Focus(":")
+	m = typeText(t, m, "x")
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "st", m.text.Value())
+	require.False(t, m.hasSuggestions())
+
+	m.RefreshSuggestions()
+	require.False(t, m.hasSuggestions())
+}
+
 func TestCommandInputAutocompleteTabDismissesWithoutChangingInput(t *testing.T) {
 	m := NewCommandInput()
 	m.SetSuggestions([]string{"refresh", "reset"})
 	m.Focus(":")
-	m.text.SetValue("re")
-	m.rebuildSuggestions()
+	m = typeText(t, m, "re")
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
@@ -111,7 +130,6 @@ func TestCommandInputAutocompleteNeedsOneCharacter(t *testing.T) {
 	m := NewCommandInput()
 	m.SetSuggestions([]string{"refresh", "reset"})
 	m.Focus(":")
-	m.text.SetValue("")
 	m.rebuildSuggestions()
 
 	require.False(t, m.hasSuggestions())
@@ -121,11 +139,41 @@ func TestCommandInputAutocompleteTabAcceptsNearestSuggestionWhenNoneSelected(t *
 	m := NewCommandInput()
 	m.SetSuggestions([]string{"refresh", "reset"})
 	m.Focus(":")
-	m.text.SetValue("re")
-	m.rebuildSuggestions()
+	m = typeText(t, m, "re")
 
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 
 	require.Equal(t, "reset", m.text.Value())
 	require.False(t, m.hasSuggestions())
+}
+
+func TestCommandInputAutocompleteKeepsDraftBasisWhilePreviewing(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"refresh", "reset"})
+	m.Focus(":")
+	m = typeText(t, m, "re")
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "reset", m.text.Value())
+
+	m.RefreshSuggestions()
+	require.True(t, m.hasSuggestions())
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.Equal(t, "refresh", m.text.Value())
+}
+
+func TestCommandInputAutocompleteReenablesAfterTypingPostHistory(t *testing.T) {
+	m := NewCommandInput()
+	m.SetSuggestions([]string{"sort", "studio"})
+	m.history = []string{"st"}
+	m.Focus(":")
+	m = typeText(t, m, "x")
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	require.False(t, m.hasSuggestions())
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	require.Equal(t, "stu", m.text.Value())
+	require.True(t, m.hasSuggestions())
 }
