@@ -90,6 +90,26 @@ func (s *cmdService) TagsAll() tea.Cmd {
 	})
 }
 
+func (s *cmdService) StudiosAll() tea.Cmd {
+	return s.withLoadingCount(func() tea.Msg {
+		_, err := s.Stash.StudiosAll(context.Background())
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return studiosLoadedMsg{}
+	})
+}
+
+func (s *cmdService) PerformersAll() tea.Cmd {
+	return s.withLoadingCount(func() tea.Msg {
+		_, err := s.Stash.PerformersAll(context.Background())
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return performersLoadedMsg{}
+	})
+}
+
 func (s *cmdService) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {
 	return s.withLoadingCount(func() tea.Msg {
 		galleries, total, err := s.Stash.Galleries(context.Background(), f, gf)
@@ -122,6 +142,8 @@ type galleryDeletedMsg struct {
 }
 
 type tagsLoadedMsg struct{}
+type studiosLoadedMsg struct{}
+type performersLoadedMsg struct{}
 
 // cmdServiceWithID is a wrapped cmdService that annotates fetches with an ID so that they can be routed back to the
 // correct tab during Update.

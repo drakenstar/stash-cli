@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -95,6 +96,8 @@ type Model struct {
 	confirmation  *ui.Confirmation
 	pendingDelete *pendingDeleteState
 	tagsLoading   bool
+	studiosLoading bool
+	performersLoading bool
 	err           error
 
 	footer ui.Footer
@@ -331,6 +334,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tagsLoadedMsg:
 		m.tagsLoading = false
+		if m.mode == ModeCommand {
+			m.commandInput.RefreshSuggestions()
+		}
+		return m, nil
+
+	case studiosLoadedMsg:
+		m.studiosLoading = false
+		if m.mode == ModeCommand {
+			m.commandInput.RefreshSuggestions()
+		}
+		return m, nil
+
+	case performersLoadedMsg:
+		m.performersLoading = false
 		if m.mode == ModeCommand {
 			m.commandInput.RefreshSuggestions()
 		}
@@ -594,28 +611,44 @@ func (m *Model) commandSuggestionProvider() ui.SuggestionProvider {
 
 func (m *Model) refreshCommandAutocomplete() tea.Cmd {
 	m.commandInput.RefreshSuggestions()
-	_, needsTags := m.commandSuggestionSet(":", m.commandInput.Value(), m.commandInput.CursorPosition())
-	if needsTags && !m.cmdService.cache.TagsLoaded() && !m.tagsLoading {
+	_, needs := m.commandSuggestionSet(":", m.commandInput.Value(), m.commandInput.CursorPosition())
+
+	var cmds []tea.Cmd
+	if needs.tags && !m.cmdService.cache.TagsLoaded() && !m.tagsLoading {
 		m.tagsLoading = true
-		return m.cmdService.TagsAll()
+		cmds = append(cmds, m.cmdService.TagsAll())
 	}
-	return nil
+	if needs.studios && !m.cmdService.cache.StudiosLoaded() && !m.studiosLoading {
+		m.studiosLoading = true
+		cmds = append(cmds, m.cmdService.StudiosAll())
+	}
+	if needs.performers && !m.cmdService.cache.PerformersLoaded() && !m.performersLoading {
+		m.performersLoading = true
+		cmds = append(cmds, m.cmdService.PerformersAll())
+	}
+	return tea.Batch(cmds...)
 }
 
-func (m Model) commandSuggestionSet(prompt, input string, cursor int) (ui.SuggestionSet, bool) {
+type suggestionRequirements struct {
+	tags       bool
+	studios    bool
+	performers bool
+}
+
+func (m Model) commandSuggestionSet(prompt, input string, cursor int) (ui.SuggestionSet, suggestionRequirements) {
 	if prompt != ":" {
-		return ui.SuggestionSet{}, false
+		return ui.SuggestionSet{}, suggestionRequirements{}
 	}
 
 	token, ok := tokenAtCursor(input, cursor)
 	if !ok {
-		return ui.SuggestionSet{}, false
+		return ui.SuggestionSet{}, suggestionRequirements{}
 	}
 
 	if token.index == 0 {
 		prefix := input[token.start:cursor]
 		if strings.TrimSpace(prefix) == "" {
-			return ui.SuggestionSet{}, false
+			return ui.SuggestionSet{}, suggestionRequirements{}
 		}
 
 		var suggestions []ui.Suggestion
@@ -631,49 +664,162 @@ func (m Model) commandSuggestionSet(prompt, input string, cursor int) (ui.Sugges
 			Start:       token.start,
 			End:         token.end,
 			Suggestions: suggestions,
-		}, false
+		}, suggestionRequirements{}
 	}
 
 	if len(token.tokens) == 0 || token.tokens[0].raw != "filter" {
-		return ui.SuggestionSet{}, false
+		return ui.SuggestionSet{}, suggestionRequirements{}
 	}
 
 	eq := strings.IndexByte(token.raw, '=')
-	if eq <= 0 || token.raw[:eq] != "tag" {
-		return ui.SuggestionSet{}, false
+	if eq < 0 || cursor <= token.start+eq {
+		return m.filterArgumentSuggestionSet(token, input, cursor), suggestionRequirements{}
 	}
 
+	argName := token.raw[:eq]
 	valueStart := token.start + eq + 1
 	if cursor < valueStart {
-		return ui.SuggestionSet{}, false
+		return ui.SuggestionSet{}, suggestionRequirements{}
 	}
 
 	prefixRaw := input[valueStart:cursor]
 	searchPrefix := strings.TrimPrefix(prefixRaw, "\"")
-	if searchPrefix == "" || strings.ContainsRune(searchPrefix, ' ') {
-		return ui.SuggestionSet{}, false
+	if searchPrefix == "" {
+		return ui.SuggestionSet{}, suggestionRequirements{}
 	}
-	if !m.cmdService.cache.TagsLoaded() {
-		return ui.SuggestionSet{}, true
+	switch argName {
+	case "tag", "performertag":
+		if !m.cmdService.cache.TagsLoaded() {
+			return ui.SuggestionSet{}, suggestionRequirements{tags: true}
+		}
+		tags := m.cmdService.cache.TagsByPrefix(searchPrefix, 6)
+		return entitySuggestionSet(valueStart, token.end, tagSuggestions(tags)), suggestionRequirements{}
+
+	case "studio":
+		if !m.cmdService.cache.StudiosLoaded() {
+			return ui.SuggestionSet{}, suggestionRequirements{studios: true}
+		}
+		studios := m.cmdService.cache.StudiosByPrefix(searchPrefix, 6)
+		return entitySuggestionSet(valueStart, token.end, studioSuggestions(studios)), suggestionRequirements{}
+
+	case "performer":
+		suggestions := currentSuggestion(searchPrefix)
+		needs := suggestionRequirements{}
+		if !m.cmdService.cache.PerformersLoaded() {
+			needs.performers = true
+			return entitySuggestionSet(valueStart, token.end, suggestions), needs
+		}
+		performers := m.cmdService.cache.PerformersByPrefix(searchPrefix, 5)
+		suggestions = append(suggestions, performerSuggestions(performers)...)
+		return entitySuggestionSet(valueStart, token.end, suggestions), needs
 	}
 
-	tags := m.cmdService.cache.TagsByPrefix(searchPrefix, 6)
-	suggestions := make([]ui.Suggestion, 0, len(tags))
-	for _, tag := range tags {
-		value := tag.Name
-		if strings.ContainsRune(value, ' ') {
-			value = `"` + value + `"`
+	return ui.SuggestionSet{}, suggestionRequirements{}
+}
+
+func (m Model) filterArgumentSuggestionSet(token commandToken, input string, cursor int) ui.SuggestionSet {
+	prefix := input[token.start:cursor]
+	if strings.TrimSpace(prefix) == "" {
+		return ui.SuggestionSet{}
+	}
+
+	suggestions := make([]ui.Suggestion, 0, 6)
+	for _, name := range m.filterArgumentNames() {
+		if strings.HasPrefix(name, prefix) {
+			suggestions = append(suggestions, ui.Suggestion{
+				Display: name,
+				Value:   name + "=",
+			})
 		}
-		suggestions = append(suggestions, ui.Suggestion{
-			Display: tag.Name,
-			Value:   value,
-		})
+		if len(suggestions) == 6 {
+			break
+		}
 	}
 	return ui.SuggestionSet{
-		Start:       valueStart,
+		Start:       token.start,
 		End:         token.end,
 		Suggestions: suggestions,
-	}, false
+	}
+}
+
+func (m Model) filterArgumentNames() []string {
+	switch m.tabs[m.active].model.(type) {
+	case *ScenesModel:
+		return filterArgumentNamesFor[ScenesModelFilterMsg]()
+	case *GalleriesModel:
+		return filterArgumentNamesFor[GalleriesModelFilterMsg]()
+	default:
+		return nil
+	}
+}
+
+func filterArgumentNamesFor[T any]() []string {
+	var msg T
+	t := reflect.TypeOf(msg)
+	names := make([]string, 0, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.PkgPath != "" || field.Anonymous {
+			continue
+		}
+		name := strings.ToLower(field.Name)
+		if tag := field.Tag.Get(command.TagKey); tag != "" {
+			name = strings.Split(tag, ",")[0]
+		}
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func entitySuggestionSet(start, end int, suggestions []ui.Suggestion) ui.SuggestionSet {
+	return ui.SuggestionSet{
+		Start:       start,
+		End:         end,
+		Suggestions: suggestions,
+	}
+}
+
+func tagSuggestions(tags []stash.Tag) []ui.Suggestion {
+	suggestions := make([]ui.Suggestion, 0, len(tags))
+	for _, tag := range tags {
+		suggestions = append(suggestions, quotedSuggestion(tag.Name))
+	}
+	return suggestions
+}
+
+func studioSuggestions(studios []stash.Studio) []ui.Suggestion {
+	suggestions := make([]ui.Suggestion, 0, len(studios))
+	for _, studio := range studios {
+		suggestions = append(suggestions, quotedSuggestion(studio.Name))
+	}
+	return suggestions
+}
+
+func performerSuggestions(performers []stash.Performer) []ui.Suggestion {
+	suggestions := make([]ui.Suggestion, 0, len(performers))
+	for _, performer := range performers {
+		suggestions = append(suggestions, quotedSuggestion(performer.Name))
+	}
+	return suggestions
+}
+
+func currentSuggestion(prefix string) []ui.Suggestion {
+	if strings.HasPrefix("current", prefix) {
+		return []ui.Suggestion{{Display: "current", Value: "current"}}
+	}
+	return nil
+}
+
+func quotedSuggestion(value string) ui.Suggestion {
+	suggestion := ui.Suggestion{
+		Display: value,
+		Value:   value,
+	}
+	if strings.ContainsRune(value, ' ') {
+		suggestion.Value = `"` + value + `"`
+	}
+	return suggestion
 }
 
 type commandToken struct {

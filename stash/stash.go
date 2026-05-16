@@ -17,6 +17,7 @@ type Stash interface {
 	PerformersAll(context.Context) ([]PerformerSummary, error)
 	PerformerCreate(context.Context, PerformerCreate) (Performer, error)
 	PerformerGet(context.Context, string) (Performer, error)
+	StudiosAll(context.Context) ([]Studio, error)
 
 	TagGet(context.Context, string) (Tag, error)
 	TagFindByName(context.Context, string) (Tag, error)
@@ -34,6 +35,10 @@ type stash struct {
 type Studio struct {
 	ID   string `graphql:"id"`
 	Name string `graphql:"name"`
+}
+
+func (s Studio) EntityID() string {
+	return s.ID
 }
 
 type Folder struct {

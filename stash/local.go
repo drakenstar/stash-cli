@@ -125,6 +125,10 @@ func (s *LocalStash) PerformerGet(context.Context, string) (Performer, error) {
 	panic("not implemented")
 }
 
+func (s *LocalStash) StudiosAll(context.Context) ([]Studio, error) {
+	panic("not implemented")
+}
+
 func (s *LocalStash) TagGet(context.Context, string) (Tag, error) {
 	panic("not implemented")
 }

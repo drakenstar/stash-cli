@@ -27,6 +27,8 @@ type SceneService interface {
 	Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd
 	DeleteScene(string) tea.Cmd
 	ResolveTags([]string) tea.Cmd
+	ResolveStudios([]string) tea.Cmd
+	ResolvePerformers([]string) tea.Cmd
 }
 
 type ScenesModel struct {
@@ -53,6 +55,9 @@ type pendingSceneFilter struct {
 	requestID uint64
 	msg       ScenesModelFilterMsg
 	tagIDs    []string
+	studioIDs []string
+	performerIDs []string
+	performerTagIDs []string
 	waitingOn int
 }
 
@@ -211,6 +216,28 @@ type sceneTagsResolvedMsg struct {
 	ids       []string
 }
 
+type sceneStudiosResolvedMsg struct {
+	requestID uint64
+	ids       []string
+}
+
+type scenePerformersResolvedMsg struct {
+	requestID uint64
+	ids       []string
+}
+
+type scenePerformerTagsResolvedMsg struct {
+	requestID uint64
+	ids       []string
+}
+
+type resolvedSceneFilterIDs struct {
+	tagIDs          []string
+	studioIDs       []string
+	performerIDs    []string
+	performerTagIDs []string
+}
+
 type ScenesModelOpenMsg struct {
 	Skip bool `command:",positional"`
 }
@@ -244,7 +271,12 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.filterNeedsAsyncResolution(msg) {
 			return m.beginPendingFilter(msg)
 		}
-		return m.applyFilter(msg, msg.Tag)
+		return m.applyFilter(msg, resolvedSceneFilterIDs{
+			tagIDs: maybeIDs(msg.Tag),
+			studioIDs: maybeIDs(msg.Studio),
+			performerIDs: maybeSingleID(msg.Performer),
+			performerTagIDs: maybeSingleID(msg.PerformerTag),
+		})
 
 	case sceneTagsResolvedMsg:
 		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
@@ -258,7 +290,66 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		pending := m.pendingFilter
 		m.pendingFilter = nil
-		return m.applyFilter(pending.msg, pending.tagIDs)
+		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
+
+	case sceneStudiosResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.studioIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
+
+	case scenePerformersResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.performerIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
+
+	case scenePerformerTagsResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.performerTagIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
 
 	case ScenesModelOpenMsg:
 		if msg.Skip && m.pageState.Next() {
@@ -344,7 +435,10 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *ScenesModel) filterNeedsAsyncResolution(msg ScenesModelFilterMsg) bool {
-	return len(msg.Tag) > 0
+	return needsEntityResolution(msg.Tag) ||
+		needsEntityResolution(msg.Studio) ||
+		needsSingleEntityResolution(msg.Performer) ||
+		needsSingleEntityResolution(msg.PerformerTag)
 }
 
 func (m *ScenesModel) beginPendingFilter(msg ScenesModelFilterMsg) (*ScenesModel, tea.Cmd) {
@@ -358,6 +452,18 @@ func (m *ScenesModel) beginPendingFilter(msg ScenesModelFilterMsg) (*ScenesModel
 	if len(msg.Tag) > 0 {
 		pending.waitingOn++
 		cmds = append(cmds, m.resolveSceneTagsCmd(requestID, msg.Tag))
+	}
+	if needsEntityResolution(msg.Studio) {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveSceneStudiosCmd(requestID, msg.Studio))
+	}
+	if needsSingleEntityResolution(msg.Performer) {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveScenePerformersCmd(requestID, []string{*msg.Performer}))
+	}
+	if needsSingleEntityResolution(msg.PerformerTag) {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveScenePerformerTagsCmd(requestID, []string{*msg.PerformerTag}))
 	}
 
 	m.pendingFilter = pending
@@ -382,7 +488,61 @@ func (m *ScenesModel) resolveSceneTagsCmd(requestID uint64, rawTags []string) te
 	}
 }
 
-func (m *ScenesModel) applyFilter(msg ScenesModelFilterMsg, tagIDs []string) (*ScenesModel, tea.Cmd) {
+func (m *ScenesModel) resolveSceneStudiosCmd(requestID uint64, rawStudios []string) tea.Cmd {
+	studios := append([]string(nil), rawStudios...)
+	return func() tea.Msg {
+		resolved := m.SceneService.ResolveStudios(studios)()
+		switch msg := resolved.(type) {
+		case resolvedStudioIDsMsg:
+			return sceneStudiosResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedStudioIDsMsg); ok {
+				msg.payload = sceneStudiosResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *ScenesModel) resolveScenePerformersCmd(requestID uint64, rawPerformers []string) tea.Cmd {
+	performers := append([]string(nil), rawPerformers...)
+	return func() tea.Msg {
+		resolved := m.SceneService.ResolvePerformers(performers)()
+		switch msg := resolved.(type) {
+		case resolvedPerformerIDsMsg:
+			return scenePerformersResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedPerformerIDsMsg); ok {
+				msg.payload = scenePerformersResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *ScenesModel) resolveScenePerformerTagsCmd(requestID uint64, rawTags []string) tea.Cmd {
+	tags := append([]string(nil), rawTags...)
+	return func() tea.Msg {
+		resolved := m.SceneService.ResolveTags(tags)()
+		switch msg := resolved.(type) {
+		case resolvedTagIDsMsg:
+			return scenePerformerTagsResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedTagIDsMsg); ok {
+				msg.payload = scenePerformerTagsResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *ScenesModel) applyFilter(msg ScenesModelFilterMsg, resolved resolvedSceneFilterIDs) (*ScenesModel, tea.Cmd) {
 	return m.PushState(func(sm *ScenesModel) {
 		if msg.Query != nil {
 			sm.query = *msg.Query
@@ -420,26 +580,26 @@ func (m *ScenesModel) applyFilter(msg ScenesModelFilterMsg, tagIDs []string) (*S
 				}
 			} else {
 				sm.sceneFilter.Performers = &stash.MultiCriterion{
-					Value:    []string{*msg.Performer},
+					Value:    fallbackIDs(resolved.performerIDs, []string{*msg.Performer}),
 					Modifier: stash.CriterionModifierIncludes,
 				}
 			}
 		}
-		if len(msg.Studio) > 0 {
+		if len(msg.Studio) > 0 || len(resolved.studioIDs) > 0 {
 			sm.sceneFilter.Studios = &stash.HierarchicalMultiCriterion{
-				Value:    msg.Studio,
+				Value:    fallbackIDs(resolved.studioIDs, msg.Studio),
 				Modifier: stash.CriterionModifierIncludes,
 			}
 		}
-		if len(tagIDs) > 0 {
+		if len(msg.Tag) > 0 || len(resolved.tagIDs) > 0 {
 			sm.sceneFilter.Tags = &stash.HierarchicalMultiCriterion{
-				Value:    tagIDs,
+				Value:    fallbackIDs(resolved.tagIDs, msg.Tag),
 				Modifier: stash.CriterionModifierIncludes,
 			}
 		}
 		if msg.PerformerTag != nil {
 			sm.sceneFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
-				Value:    []string{*msg.PerformerTag},
+				Value:    fallbackIDs(resolved.performerTagIDs, []string{*msg.PerformerTag}),
 				Modifier: stash.CriterionModifierIncludes,
 			}
 		}

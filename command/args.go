@@ -90,6 +90,10 @@ func (a *parser) Next() (Argument, error) {
 }
 
 func (a *parser) parseValue() (string, bool, error) {
+	if a.pos >= len(a.input) {
+		return "", false, fmt.Errorf("unexpected end of input at position %d", a.pos)
+	}
+
 	// Quoted string, either double or single quoted.
 	if a.input[a.pos] == '"' || a.input[a.pos] == '\'' {
 		value, err := a.parseQuotedString()

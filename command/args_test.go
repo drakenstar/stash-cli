@@ -52,6 +52,14 @@ func TestAction(t *testing.T) {
 				errors.New("argument contains multiple name separators = as position 19"),
 			},
 		},
+		{
+			"missing named value",
+			`filter tag=`,
+			[]any{
+				Argument{Raw: `filter`, Name: "", Value: `filter`},
+				errors.New("unexpected end of input at position 11"),
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.title, func(t *testing.T) {

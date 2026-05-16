@@ -26,6 +26,8 @@ type GalleryService interface {
 	Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd
 	DeleteGallery(string) tea.Cmd
 	ResolveTags([]string) tea.Cmd
+	ResolveStudios([]string) tea.Cmd
+	ResolvePerformers([]string) tea.Cmd
 }
 
 type GalleriesModel struct {
@@ -52,6 +54,9 @@ type pendingGalleryFilter struct {
 	requestID uint64
 	msg       GalleriesModelFilterMsg
 	tagIDs    []string
+	studioIDs []string
+	performerIDs []string
+	performerTagIDs []string
 	waitingOn int
 }
 
@@ -199,6 +204,28 @@ type galleryTagsResolvedMsg struct {
 	ids       []string
 }
 
+type galleryStudiosResolvedMsg struct {
+	requestID uint64
+	ids       []string
+}
+
+type galleryPerformersResolvedMsg struct {
+	requestID uint64
+	ids       []string
+}
+
+type galleryPerformerTagsResolvedMsg struct {
+	requestID uint64
+	ids       []string
+}
+
+type resolvedGalleryFilterIDs struct {
+	tagIDs          []string
+	studioIDs       []string
+	performerIDs    []string
+	performerTagIDs []string
+}
+
 type GalleriesModelOpenMsg struct {
 	Skip bool `command:",positional"`
 }
@@ -242,7 +269,12 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.filterNeedsAsyncResolution(msg) {
 			return m.beginPendingFilter(msg)
 		}
-		return m.applyFilter(msg, msg.Tag)
+		return m.applyFilter(msg, resolvedGalleryFilterIDs{
+			tagIDs: maybeIDs(msg.Tag),
+			studioIDs: maybeSingleID(msg.Studio),
+			performerIDs: maybeSingleID(msg.Performer),
+			performerTagIDs: maybeSingleID(msg.PerformerTag),
+		})
 
 	case galleryTagsResolvedMsg:
 		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
@@ -256,7 +288,66 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		pending := m.pendingFilter
 		m.pendingFilter = nil
-		return m.applyFilter(pending.msg, pending.tagIDs)
+		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
+
+	case galleryStudiosResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.studioIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
+
+	case galleryPerformersResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.performerIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
+
+	case galleryPerformerTagsResolvedMsg:
+		if m.pendingFilter == nil || m.pendingFilter.requestID != msg.requestID {
+			return m, nil
+		}
+		m.pendingFilter.performerTagIDs = msg.ids
+		m.pendingFilter.waitingOn--
+		if m.pendingFilter.waitingOn > 0 {
+			return m, nil
+		}
+		pending := m.pendingFilter
+		m.pendingFilter = nil
+		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
+			tagIDs: pending.tagIDs,
+			studioIDs: pending.studioIDs,
+			performerIDs: pending.performerIDs,
+			performerTagIDs: pending.performerTagIDs,
+		})
 
 	case GalleriesModelOpenMsg:
 		if msg.Skip && m.pageState.Next() {
@@ -342,7 +433,10 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *GalleriesModel) filterNeedsAsyncResolution(msg GalleriesModelFilterMsg) bool {
-	return len(msg.Tag) > 0
+	return needsEntityResolution(msg.Tag) ||
+		needsSingleEntityResolution(msg.Studio) ||
+		needsSingleEntityResolution(msg.Performer) ||
+		needsSingleEntityResolution(msg.PerformerTag)
 }
 
 func (m *GalleriesModel) beginPendingFilter(msg GalleriesModelFilterMsg) (*GalleriesModel, tea.Cmd) {
@@ -356,6 +450,18 @@ func (m *GalleriesModel) beginPendingFilter(msg GalleriesModelFilterMsg) (*Galle
 	if len(msg.Tag) > 0 {
 		pending.waitingOn++
 		cmds = append(cmds, m.resolveGalleryTagsCmd(requestID, msg.Tag))
+	}
+	if needsSingleEntityResolution(msg.Studio) {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveGalleryStudiosCmd(requestID, []string{*msg.Studio}))
+	}
+	if needsSingleEntityResolution(msg.Performer) {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveGalleryPerformersCmd(requestID, []string{*msg.Performer}))
+	}
+	if needsSingleEntityResolution(msg.PerformerTag) {
+		pending.waitingOn++
+		cmds = append(cmds, m.resolveGalleryPerformerTagsCmd(requestID, []string{*msg.PerformerTag}))
 	}
 
 	m.pendingFilter = pending
@@ -380,7 +486,61 @@ func (m *GalleriesModel) resolveGalleryTagsCmd(requestID uint64, rawTags []strin
 	}
 }
 
-func (m *GalleriesModel) applyFilter(msg GalleriesModelFilterMsg, tagIDs []string) (*GalleriesModel, tea.Cmd) {
+func (m *GalleriesModel) resolveGalleryStudiosCmd(requestID uint64, rawStudios []string) tea.Cmd {
+	studios := append([]string(nil), rawStudios...)
+	return func() tea.Msg {
+		resolved := m.GalleryService.ResolveStudios(studios)()
+		switch msg := resolved.(type) {
+		case resolvedStudioIDsMsg:
+			return galleryStudiosResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedStudioIDsMsg); ok {
+				msg.payload = galleryStudiosResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *GalleriesModel) resolveGalleryPerformersCmd(requestID uint64, rawPerformers []string) tea.Cmd {
+	performers := append([]string(nil), rawPerformers...)
+	return func() tea.Msg {
+		resolved := m.GalleryService.ResolvePerformers(performers)()
+		switch msg := resolved.(type) {
+		case resolvedPerformerIDsMsg:
+			return galleryPerformersResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedPerformerIDsMsg); ok {
+				msg.payload = galleryPerformersResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *GalleriesModel) resolveGalleryPerformerTagsCmd(requestID uint64, rawTags []string) tea.Cmd {
+	tags := append([]string(nil), rawTags...)
+	return func() tea.Msg {
+		resolved := m.GalleryService.ResolveTags(tags)()
+		switch msg := resolved.(type) {
+		case resolvedTagIDsMsg:
+			return galleryPerformerTagsResolvedMsg{requestID: requestID, ids: msg.ids}
+		case loadingMsg:
+			if payload, ok := msg.payload.(resolvedTagIDsMsg); ok {
+				msg.payload = galleryPerformerTagsResolvedMsg{requestID: requestID, ids: payload.ids}
+			}
+			return msg
+		default:
+			return resolved
+		}
+	}
+}
+
+func (m *GalleriesModel) applyFilter(msg GalleriesModelFilterMsg, resolved resolvedGalleryFilterIDs) (*GalleriesModel, tea.Cmd) {
 	return m.PushState(func(gm *GalleriesModel) {
 		if msg.Query != nil {
 			gm.query = *msg.Query
@@ -418,26 +578,26 @@ func (m *GalleriesModel) applyFilter(msg GalleriesModelFilterMsg, tagIDs []strin
 				}
 			} else {
 				gm.galleryFilter.Performers = &stash.MultiCriterion{
-					Value:    []string{*msg.Performer},
+					Value:    fallbackIDs(resolved.performerIDs, []string{*msg.Performer}),
 					Modifier: stash.CriterionModifierIncludes,
 				}
 			}
 		}
 		if msg.Studio != nil {
 			gm.galleryFilter.Studios = &stash.HierarchicalMultiCriterion{
-				Value:    []string{*msg.Studio},
+				Value:    fallbackIDs(resolved.studioIDs, []string{*msg.Studio}),
 				Modifier: stash.CriterionModifierIncludes,
 			}
 		}
-		if len(tagIDs) > 0 {
+		if len(msg.Tag) > 0 || len(resolved.tagIDs) > 0 {
 			gm.galleryFilter.Tags = &stash.HierarchicalMultiCriterion{
-				Value:    tagIDs,
+				Value:    fallbackIDs(resolved.tagIDs, msg.Tag),
 				Modifier: stash.CriterionModifierIncludes,
 			}
 		}
 		if msg.PerformerTag != nil {
 			gm.galleryFilter.PerformerTags = &stash.HierarchicalMultiCriterion{
-				Value:    []string{*msg.PerformerTag},
+				Value:    fallbackIDs(resolved.performerTagIDs, []string{*msg.PerformerTag}),
 				Modifier: stash.CriterionModifierIncludes,
 			}
 		}

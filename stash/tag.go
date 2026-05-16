@@ -10,6 +10,10 @@ type Tag struct {
 	Name string `graphql:"name"`
 }
 
+func (t Tag) EntityID() string {
+	return t.ID
+}
+
 type findTagQuery struct {
 	Tag Tag `graphql:"findTag(id: $id)"`
 }

@@ -20,6 +20,8 @@ func (sceneTagResolveTestService) ResolveTags([]string) tea.Cmd {
 		}
 	}
 }
+func (sceneTagResolveTestService) ResolveStudios([]string) tea.Cmd    { return nil }
+func (sceneTagResolveTestService) ResolvePerformers([]string) tea.Cmd { return nil }
 
 type galleryTagResolveTestService struct{}
 
@@ -35,6 +37,8 @@ func (galleryTagResolveTestService) ResolveTags([]string) tea.Cmd {
 		}
 	}
 }
+func (galleryTagResolveTestService) ResolveStudios([]string) tea.Cmd    { return nil }
+func (galleryTagResolveTestService) ResolvePerformers([]string) tea.Cmd { return nil }
 
 type tagResolveTestLookup struct{}
 
