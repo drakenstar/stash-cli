@@ -9,6 +9,7 @@ import (
 type Stash interface {
 	Scenes(context.Context, FindFilter, SceneFilter) ([]Scene, int, error)
 	DeleteScene(context.Context, string) (bool, error)
+	SceneUpdate(context.Context, SceneUpdate) (Scene, error)
 
 	Galleries(context.Context, FindFilter, GalleryFilter) ([]Gallery, int, error)
 	GalleryDelete(context.Context, string) (bool, error)
@@ -20,6 +21,7 @@ type Stash interface {
 	StudiosAll(context.Context) ([]Studio, error)
 
 	TagGet(context.Context, string) (Tag, error)
+	TagCreate(context.Context, TagCreate) (Tag, error)
 	TagFindByName(context.Context, string) (Tag, error)
 	TagsAll(context.Context) ([]Tag, error)
 }

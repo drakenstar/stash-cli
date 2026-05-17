@@ -99,6 +99,34 @@ func TestCommandSuggestionSetTagAutocompleteNeedsLoadedTags(t *testing.T) {
 	require.Empty(t, set.Suggestions)
 }
 
+func TestCommandSuggestionSetTagCommandAutocomplete(t *testing.T) {
+	m := New(&stash.LocalStash{}, nil)
+	m.cmdService.cache.CacheTags([]stash.Tag{
+		{ID: "1", Name: "Foo"},
+		{ID: "2", Name: "Foo Bar"},
+	})
+
+	input := "tag Fo"
+	set, needs := m.commandSuggestionSet(":", input, len(input))
+
+	require.Equal(t, suggestionRequirements{}, needs)
+	require.Equal(t, len("tag "), set.Start)
+	require.Equal(t, len(input), set.End)
+	require.Len(t, set.Suggestions, 2)
+	require.Equal(t, "Foo", set.Suggestions[0].Value)
+	require.Equal(t, `"Foo Bar"`, set.Suggestions[1].Value)
+}
+
+func TestCommandSuggestionSetTagCommandAutocompleteNeedsLoadedTags(t *testing.T) {
+	m := New(&stash.LocalStash{}, nil)
+
+	input := "tag Fo"
+	set, needs := m.commandSuggestionSet(":", input, len(input))
+
+	require.Equal(t, suggestionRequirements{tags: true}, needs)
+	require.Empty(t, set.Suggestions)
+}
+
 func TestCommandSuggestionSetStudioAutocomplete(t *testing.T) {
 	m := New(&stash.LocalStash{}, nil)
 	m.cmdService.cache.CacheStudios([]stash.Studio{

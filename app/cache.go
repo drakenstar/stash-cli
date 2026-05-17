@@ -52,29 +52,37 @@ func (s *cachingStash) TagsAll(ctx context.Context) ([]stash.Tag, error) {
 	return tags, err
 }
 
+func (s *cachingStash) TagCreate(ctx context.Context, input stash.TagCreate) (stash.Tag, error) {
+	tag, err := s.Stash.TagCreate(ctx, input)
+	if err == nil {
+		s.cache.CacheTag(tag)
+	}
+	return tag, err
+}
+
 // cacheLookup is a StashLookup implementation that caches entities by ID.
 type cacheLookup struct {
 	mu sync.RWMutex
 
-	performers map[string]stash.Performer
-	performerNames map[string]string
+	performers       map[string]stash.Performer
+	performerNames   map[string]string
 	performersLoaded bool
-	studios    map[string]stash.Studio
-	studioNames map[string]string
-	studiosLoaded bool
-	tags       map[string]stash.Tag
-	tagNames   map[string]string
-	tagsLoaded bool
+	studios          map[string]stash.Studio
+	studioNames      map[string]string
+	studiosLoaded    bool
+	tags             map[string]stash.Tag
+	tagNames         map[string]string
+	tagsLoaded       bool
 }
 
 func newCacheLookup() *cacheLookup {
 	c := &cacheLookup{
-		performers: make(map[string]stash.Performer),
+		performers:     make(map[string]stash.Performer),
 		performerNames: make(map[string]string),
-		studios:    make(map[string]stash.Studio),
-		studioNames: make(map[string]string),
-		tags:       make(map[string]stash.Tag),
-		tagNames:   make(map[string]string),
+		studios:        make(map[string]stash.Studio),
+		studioNames:    make(map[string]string),
+		tags:           make(map[string]stash.Tag),
+		tagNames:       make(map[string]string),
 	}
 	return c
 }

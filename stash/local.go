@@ -95,6 +95,10 @@ func (s *LocalStash) DeleteScene(context.Context, string) (bool, error) {
 	panic("not implemented")
 }
 
+func (s *LocalStash) SceneUpdate(context.Context, SceneUpdate) (Scene, error) {
+	panic("not implemented")
+}
+
 func (s *LocalStash) Galleries(_ context.Context, f FindFilter, gf GalleryFilter) ([]Gallery, int, error) {
 	galleries := s.galleries
 	if strings.HasPrefix(f.Sort, SortRandomPrefix) {
@@ -130,6 +134,10 @@ func (s *LocalStash) StudiosAll(context.Context) ([]Studio, error) {
 }
 
 func (s *LocalStash) TagGet(context.Context, string) (Tag, error) {
+	panic("not implemented")
+}
+
+func (s *LocalStash) TagCreate(context.Context, TagCreate) (Tag, error) {
 	panic("not implemented")
 }
 

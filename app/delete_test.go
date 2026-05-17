@@ -14,6 +14,7 @@ func (deleteTestService) Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd { r
 func (deleteTestService) DeleteScene(string) tea.Cmd {
 	return func() tea.Msg { return sceneDeletedMsg{id: "scene-1"} }
 }
+func (deleteTestService) TagScene(stash.Scene, []string) tea.Cmd                  { return nil }
 func (deleteTestService) ResolveTags([]string) tea.Cmd                            { return nil }
 func (deleteTestService) ResolveStudios([]string) tea.Cmd                         { return nil }
 func (deleteTestService) ResolvePerformers([]string) tea.Cmd                      { return nil }
@@ -21,6 +22,7 @@ func (deleteTestService) Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cm
 func (deleteTestService) DeleteGallery(string) tea.Cmd {
 	return func() tea.Msg { return galleryDeletedMsg{id: "gallery-1"} }
 }
+func (deleteTestService) TagGallery(stash.Gallery, []string) tea.Cmd { return nil }
 
 type deleteTestLookup struct{}
 

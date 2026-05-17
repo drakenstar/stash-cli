@@ -91,14 +91,14 @@ type Model struct {
 
 	screen Size
 
-	mode          Mode
-	commandInput  ui.CommandInput
-	confirmation  *ui.Confirmation
-	pendingDelete *pendingDeleteState
-	tagsLoading   bool
-	studiosLoading bool
+	mode              Mode
+	commandInput      ui.CommandInput
+	confirmation      *ui.Confirmation
+	pendingDelete     *pendingDeleteState
+	tagsLoading       bool
+	studiosLoading    bool
 	performersLoading bool
-	err           error
+	err               error
 
 	footer ui.Footer
 
@@ -387,6 +387,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// loadingMsg handles routing of a return loading message to the correct tab located by ID.
 	case loadingMsg:
+		if errMsg, ok := msg.payload.(ErrorMsg); ok {
+			if m.pendingDelete != nil && m.pendingDelete.tabID == msg.id {
+				m.pendingDelete = nil
+			}
+			return m.Update(errMsg)
+		}
 		_, cmd := m.tabsByID[msg.id].model.Update(msg.payload)
 		if m.pendingDelete != nil && m.pendingDelete.tabID == msg.id {
 			switch msg.payload.(type) {
@@ -667,6 +673,10 @@ func (m Model) commandSuggestionSet(prompt, input string, cursor int) (ui.Sugges
 		}, suggestionRequirements{}
 	}
 
+	if len(token.tokens) > 0 && token.tokens[0].raw == "tag" {
+		return m.tagCommandSuggestionSet(token, input, cursor)
+	}
+
 	if len(token.tokens) == 0 || token.tokens[0].raw != "filter" {
 		return ui.SuggestionSet{}, suggestionRequirements{}
 	}
@@ -715,6 +725,24 @@ func (m Model) commandSuggestionSet(prompt, input string, cursor int) (ui.Sugges
 	}
 
 	return ui.SuggestionSet{}, suggestionRequirements{}
+}
+
+func (m Model) tagCommandSuggestionSet(token commandToken, input string, cursor int) (ui.SuggestionSet, suggestionRequirements) {
+	if token.index == 0 {
+		return ui.SuggestionSet{}, suggestionRequirements{}
+	}
+	if cursor < token.start {
+		return ui.SuggestionSet{}, suggestionRequirements{}
+	}
+	searchPrefix := strings.TrimPrefix(input[token.start:cursor], "\"")
+	if searchPrefix == "" {
+		return ui.SuggestionSet{}, suggestionRequirements{}
+	}
+	if !m.cmdService.cache.TagsLoaded() {
+		return ui.SuggestionSet{}, suggestionRequirements{tags: true}
+	}
+	tags := m.cmdService.cache.TagsByPrefix(searchPrefix, 6)
+	return entitySuggestionSet(token.start, token.end, tagSuggestions(tags)), suggestionRequirements{}
 }
 
 func (m Model) filterArgumentSuggestionSet(token commandToken, input string, cursor int) ui.SuggestionSet {

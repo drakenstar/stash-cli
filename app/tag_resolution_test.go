@@ -12,6 +12,7 @@ type sceneTagResolveTestService struct{}
 
 func (sceneTagResolveTestService) Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd { return nil }
 func (sceneTagResolveTestService) DeleteScene(string) tea.Cmd                         { return nil }
+func (sceneTagResolveTestService) TagScene(stash.Scene, []string) tea.Cmd             { return nil }
 func (sceneTagResolveTestService) ResolveTags([]string) tea.Cmd {
 	return func() tea.Msg {
 		return loadingMsg{
@@ -29,6 +30,9 @@ func (galleryTagResolveTestService) Galleries(stash.FindFilter, stash.GalleryFil
 	return nil
 }
 func (galleryTagResolveTestService) DeleteGallery(string) tea.Cmd { return nil }
+func (galleryTagResolveTestService) TagGallery(stash.Gallery, []string) tea.Cmd {
+	return nil
+}
 func (galleryTagResolveTestService) ResolveTags([]string) tea.Cmd {
 	return func() tea.Msg {
 		return loadingMsg{
@@ -42,9 +46,11 @@ func (galleryTagResolveTestService) ResolvePerformers([]string) tea.Cmd { return
 
 type tagResolveTestLookup struct{}
 
-func (tagResolveTestLookup) GetStudio(string) (stash.Studio, error)       { return stash.Studio{}, nil }
-func (tagResolveTestLookup) GetTag(string) (stash.Tag, error)             { return stash.Tag{}, nil }
-func (tagResolveTestLookup) GetPerformer(string) (stash.Performer, error) { return stash.Performer{}, nil }
+func (tagResolveTestLookup) GetStudio(string) (stash.Studio, error) { return stash.Studio{}, nil }
+func (tagResolveTestLookup) GetTag(string) (stash.Tag, error)       { return stash.Tag{}, nil }
+func (tagResolveTestLookup) GetPerformer(string) (stash.Performer, error) {
+	return stash.Performer{}, nil
+}
 
 func TestResolveSceneTagsCmdWrapsLoadingPayload(t *testing.T) {
 	m := NewScenesModel(sceneTagResolveTestService{}, tagResolveTestLookup{})

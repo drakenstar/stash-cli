@@ -26,6 +26,7 @@ type sceneFilterState struct {
 type SceneService interface {
 	Scenes(stash.FindFilter, stash.SceneFilter) tea.Cmd
 	DeleteScene(string) tea.Cmd
+	TagScene(stash.Scene, []string) tea.Cmd
 	ResolveTags([]string) tea.Cmd
 	ResolveStudios([]string) tea.Cmd
 	ResolvePerformers([]string) tea.Cmd
@@ -52,13 +53,13 @@ type ScenesModel struct {
 }
 
 type pendingSceneFilter struct {
-	requestID uint64
-	msg       ScenesModelFilterMsg
-	tagIDs    []string
-	studioIDs []string
-	performerIDs []string
+	requestID       uint64
+	msg             ScenesModelFilterMsg
+	tagIDs          []string
+	studioIDs       []string
+	performerIDs    []string
 	performerTagIDs []string
-	waitingOn int
+	waitingOn       int
 }
 
 func NewScenesModel(sceneService SceneService, lookup StashLookup) *ScenesModel {
@@ -180,6 +181,7 @@ var ScenesModelCommandConfig command.Config = command.Config{
 	"reset":    binder[ScenesModelResetMsg](),
 	"sort":     binder[ScenesModelSortMsg](),
 	"skip":     binder[ScenesModelSkipMsg](),
+	"tag":      binder[ScenesModelTagMsg](),
 	"undo":     binder[ScenesModelUndoMsg](),
 }
 
@@ -250,6 +252,10 @@ type ScenesModelDeleteMsg struct {
 	Confirm bool
 }
 
+type ScenesModelTagMsg struct {
+	Tags []string `command:",positional"`
+}
+
 type ScenesModelRefresh struct{}
 
 type ScenesModelResetMsg struct{}
@@ -272,9 +278,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.beginPendingFilter(msg)
 		}
 		return m.applyFilter(msg, resolvedSceneFilterIDs{
-			tagIDs: maybeIDs(msg.Tag),
-			studioIDs: maybeIDs(msg.Studio),
-			performerIDs: maybeSingleID(msg.Performer),
+			tagIDs:          maybeIDs(msg.Tag),
+			studioIDs:       maybeIDs(msg.Studio),
+			performerIDs:    maybeSingleID(msg.Performer),
 			performerTagIDs: maybeSingleID(msg.PerformerTag),
 		})
 
@@ -291,9 +297,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -309,9 +315,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -327,9 +333,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -345,9 +351,9 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedSceneFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -381,6 +387,15 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				DeleteCmd:   m.SceneService.DeleteScene(scene.ID),
 			}
 		}
+
+	case ScenesModelTagMsg:
+		if len(m.scenes) == 0 {
+			return m, NewErrorCmd(fmt.Errorf("no scene selected"))
+		}
+		if len(msg.Tags) == 0 {
+			return m, NewErrorCmd(fmt.Errorf("no tags specified"))
+		}
+		return m, m.SceneService.TagScene(m.Current(), msg.Tags)
 
 	case ScenesModelRefresh:
 		return m, m.updateCmd()
@@ -429,6 +444,11 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sceneDeletedMsg:
 		m.pageState.DeleteCurrent()
 		return m, m.updateCmd()
+
+	case sceneTaggedMsg:
+		if len(m.scenes) > 0 {
+			m.scenes[m.pageState.index] = msg.scene
+		}
 	}
 
 	return m, nil

@@ -2,10 +2,13 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/drakenstar/stash-cli/stash"
+	"github.com/hasura/go-graphql-client"
 )
 
 // cmdService is compatability layer between the UI and the underlying Stash service.  This is intended to allow UIs
@@ -67,6 +70,46 @@ func (s *cmdService) DeleteScene(id string) tea.Cmd {
 			return ErrorMsg{err}
 		}
 		return sceneDeletedMsg{id}
+	})
+}
+
+func (s *cmdService) TagScene(scene stash.Scene, names []string) tea.Cmd {
+	return s.withLoadingCount(func() tea.Msg {
+		tags, err := s.resolveOrCreateTags(context.Background(), names)
+		if err != nil {
+			return ErrorMsg{fmt.Errorf("tag resolution failed: %w", err)}
+		}
+		tagIDs := mergeTagIDs(scene.Tags, tags)
+		updated, err := s.Stash.SceneUpdate(context.Background(), stash.SceneUpdate{
+			ID:     graphql.ID(scene.ID),
+			TagIDs: tagIDs,
+		})
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return sceneTaggedMsg{scene: updated}
+	})
+}
+
+func (s *cmdService) TagGallery(gallery stash.Gallery, names []string) tea.Cmd {
+	return s.withLoadingCount(func() tea.Msg {
+		tags, err := s.resolveOrCreateTags(context.Background(), names)
+		if err != nil {
+			return ErrorMsg{fmt.Errorf("tag resolution failed: %w", err)}
+		}
+		updatedTags := append([]stash.Tag(nil), gallery.Tags...)
+		for _, tag := range tags {
+			if !tagInList(updatedTags, tag.ID) {
+				updatedTags = append(updatedTags, tag)
+			}
+		}
+		updated := gallery
+		updated.Tags = updatedTags
+		g, err := s.Stash.GalleryUpdate(context.Background(), stash.NewGalleryUpdate(gallery, updated))
+		if err != nil {
+			return ErrorMsg{err}
+		}
+		return galleryTaggedMsg{gallery: g}
 	})
 }
 
@@ -137,8 +180,16 @@ type sceneDeletedMsg struct {
 	id string
 }
 
+type sceneTaggedMsg struct {
+	scene stash.Scene
+}
+
 type galleryDeletedMsg struct {
 	id string
+}
+
+type galleryTaggedMsg struct {
+	gallery stash.Gallery
 }
 
 type tagsLoadedMsg struct{}
@@ -174,10 +225,81 @@ func (s *cmdServiceWithID) DeleteScene(id string) tea.Cmd {
 	return s.withID(s.s.DeleteScene(id))
 }
 
+func (s *cmdServiceWithID) TagScene(scene stash.Scene, names []string) tea.Cmd {
+	return s.withID(s.s.TagScene(scene, names))
+}
+
 func (s *cmdServiceWithID) DeleteGallery(id string) tea.Cmd {
 	return s.withID(s.s.DeleteGallery(id))
 }
 
+func (s *cmdServiceWithID) TagGallery(gallery stash.Gallery, names []string) tea.Cmd {
+	return s.withID(s.s.TagGallery(gallery, names))
+}
+
 func (s *cmdServiceWithID) Galleries(f stash.FindFilter, gf stash.GalleryFilter) tea.Cmd {
 	return s.withID(s.s.Galleries(f, gf))
+}
+
+func (s *cmdService) resolveOrCreateTags(ctx context.Context, names []string) ([]stash.Tag, error) {
+	tags := make([]stash.Tag, 0, len(names))
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		if isLikelyEntityID(name) {
+			tag, err := s.Stash.TagGet(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, tag)
+			continue
+		}
+
+		tag, err := s.TagFindByName(ctx, name)
+		if err != nil {
+			if !errors.Is(err, stash.ErrTagNotFound) {
+				return nil, err
+			}
+			tag, err = s.Stash.TagCreate(ctx, stash.TagCreate{Name: name})
+			if err != nil {
+				return nil, err
+			}
+			s.cache.CacheTag(tag)
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
+}
+
+func mergeTagIDs(existing []stash.Tag, added []stash.Tag) []graphql.ID {
+	ids := make([]graphql.ID, 0, len(existing)+len(added))
+	seen := make(map[string]struct{}, len(existing)+len(added))
+	for _, tag := range existing {
+		if tag.ID == "" {
+			continue
+		}
+		seen[tag.ID] = struct{}{}
+		ids = append(ids, graphql.ID(tag.ID))
+	}
+	for _, tag := range added {
+		if tag.ID == "" {
+			continue
+		}
+		if _, ok := seen[tag.ID]; ok {
+			continue
+		}
+		seen[tag.ID] = struct{}{}
+		ids = append(ids, graphql.ID(tag.ID))
+	}
+	return ids
+}
+
+func tagInList(tags []stash.Tag, id string) bool {
+	for _, tag := range tags {
+		if tag.ID == id {
+			return true
+		}
+	}
+	return false
 }

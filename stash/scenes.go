@@ -67,3 +67,21 @@ func (s *stash) DeleteScene(ctx context.Context, sceneID string) (bool, error) {
 	err := s.client.Mutate(ctx, &m, variables)
 	return m.Result, err
 }
+
+type SceneUpdate struct {
+	ClientMutationID *string      `json:"clientMutationId,omitempty"`
+	ID               graphql.ID   `json:"id"`
+	TagIDs           []graphql.ID `json:"tag_ids,omitempty"`
+}
+
+func (SceneUpdate) GetGraphQLType() string {
+	return "SceneUpdateInput"
+}
+
+func (s *stash) SceneUpdate(ctx context.Context, scene SceneUpdate) (Scene, error) {
+	var m struct {
+		SceneUpdate Scene `graphql:"sceneUpdate(input: $input)"`
+	}
+	err := s.client.Mutate(ctx, &m, map[string]any{"input": scene})
+	return m.SceneUpdate, err
+}

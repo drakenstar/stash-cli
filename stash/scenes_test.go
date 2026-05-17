@@ -141,3 +141,35 @@ func TestRecordPlay(t *testing.T) {
 	s.RecordPlay(ctx, "1234")
 	require.True(t, doer.called)
 }
+
+func TestSceneUpdate(t *testing.T) {
+	doer := &mockEndpoint{
+		t: t,
+		response: `{"data": {"sceneUpdate": {
+			"id": "1",
+			"title": "Scene 1",
+			"date": "2023-07-19",
+			"details": "",
+			"rating100": 0,
+			"organized": false,
+			"created_at": "2023-07-01T00:00:00Z",
+			"updated_at": "2023-07-18T00:00:00Z",
+			"files": [],
+			"studio": {"id": "studio1", "name": "Studio 1"},
+			"tags": [{"id": "tag1", "name": "Foo"}],
+			"performers": []
+		}}}`,
+	}
+	client := graphql.NewClient("https://example.com/graph", doer)
+	s := stash{client}
+
+	scene, err := s.SceneUpdate(context.Background(), SceneUpdate{
+		ID:     graphql.ID("1"),
+		TagIDs: []graphql.ID{graphql.ID("tag1")},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "1", scene.ID)
+	require.Equal(t, []Tag{{ID: "tag1", Name: "Foo"}}, scene.Tags)
+	require.True(t, doer.called)
+}

@@ -25,6 +25,7 @@ type galleryFilterState struct {
 type GalleryService interface {
 	Galleries(stash.FindFilter, stash.GalleryFilter) tea.Cmd
 	DeleteGallery(string) tea.Cmd
+	TagGallery(stash.Gallery, []string) tea.Cmd
 	ResolveTags([]string) tea.Cmd
 	ResolveStudios([]string) tea.Cmd
 	ResolvePerformers([]string) tea.Cmd
@@ -51,13 +52,13 @@ type GalleriesModel struct {
 }
 
 type pendingGalleryFilter struct {
-	requestID uint64
-	msg       GalleriesModelFilterMsg
-	tagIDs    []string
-	studioIDs []string
-	performerIDs []string
+	requestID       uint64
+	msg             GalleriesModelFilterMsg
+	tagIDs          []string
+	studioIDs       []string
+	performerIDs    []string
 	performerTagIDs []string
-	waitingOn int
+	waitingOn       int
 }
 
 func NewGalleriesModel(galleryService GalleryService, lookup StashLookup) *GalleriesModel {
@@ -178,6 +179,7 @@ var GalleriesModelCommandConfig command.Config = command.Config{
 	"reset":    binder[GalleriesModelResetMsg](),
 	"sort":     binder[GalleriesModelSortMsg](),
 	"skip":     binder[GalleriesModelSkipMsg](),
+	"tag":      binder[GalleriesModelTagMsg](),
 	"undo":     binder[GalleriesModelUndoMsg](),
 }
 
@@ -238,6 +240,10 @@ type GalleriesModelDeleteMsg struct {
 	Confirm bool
 }
 
+type GalleriesModelTagMsg struct {
+	Tags []string `command:",positional"`
+}
+
 type GalleriesModelRefresh struct{}
 
 type GalleriesModelResetMsg struct{}
@@ -270,9 +276,9 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.beginPendingFilter(msg)
 		}
 		return m.applyFilter(msg, resolvedGalleryFilterIDs{
-			tagIDs: maybeIDs(msg.Tag),
-			studioIDs: maybeSingleID(msg.Studio),
-			performerIDs: maybeSingleID(msg.Performer),
+			tagIDs:          maybeIDs(msg.Tag),
+			studioIDs:       maybeSingleID(msg.Studio),
+			performerIDs:    maybeSingleID(msg.Performer),
 			performerTagIDs: maybeSingleID(msg.PerformerTag),
 		})
 
@@ -289,9 +295,9 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -307,9 +313,9 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -325,9 +331,9 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -343,9 +349,9 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pending := m.pendingFilter
 		m.pendingFilter = nil
 		return m.applyFilter(pending.msg, resolvedGalleryFilterIDs{
-			tagIDs: pending.tagIDs,
-			studioIDs: pending.studioIDs,
-			performerIDs: pending.performerIDs,
+			tagIDs:          pending.tagIDs,
+			studioIDs:       pending.studioIDs,
+			performerIDs:    pending.performerIDs,
 			performerTagIDs: pending.performerTagIDs,
 		})
 
@@ -379,6 +385,15 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				DeleteCmd:   m.GalleryService.DeleteGallery(gallery.ID),
 			}
 		}
+
+	case GalleriesModelTagMsg:
+		if len(m.galleries) == 0 {
+			return m, NewErrorCmd(fmt.Errorf("no gallery selected"))
+		}
+		if len(msg.Tags) == 0 {
+			return m, NewErrorCmd(fmt.Errorf("no tags specified"))
+		}
+		return m, m.GalleryService.TagGallery(m.Current(), msg.Tags)
 
 	case GalleriesModelRefresh:
 		return m, m.updateCmd()
@@ -427,6 +442,11 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case galleryDeletedMsg:
 		m.pageState.DeleteCurrent()
 		return m, m.updateCmd()
+
+	case galleryTaggedMsg:
+		if len(m.galleries) > 0 {
+			m.galleries[m.pageState.index] = msg.gallery
+		}
 	}
 
 	return m, nil

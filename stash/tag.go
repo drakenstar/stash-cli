@@ -2,8 +2,13 @@ package stash
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/hasura/go-graphql-client"
 )
+
+var ErrTagNotFound = errors.New("tag not found")
 
 type Tag struct {
 	ID   string `graphql:"id"`
@@ -32,7 +37,7 @@ type findTagsQuery struct {
 	FindTags struct {
 		Count int   `graphql:"count"`
 		Tags  []Tag `graphql:"tags"`
-	} `graphql:"findTags(tag_filter: $tag_filter, filter: $filter)"`
+	} `graphql:"findTags(tag_filter: $tag_filter)"`
 }
 
 type tagFilter struct {
@@ -46,10 +51,6 @@ func (tagFilter) GetGraphQLType() string {
 func (s stash) TagFindByName(ctx context.Context, name string) (Tag, error) {
 	resp := findTagsQuery{}
 	err := s.client.Query(ctx, &resp, map[string]any{
-		"filter": FindFilter{
-			Page:    1,
-			PerPage: 2,
-		},
 		"tag_filter": tagFilter{
 			Name: &StringCriterion{
 				Value:    name,
@@ -63,7 +64,7 @@ func (s stash) TagFindByName(ctx context.Context, name string) (Tag, error) {
 
 	switch resp.FindTags.Count {
 	case 0:
-		return Tag{}, fmt.Errorf("tag not found: %s", name)
+		return Tag{}, fmt.Errorf("%w: %s", ErrTagNotFound, name)
 	case 1:
 		return resp.FindTags.Tags[0], nil
 	default:
@@ -84,4 +85,20 @@ func (s stash) TagsAll(ctx context.Context) ([]Tag, error) {
 		return nil, err
 	}
 	return resp.Tags, nil
+}
+
+type TagCreate struct {
+	Name string `json:"name"`
+}
+
+func (TagCreate) GetGraphQLType() string {
+	return "TagCreateInput"
+}
+
+func (s stash) TagCreate(ctx context.Context, tag TagCreate) (Tag, error) {
+	var m struct {
+		Tag Tag `graphql:"tagCreate(input: {name: $name})"`
+	}
+	err := s.client.Mutate(ctx, &m, map[string]any{"name": graphql.String(tag.Name)})
+	return m.Tag, err
 }
