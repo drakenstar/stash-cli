@@ -6,7 +6,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,8 +14,6 @@ import (
 	"github.com/drakenstar/stash-cli/stash"
 	"github.com/hasura/go-graphql-client"
 )
-
-const defaultConfigFile = ".stash-cli.json"
 
 func main() {
 	cfg := loadConfig()
@@ -77,14 +74,15 @@ func fatalOnErr(err error) {
 func loadConfig() *config.Config {
 	var c config.Config
 
-	home, err := os.UserHomeDir()
+	paths, err := config.DefaultPaths()
 	fatalOnErr(err)
-	configPath := filepath.Join(home, defaultConfigFile)
-	if _, err := os.Stat(configPath); err == nil {
-		fmt.Printf("Loading configuration from '%s'\n", configPath)
-		f, err := os.Open(configPath)
+	ok, err := config.ConfigPathExists(paths)
+	fatalOnErr(err)
+	if ok {
+		fmt.Printf("Loading configuration from '%s'\n", paths.ConfigPath)
+		f, err := os.Open(paths.ConfigPath)
 		fatalOnErr(err)
-		config.FromFile(&c, f)
+		fatalOnErr(config.FromFile(&c, f))
 	}
 	config.FromArgs(&c, os.Args[1:])
 
