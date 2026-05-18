@@ -416,7 +416,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd := tab.model.Update(msg.payload)
 		if m.pendingDelete != nil && m.pendingDelete.tabID == msg.id {
 			switch msg.payload.(type) {
-			case ErrorMsg, scenesMsg, galleriesMsg:
+			case ErrorMsg, scenesMsg, galleriesMsg, scenesLoadedMsg, galleriesLoadedMsg:
 				m.pendingDelete = nil
 			}
 		}

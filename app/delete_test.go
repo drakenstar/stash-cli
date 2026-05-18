@@ -71,3 +71,43 @@ func TestGalleriesModelDeleteRequest(t *testing.T) {
 	require.True(t, request.SkipConfirm)
 	require.NotNil(t, request.DeleteCmd)
 }
+
+func TestDeleteModalClosesAfterSceneRefresh(t *testing.T) {
+	m := New(&stash.LocalStash{}, nil)
+	tabID := m.tabs[0].id
+	m.pendingDelete = &pendingDeleteState{
+		tabID: tabID,
+		request: deleteRequestMsg{
+			Entity: "scene",
+			Title:  "Example Scene",
+		},
+	}
+
+	model, _ := m.Update(loadingMsg{
+		id:      tabID,
+		payload: scenesLoadedMsg{requestID: 0, scenes: nil, total: 0},
+	})
+	updated := model.(Model)
+
+	require.Nil(t, updated.pendingDelete)
+}
+
+func TestDeleteModalClosesAfterGalleryRefresh(t *testing.T) {
+	m := New(&stash.LocalStash{}, nil)
+	tabID := m.tabs[0].id
+	m.pendingDelete = &pendingDeleteState{
+		tabID: tabID,
+		request: deleteRequestMsg{
+			Entity: "gallery",
+			Title:  "Example Gallery",
+		},
+	}
+
+	model, _ := m.Update(loadingMsg{
+		id:      tabID,
+		payload: galleriesLoadedMsg{requestID: 0, galleries: nil, total: 0},
+	})
+	updated := model.(Model)
+
+	require.Nil(t, updated.pendingDelete)
+}
