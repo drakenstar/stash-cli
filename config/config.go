@@ -22,6 +22,7 @@ type OpenCommands struct {
 
 type Config struct {
 	Debug         bool              `json:"-"`
+	NewSession    bool              `json:"-"`
 	StashInstance *jsonURL          `json:"stashInstance"`
 	APIKey        string            `json:"apiKey"`
 	PathMappings  map[string]string `json:"pathMappings"`
@@ -118,6 +119,7 @@ func FromFile(c *Config, f io.ReadCloser) error {
 func FromArgs(c *Config, args []string) error {
 	var (
 		debug              bool
+		newSession         bool
 		stashInstanceStr   string
 		pathMappingStrs    []string
 		openCommandURL     string
@@ -128,6 +130,7 @@ func FromArgs(c *Config, args []string) error {
 	fs := pflag.NewFlagSet("stash-cli", pflag.ExitOnError)
 
 	fs.BoolVar(&debug, "debug", false, "enable debug mode")
+	fs.BoolVar(&newSession, "new", false, "start a new session without loading saved session state")
 	fs.StringVar(&stashInstanceStr, "stashInstance", "", "URL of the Stash instance")
 	fs.StringArrayVar(&pathMappingStrs, "pathMapping", []string{}, "path mapping (key:value), this flag can be repeated")
 	fs.StringVar(&openCommandURL, "openCommandURL", "", "command to open URL")
@@ -137,6 +140,7 @@ func FromArgs(c *Config, args []string) error {
 	fs.Parse(args)
 
 	c.Debug = debug
+	c.NewSession = newSession
 
 	if stashInstanceStr != "" {
 		parsedURL, err := url.Parse(stashInstanceStr)

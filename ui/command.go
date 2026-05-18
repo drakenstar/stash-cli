@@ -227,6 +227,15 @@ func (m *CommandInput) appendHistory(command string) {
 	m.history = append(m.history, command)
 }
 
+func (m CommandInput) History() []string {
+	return append([]string(nil), m.history...)
+}
+
+func (m *CommandInput) SetHistory(history []string) {
+	m.history = append([]string(nil), history...)
+	m.resetHistoryCursor()
+}
+
 func (m *CommandInput) historyPrev() {
 	if len(m.history) == 0 {
 		return

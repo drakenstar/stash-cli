@@ -17,6 +17,8 @@ import (
 
 func main() {
 	cfg := loadConfig()
+	paths, err := config.DefaultPaths()
+	fatalOnErr(err)
 
 	if cfg.Debug {
 		fmt.Printf("Connecting to stash instance %s\n", cfg.GraphURL())
@@ -43,10 +45,20 @@ func main() {
 		return exec.Command(name, args...).Run()
 	})
 
-	app := app.New(s, opener)
+	model := app.New(s, opener)
+	sessionStore := app.NewFileSessionStore(paths.SessionPath)
+	model.SetSessionStore(sessionStore, cfg.StashInstance.String())
+	if !cfg.NewSession {
+		session, ok, err := sessionStore.Load()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to load session: %v\n", err)
+		} else if ok {
+			model.RestoreSession(session)
+		}
+	}
 
 	p := tea.NewProgram(
-		app,
+		model,
 		// tea.WithAltScreen(), TODO buggy with emoji atm
 	)
 	if _, err := p.Run(); err != nil {

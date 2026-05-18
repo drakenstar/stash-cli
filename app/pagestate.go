@@ -91,6 +91,18 @@ func (p pageState) Position() int {
 	return p.page*p.PerPage + p.index
 }
 
+func (p *pageState) SetPerPage(perPage int) {
+	position := p.Position()
+	p.PerPage = perPage
+	if perPage <= 0 || position <= 0 {
+		p.page = 0
+		p.index = 0
+		return
+	}
+	p.page = position / perPage
+	p.index = position % perPage
+}
+
 // DeleteCurrent updates page state after the current item is removed so that the next fetch targets a valid position.
 func (p *pageState) DeleteCurrent() {
 	if p.total == 0 {

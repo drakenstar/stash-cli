@@ -89,6 +89,22 @@ func TestPaginator(t *testing.T) {
 		require.Equal(t, 0, p.index)
 		require.False(t, p.opened)
 	})
+
+	t.Run("set per page preserves absolute position", func(t *testing.T) {
+		p := pageState{
+			PerPage: 5,
+			page:    2,
+			index:   3,
+			opened:  true,
+		}
+
+		p.SetPerPage(20)
+
+		require.Equal(t, 13, p.Position())
+		require.Equal(t, 0, p.page)
+		require.Equal(t, 13, p.index)
+		require.True(t, p.opened)
+	})
 }
 
 func requireIndexAndPage(t *testing.T, p pageState, idx, pg int) {

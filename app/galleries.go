@@ -49,6 +49,7 @@ type GalleriesModel struct {
 
 	pendingFilterRequestID uint64
 	pendingFilter          *pendingGalleryFilter
+	listRequestID          uint64
 }
 
 type pendingGalleryFilter struct {
@@ -87,12 +88,12 @@ func (m *GalleriesModel) reset() tea.Cmd {
 
 func (m *GalleriesModel) SetSize(s Size) tea.Cmd {
 	m.screen = s
-	m.pageState.PerPage = (s.Height - 1) // account for status line
+	m.pageState.SetPerPage(s.Height - 1) // account for status line
 	return m.updateCmd()
 }
 
 func (m *GalleriesModel) Init() tea.Cmd {
-	return m.updateCmd()
+	return nil
 }
 
 func (m *GalleriesModel) Title() string {
@@ -436,7 +437,10 @@ func (m *GalleriesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 		}
 
-	case galleriesMsg:
+	case galleriesLoadedMsg:
+		if msg.requestID != m.listRequestID {
+			return m, nil
+		}
 		m.galleries, m.pageState.total = msg.galleries, msg.total
 
 	case galleryDeletedMsg:
@@ -672,13 +676,34 @@ func (m *GalleriesModel) updateCmd() tea.Cmd {
 	if m.pageState.PerPage == 0 {
 		return nil
 	}
-	return m.GalleryService.Galleries(stash.FindFilter{
+	requestID := atomic.AddUint64(&m.listRequestID, 1)
+	cmd := m.GalleryService.Galleries(stash.FindFilter{
 		Query:     m.query,
 		Page:      m.pageState.page + 1,
 		PerPage:   m.pageState.PerPage,
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.galleryFilter)
+	if cmd == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		return wrapGalleriesLoadedMsg(cmd(), requestID)
+	}
+}
+
+func wrapGalleriesLoadedMsg(msg tea.Msg, requestID uint64) tea.Msg {
+	switch msg := msg.(type) {
+	case galleriesMsg:
+		return galleriesLoadedMsg{requestID: requestID, galleries: msg.galleries, total: msg.total}
+	case loadingMsg:
+		if payload, ok := msg.payload.(galleriesMsg); ok {
+			msg.payload = galleriesLoadedMsg{requestID: requestID, galleries: payload.galleries, total: payload.total}
+		}
+		return msg
+	default:
+		return msg
+	}
 }
 
 var (

@@ -232,6 +232,7 @@ func TestFromFuncs(t *testing.T) {
 		}
 		FromArgs(c, []string{
 			"--debug",
+			"--new",
 			"--stashInstance", "http://example.com",
 			"--pathMapping", "bar:baz",
 			"--pathMapping", "foo:bar",
@@ -241,6 +242,7 @@ func TestFromFuncs(t *testing.T) {
 		})
 		require.Equal(t, Config{
 			Debug:         true,
+			NewSession:    true,
 			StashInstance: mustParseURL(t, "http://example.com"),
 			PathMappings: map[string]string{
 				"bar": "baz",

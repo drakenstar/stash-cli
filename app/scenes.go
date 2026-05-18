@@ -50,6 +50,7 @@ type ScenesModel struct {
 
 	pendingFilterRequestID uint64
 	pendingFilter          *pendingSceneFilter
+	listRequestID          uint64
 }
 
 type pendingSceneFilter struct {
@@ -85,12 +86,12 @@ func (m *ScenesModel) reset() tea.Cmd {
 // SetSize takes a size input that indicates the size of the tab being rendered.
 func (m *ScenesModel) SetSize(s Size) tea.Cmd {
 	m.screen = s
-	m.pageState.PerPage = (s.Height - 1) // account for status line
+	m.pageState.SetPerPage(s.Height - 1) // account for status line
 	return m.updateCmd()
 }
 
 func (m *ScenesModel) Init() tea.Cmd {
-	return m.updateCmd()
+	return nil
 }
 
 func (m *ScenesModel) Title() string {
@@ -438,7 +439,10 @@ func (m *ScenesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return ui.CommandExecMsg{Command: cmd} }
 		}
 
-	case scenesMsg:
+	case scenesLoadedMsg:
+		if msg.requestID != m.listRequestID {
+			return m, nil
+		}
 		m.scenes, m.pageState.total = msg.scenes, msg.total
 
 	case sceneDeletedMsg:
@@ -677,13 +681,34 @@ func (m *ScenesModel) updateCmd() tea.Cmd {
 	if m.pageState.PerPage == 0 {
 		return nil
 	}
-	return m.SceneService.Scenes(stash.FindFilter{
+	requestID := atomic.AddUint64(&m.listRequestID, 1)
+	cmd := m.SceneService.Scenes(stash.FindFilter{
 		Query:     m.query,
 		Page:      m.pageState.page + 1,
 		PerPage:   m.pageState.PerPage,
 		Sort:      m.sort,
 		Direction: m.sortDirection,
 	}, m.sceneFilter)
+	if cmd == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		return wrapScenesLoadedMsg(cmd(), requestID)
+	}
+}
+
+func wrapScenesLoadedMsg(msg tea.Msg, requestID uint64) tea.Msg {
+	switch msg := msg.(type) {
+	case scenesMsg:
+		return scenesLoadedMsg{requestID: requestID, scenes: msg.scenes, total: msg.total}
+	case loadingMsg:
+		if payload, ok := msg.payload.(scenesMsg); ok {
+			msg.payload = scenesLoadedMsg{requestID: requestID, scenes: payload.scenes, total: payload.total}
+		}
+		return msg
+	default:
+		return msg
+	}
 }
 
 var (

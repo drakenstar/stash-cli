@@ -102,8 +102,10 @@ type Model struct {
 
 	footer ui.Footer
 
-	cmdService *cmdService
-	opener     config.Opener
+	cmdService           *cmdService
+	opener               config.Opener
+	sessionStore         SessionStore
+	sessionStashInstance string
 
 	command command.Config
 }
@@ -150,7 +152,12 @@ func New(stash stash.Stash, opener config.Opener) *Model {
 	m.footer.Background = ColorBlack
 
 	m.command = command.Config{
-		"exit": static(tea.QuitMsg{}),
+		"exit": static(appQuitMsg{}),
+		"session": {
+			SubCommands: command.Config{
+				"new": static(sessionNewMsg{}),
+			},
+		},
 		"tab": {
 			SubCommands: command.Config{
 				"close": binder[ModelTabCloseMsg](),
@@ -203,6 +210,9 @@ type ModelTabSwitchMsg struct {
 
 type ModelTabCloseMsg struct{}
 
+type appQuitMsg struct{}
+type sessionNewMsg struct{}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
@@ -215,7 +225,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
+			return m, m.quitCmd()
 		}
 		if m.pendingDelete != nil {
 			return m, nil
@@ -272,6 +282,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModelTabSwitchMsg:
 		m.TabSet(msg.Index - 1)
 		return m, nil
+
+	case appQuitMsg:
+		return m, m.quitCmd()
+
+	case sessionNewMsg:
+		return m, m.resetSession()
 
 	case deleteRequestMsg:
 		if msg.SkipConfirm {
@@ -387,13 +403,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// loadingMsg handles routing of a return loading message to the correct tab located by ID.
 	case loadingMsg:
+		tab, ok := m.tabsByID[msg.id]
+		if !ok {
+			return m, nil
+		}
 		if errMsg, ok := msg.payload.(ErrorMsg); ok {
 			if m.pendingDelete != nil && m.pendingDelete.tabID == msg.id {
 				m.pendingDelete = nil
 			}
 			return m.Update(errMsg)
 		}
-		_, cmd := m.tabsByID[msg.id].model.Update(msg.payload)
+		_, cmd := tab.model.Update(msg.payload)
 		if m.pendingDelete != nil && m.pendingDelete.tabID == msg.id {
 			switch msg.payload.(type) {
 			case ErrorMsg, scenesMsg, galleriesMsg:

@@ -171,9 +171,21 @@ type galleriesMsg struct {
 	total     int
 }
 
+type galleriesLoadedMsg struct {
+	requestID uint64
+	galleries []stash.Gallery
+	total     int
+}
+
 type scenesMsg struct {
 	scenes []stash.Scene
 	total  int
+}
+
+type scenesLoadedMsg struct {
+	requestID uint64
+	scenes    []stash.Scene
+	total     int
 }
 
 type sceneDeletedMsg struct {
