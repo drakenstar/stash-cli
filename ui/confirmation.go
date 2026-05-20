@@ -30,7 +30,7 @@ func (c Confirmation) Update(msg tea.Msg) (*Confirmation, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyEnter:
+		case tea.KeyEnter, tea.KeySpace:
 			return &c, c.Options[c.selected].Cmd
 
 		case tea.KeyEsc:
@@ -46,6 +46,12 @@ func (c Confirmation) Update(msg tea.Msg) (*Confirmation, tea.Cmd) {
 			c.selected = max(0, c.selected-1)
 
 		case tea.KeyDown:
+			c.selected = min(len(c.Options)-1, c.selected+1)
+		}
+		switch msg.String() {
+		case "z":
+			c.selected = max(0, c.selected-1)
+		case "x":
 			c.selected = min(len(c.Options)-1, c.selected+1)
 		}
 	}
